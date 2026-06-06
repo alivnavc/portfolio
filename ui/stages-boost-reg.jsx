@@ -1887,6 +1887,92 @@
     },
   };
 
+  const stageHyperparams = {
+    id: "hyperparams",
+    group: "Practical",
+    title: "Hyperparameters & when to use",
+    map: "Hyperparams",
+    why: "GBM has more hyperparameters than Random Forest — but with a methodical tuning strategy you can reliably reach state-of-the-art performance.",
+    render: () => (
+      <>
+        <Lead>Gradient Boosting is the algorithm behind XGBoost, LightGBM, and CatBoost — the models that win Kaggle competitions. sklearn's GradientBoostingRegressor is the textbook implementation. The two most important knobs: n_estimators (how many trees) and learning_rate (how much each tree contributes). They interact: smaller learning_rate needs more trees.</Lead>
+        <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-ink)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+          The golden rule: <strong>lower learning_rate + more trees = better generalization</strong> (but slower training). Use learning_rate=0.05–0.1 with n_estimators=200–500 as a starting point, then fine-tune.
+        </div>
+        <div className="tf-subhead">Key hyperparameters</div>
+        <div className="tf-legend">
+          {[
+            ["n_estimators", "Number of boosting rounds", "Default 100. More trees → lower bias, but risk of overfitting if learning_rate is too high. Monitor validation loss vs n_estimators. Use early stopping if available."],
+            ["learning_rate", "Shrinkage / step size", "Default 0.1. Scales each tree's contribution. Lower = more trees needed but better generalization. Typical range: 0.01–0.3. Always tune together with n_estimators."],
+            ["max_depth", "Depth per tree", "Default 3. GBM trees are intentionally shallow (3–5). Deeper trees → higher variance → overfitting. Unlike RF, GBM is sensitive to depth."],
+            ["subsample", "Row subsampling fraction", "Default 1.0 (all rows). Set 0.5–0.8 for Stochastic GBM — adds randomness, reduces overfitting, slightly faster. Similar to dropout."],
+            ["min_samples_leaf", "Min samples per leaf", "Default 1. Increase to 5–20 on noisy datasets. Strong regularizer — more effective than max_depth for GBM."],
+            ["max_features", "Features per split", "Default None (all). Set 'sqrt' or 0.5–0.8 to add column subsampling — reduces correlation between trees."],
+            ["loss", "Loss function to minimize", "'squared_error' (default). 'absolute_error' for outlier-robust regression. 'huber' = blend of both — best when outliers exist but aren't extreme."],
+            ["validation_fraction + n_iter_no_change", "Early stopping", "Set validation_fraction=0.1, n_iter_no_change=10 to stop automatically when validation loss stops improving. Essential with many trees."],
+          ].map(([sym, name, desc]) => (
+            <div className="tf-leg" key={sym}>
+              <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+              <div className="tf-leg-name">{name}</div>
+              <div className="tf-leg-desc">{desc}</div>
+            </div>
+          ))}
+        </div>
+        <div className="tf-subhead">Pros vs Cons</div>
+        <div className="opt-pc">
+          <div className="opt-pc-col is-pro">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+            {[
+              "Best-in-class accuracy on tabular data",
+              "Handles mixed feature types naturally",
+              "Built-in feature importance scores",
+              "Flexible loss functions (MSE, MAE, Huber)",
+              "Robust to outliers in input features",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+          </div>
+          <div className="opt-pc-col is-con">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+            {[
+              "Slow training — sequential, not parallelizable",
+              "Many interacting hyperparameters to tune",
+              "Sensitive to learning_rate + n_estimators interaction",
+              "Can overfit on noisy small datasets",
+              "Not interpretable (black box)",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+          </div>
+        </div>
+        <div className="tf-subhead">When to use (decision guide)</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Maximum accuracy on structured/tabular data", "XGBoost / LightGBM", "Modern GBM implementations with regularization + faster training"],
+                ["Need interpretable model", "Linear Regression or single Decision Tree", "GBM is a black box"],
+                ["Fast training required", "Random Forest or LightGBM", "RF parallelizes; LightGBM uses histogram splits"],
+                ["Outliers in target variable", "GBM with loss='huber'", "Huber loss is robust to extreme residuals"],
+                ["Very large dataset (> 1M rows)", "LightGBM", "Histogram-based approach is 10–100x faster than sklearn GBM"],
+                ["Small dataset (< 500 rows)", "Random Forest or Ridge Regression", "GBM needs enough data to benefit from sequential correction"],
+              ].map(([sc, ch, wh], i) => (
+                <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                  <td style={{ padding: "7px 12px" }}>{sc}</td>
+                  <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                  <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    ),
+  };
+
   // ────────────────────────────────────────────────────────
   //  ASSEMBLE STAGES
   // ────────────────────────────────────────────────────────
@@ -1903,6 +1989,7 @@
     stageEta,
     stageMissing,
     stageEval,
+    stageHyperparams,
   ];
 
   // ── META ──

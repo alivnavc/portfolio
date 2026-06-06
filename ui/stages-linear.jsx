@@ -1146,6 +1146,74 @@
         </>
       ),
     },
+    {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use Linear Regression",
+      map: "Hyperparams",
+      why: "Linear regression has almost no hyperparameters — the model itself teaches you when it fits and when to reach for something more powerful.",
+      render: () => (
+        <>
+          <Lead>Linear regression is the simplest model. It has almost no knobs to tune — most 'parameters' are actually preprocessing choices or regularization variants. When it works, it's fast, interpretable, and provably optimal (Gauss-Markov). When it doesn't, you need to add regularization or switch models.</Lead>
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["fit_intercept", "Fit intercept (bias)", "Default True. Set False only if data is pre-centered. Almost always leave True."],
+              ["copy_X", "Copy input X", "Default True. Set False to save memory on huge matrices — but X gets overwritten in-place."],
+              ["alpha (Ridge)", "Regularization strength (L2)", "Default 1.0. Higher = stronger L2 penalty = smaller coefficients = less overfitting. Tune with cross-validation: try [0.001, 0.01, 0.1, 1, 10, 100]. If coefficients are huge without regularization, increase alpha."],
+              ["alpha (Lasso)", "Regularization strength (L1)", "Controls sparsity. Higher alpha = more coefficients shrunk to exactly zero (feature selection). Start at 1.0, tune via cross-validation."],
+              ["max_iter", "Max solver iterations", "Default 1000. Increase to 10000 if solver doesn't converge."],
+              ["normalize", "Feature scaling (deprecated)", "Always scale features before fitting — LinearRegression doesn't do it for you. Use sklearn's StandardScaler."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {["Interpretable — each coefficient has a clear unit-level meaning", "Fast training — closed-form normal equation or fast iterative solvers", "Works well on small datasets", "No scaling required for Ridge variant", "Coefficients are the exact optimal solution (normal equation)", "Statistical p-values available for inference", "Gauss-Markov optimal under linearity, independence, and equal-variance assumptions"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {["Assumes a linear relationship between features and target", "Sensitive to outliers — MSE loss amplifies large residuals", "Multicollinearity inflates coefficient variance", "Can't model feature interactions without explicit engineering", "Underfits complex, non-linear data", "Extrapolation beyond training range is unreliable"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Features are roughly linearly related to target", "Linear / Ridge Regression", "The model is correctly specified; adding complexity would only add noise"],
+                  ["You need coefficient interpretability for a business report", "Linear / Ridge Regression", "Each coefficient has a clear unit-level meaning"],
+                  ["Many correlated features (multicollinearity)", "Ridge Regression (L2)", "L2 distributes weight evenly across correlated features"],
+                  ["You want automatic feature selection", "Lasso Regression (L1)", "L1 shrinks unimportant coefficients exactly to zero"],
+                  ["Outliers are common in the target", "Huber Regression", "Huber loss is less sensitive to large residuals than MSE"],
+                  ["Relationship is clearly non-linear", "Decision Tree / GBM", "Tree models capture non-linearity without feature engineering"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
 
   ];
 

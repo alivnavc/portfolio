@@ -652,6 +652,79 @@
         </>
       ),
     },
+  {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use",
+      map: "Hyperparams",
+      why: "Neural network hyperparameters interact in complex ways — but three are non-negotiable: learning rate, batch size, and architecture (layers × neurons).",
+      render: () => (
+        <>
+          <Lead>A neural network's behavior is governed by architecture hyperparameters (how many layers and neurons) and training hyperparameters (learning rate, batch size, epochs, regularization). Unlike tree models, there are no defaults that work everywhere — you must tune based on your dataset size and task complexity.</Lead>
+          <Note>The single most important hyperparameter is <b>learning rate</b>. Too high → training diverges (loss explodes). Too low → training takes forever. The standard approach: use a learning rate scheduler (warm up, then decay) or automatic learning rate finders (find the steepest loss drop).</Note>
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["learning_rate", "Learning rate (η)", "Typical: 1e-3 (Adam default). Range: 1e-5 to 1e-1. Most important hyperparameter. Use Adam with lr=1e-3 as default. If loss explodes: reduce 10x. If loss barely moves: increase 3x. Use ReduceLROnPlateau or cosine decay schedule."],
+              ["batch_size", "Mini-batch size", "Default 32. Larger batches (128–256) train faster per epoch but may generalize worse. Smaller batches (16–32) add noise that acts as regularization. Increase until GPU memory is full, then use gradient accumulation."],
+              ["epochs", "Training epochs", "Use early stopping instead of fixing epochs. Monitor validation loss; stop when it stops improving for 10–20 epochs (patience parameter). Typical range: 50–500 depending on dataset size."],
+              ["hidden_layers", "Number of hidden layers", "Start with 1–2 hidden layers. Deeper networks capture more complex patterns but need more data. Rule of thumb: if you have < 10K samples, 1–2 layers max. Add layers if training accuracy is low (underfitting)."],
+              ["neurons_per_layer", "Units per hidden layer", "Start with 64–256. Decrease as you go deeper (pyramid shape: 256→128→64). If overfitting: reduce neurons. If underfitting: increase neurons."],
+              ["activation", "Activation function", "ReLU (default for hidden layers). Use Leaky ReLU if dying neurons are a problem (dead neurons output 0 forever). GELU for Transformers. Sigmoid/tanh for gates (LSTM). Softmax for output (multi-class)."],
+              ["dropout_rate", "Dropout regularization", "Default 0 (off). Set 0.2–0.5 for regularization — randomly zeros neurons during training. Prevents overfitting. Higher rate = more regularization. Use after large layers."],
+              ["optimizer", "Gradient descent variant", "Adam (default, lr=1e-3). SGD with momentum (lr=0.01, momentum=0.9) for image models. AdamW for Transformers (adds weight decay)."],
+              ["weight_decay", "L2 regularization (in Adam: use AdamW)", "Equivalent to Ridge regression but applied to all weights. Typical: 1e-4 to 1e-2. Use when overfitting on small datasets."],
+              ["batch_norm", "Batch Normalization", "After each hidden layer: normalizes activations → faster convergence, higher learning rate tolerance, implicit regularization. Almost always beneficial for deep networks."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {["Universal function approximator", "Handles unstructured data (images, text, audio)", "End-to-end learning (no manual feature engineering)", "Transfer learning saves data requirements", "Scales with data and compute"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {["Requires large datasets (> 10K samples for meaningful learning)", "Slow to train without GPU", "Many hyperparameters to tune", "Not interpretable (black box)", "Unstable training (random initialization matters)", "Needs careful regularization"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Structured/tabular data (< 100K rows)", "XGBoost / LightGBM", "Tree models outperform ANN on tabular data with less tuning"],
+                  ["Image recognition", "CNN (ResNet, EfficientNet)", "Convolutional inductive bias is critical for spatial data"],
+                  ["Sequential text (classification, generation)", "Transformer (BERT, GPT)", "Attention mechanism outperforms vanilla ANN/LSTM on text"],
+                  ["Custom regression/classification with many features", "ANN with 2–3 layers", "Can model complex non-linear interactions"],
+                  ["Very small dataset (< 5K samples)", "Logistic Regression or XGBoost", "ANN overfits badly with few samples"],
+                  ["Need interpretability", "Logistic Regression or Decision Tree", "Neural networks are fundamentally not interpretable"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   window.NN_STAGES = STAGES;

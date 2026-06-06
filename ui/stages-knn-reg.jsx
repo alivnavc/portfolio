@@ -778,7 +778,85 @@
         </>
       ),
     },
-  ];
+  {
+    id: "hyperparams",
+    group: "Practical",
+    title: "Hyperparameters & when to use",
+    map: "Hyperparams",
+    why: "KNN regression is identical to KNN classification — just the output changes from majority vote to mean of neighbors. The same k-tuning principles apply.",
+    render: () => (
+      <>
+        <Lead>KNN regression predicts by averaging the target values of the k nearest training points. It's non-parametric, handles any shape of relationship, and has zero training time. The prediction step is slow — O(n) — so it doesn't scale past ~50K samples.</Lead>
+        <Note>For regression, k=1 perfectly interpolates the training data (zero training error, high test error). As k increases, predictions smooth out. k=√n is a common heuristic starting point.</Note>
+        <div className="tf-subhead">Key hyperparameters</div>
+        <div className="tf-legend">
+          {[
+            ["n_neighbors (k)", "Number of neighbors to average", "Default 5. Tune with cross-validation. Start with [3, 5, 7, 11, 15, 21, 31]. Larger k = smoother prediction curve = more bias."],
+            ["weights", "How to weight neighbors", "'uniform' (simple mean, default). 'distance' (inverse-distance weighted mean — closer points contribute more). Use 'distance' for smoother predictions on dense data."],
+            ["metric", "Distance function", "'minkowski' p=2 (Euclidean, default). Scale features first. 'manhattan' (p=1) is more robust to outliers in feature space."],
+            ["algorithm", "Search algorithm", "'auto' uses the best. 'brute' for > 20 features. 'kd_tree' or 'ball_tree' for low-dimensional structured data."],
+          ].map(([sym, name, desc]) => (
+            <div className="tf-leg" key={sym}>
+              <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+              <div className="tf-leg-name">{name}</div>
+              <div className="tf-leg-desc">{desc}</div>
+            </div>
+          ))}
+        </div>
+        <div className="tf-subhead">Pros vs Cons</div>
+        <div className="opt-pc">
+          <div className="opt-pc-col is-pro">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+            {[
+              "No training phase (lazy learner)",
+              "Non-parametric — fits any relationship shape",
+              "Trivially handles multi-output regression",
+              "Easy to update (add new training points without retraining)",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+          </div>
+          <div className="opt-pc-col is-con">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+            {[
+              "O(n) prediction time — unusable at scale",
+              "O(n) memory requirement",
+              "Sensitive to outliers in features and target (k=1 especially)",
+              "No extrapolation beyond training range",
+              "No feature importances — scale-sensitive",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+          </div>
+        </div>
+        <div className="tf-subhead">When to use (decision guide)</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Small tabular dataset, baseline needed", "KNN Regression", "Zero setup, easy to implement"],
+                ["Large dataset", "Random Forest or GBM", "O(n) prediction makes KNN unusable at scale"],
+                ["Interpolate a smooth curve", "KNN (large k)", "Averaging many neighbors smooths the prediction"],
+                ["Best accuracy", "Gradient Boosting / XGBoost", "Tree ensembles capture complex patterns better"],
+                ["Time-series forecasting", "LSTM or AR models", "KNN doesn't respect temporal ordering"],
+                ["High dimensional features", "Random Forest", "KNN suffers from curse of dimensionality in high dims"],
+              ].map(([sc, ch, wh], i) => (
+                <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                  <td style={{ padding: "7px 12px" }}>{sc}</td>
+                  <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                  <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    ),
+  },
+];
 
   window.ML_STAGES = STAGES;
   window.ML_META = {

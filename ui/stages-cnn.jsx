@@ -418,6 +418,78 @@
         </>
       ),
     },
+  {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use",
+      map: "Hyperparams",
+      why: "CNNs have architecture hyperparameters (filters, kernel size, pooling) on top of training hyperparameters. Architecture search is typically the main challenge.",
+      render: () => (
+        <>
+          <Lead>A CNN's architecture hyperparameters define what features it can detect. The training hyperparameters (learning rate, batch size) are the same as ANN. The key architectural choices: how many convolutional layers, how many filters per layer, kernel size, and where to pool.</Lead>
+          <Note>In practice, you almost never design a CNN from scratch. Instead: start with a pretrained model (ResNet, EfficientNet, VGG) and fine-tune on your data. Transfer learning requires 100–1000x less data than training from scratch.</Note>
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["num_filters", "Filters per conv layer", "Start with 32 in early layers, double as depth increases: 32→64→128→256. More filters = more feature types detected. Diminishing returns past 512 for most tasks."],
+              ["kernel_size", "Convolution kernel size", "3×3 (default, most common). 5×5 for larger spatial patterns. 1×1 for channel mixing without spatial convolution. Two 3×3 layers = same receptive field as one 5×5 but fewer parameters."],
+              ["stride", "Kernel stride", "Default 1. Stride 2 = reduces spatial dimensions by 2x (cheaper than MaxPooling). Used in ResNet to replace pooling."],
+              ["padding", "'same' vs 'valid'", "'same' preserves spatial dimensions (pads with zeros). 'valid' reduces dimensions (no padding). Use 'same' by default."],
+              ["pooling", "Spatial downsampling", "MaxPool2D (most common — keeps strongest activation). AvgPool2D (smoother — better for fine-grained tasks). GlobalAveragePooling before dense layers reduces parameters."],
+              ["num_conv_blocks", "Depth (how many blocks)", "Start with 3–4 blocks for small images (32×32). 5+ blocks for large images (224×224+). Each block typically = conv→batchnorm→relu→pool."],
+              ["dropout_rate", "Dropout in dense layers", "0.3–0.5 after flattening. Don't dropout inside convolutional blocks (use batch normalization instead)."],
+              ["learning_rate", "Learning rate", "1e-3 for training from scratch. 1e-4 to 1e-5 for fine-tuning pretrained models (small updates to avoid destroying learned features)."],
+              ["pretrained_backbone", "Transfer learning base", "ResNet50 / EfficientNetB0 / MobileNetV2. Freeze early layers, fine-tune top layers. Use when dataset < 100K images. The pretrained features (edges, textures) transfer broadly."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {["Translation invariance (recognizes patterns anywhere in image)", "Parameter sharing (each filter reused across all positions)", "Hierarchical feature learning", "Excellent for spatial data", "Pretrained models available for all common tasks"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {["Requires lots of data for training from scratch (10K+ images per class)", "Computationally expensive (GPU required)", "Sensitive to image preprocessing (normalization)", "Limited to grid-structured input (can't handle graphs natively)", "Not interpretable"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Image classification", "CNN (ResNet/EfficientNet pretrained)", "Transfer learning from ImageNet works for almost any image task"],
+                  ["Small image dataset (< 10K images)", "Pretrained CNN + fine-tune last layers", "Training from scratch with small data overfits badly"],
+                  ["Object detection (bounding boxes)", "YOLO / Faster R-CNN", "Region-proposal or anchor-based detection networks"],
+                  ["Sequence/time-series data", "LSTM or Transformer", "CNNs lack long-range temporal memory"],
+                  ["Tabular data", "XGBoost / Random Forest", "No spatial structure → no benefit from convolution"],
+                  ["Medical images (MRI, CT)", "3D CNN or nnU-Net", "3D convolutions capture volumetric spatial structure"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   window.NN_STAGES = STAGES;

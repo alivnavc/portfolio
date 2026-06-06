@@ -1417,6 +1417,75 @@
       why: "Every model has a regime where it excels and one where it fails. Knowing the assumptions of logistic regression makes you a more effective practitioner.",
       render: () => <StageAssumptions />,
     },
+    {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use Logistic Regression",
+      map: "Hyperparams",
+      why: "Logistic regression is the first model to try for classification. It's fast, gives calibrated probabilities, and its hyperparameters teach you about regularization trade-offs applicable to every model.",
+      render: () => (
+        <>
+          <Lead>Logistic regression's most important hyperparameter is C — the inverse regularization strength. Small C = strong regularization = simple model. Large C = weak regularization = complex model that fits training data closely. C = 1/lambda from the loss formulation.</Lead>
+          <Note>C is the inverse of regularization strength. If Ridge Regression uses alpha, Logistic uses C = 1/alpha. This trips up many practitioners: <b>smaller C = more regularization</b> (opposite of alpha).</Note>
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["C", "Inverse regularization strength", "Default 1.0. Smaller = stronger regularization. Try C in [0.001, 0.01, 0.1, 1, 10, 100] via cross-validation. If training accuracy >> validation accuracy → decrease C (more regularization)."],
+              ["penalty", "Regularization type", "'l2' (default, Ridge) shrinks coefficients. 'l1' (Lasso) produces sparse models (feature selection). 'elasticnet' = mix of both. 'none' = no regularization (risky on noisy data)."],
+              ["solver", "Optimization algorithm", "'lbfgs' (default, good for multiclass). 'saga' for L1 or large datasets. 'liblinear' for small binary classification. Rarely matters on well-scaled data."],
+              ["max_iter", "Max gradient steps", "Default 100. If you get ConvergenceWarning, increase to 500 or 1000. Scale your features first — convergence is much faster."],
+              ["class_weight", "Handle class imbalance", "'balanced' auto-weights samples by class frequency. Essential when one class is rare (fraud detection, medical diagnosis)."],
+              ["multi_class", "Multi-class strategy", "'auto' (default). 'ovr' = one-vs-rest (N binary classifiers). 'multinomial' = joint softmax. Softmax is usually better for many classes."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {["Fast training — scales to large datasets with saga solver", "Calibrated probability outputs by default (unlike SVM)", "Interpretable coefficients — log-odds per feature", "Works well on small datasets with proper regularization", "Natural multi-class extension via softmax (multinomial)", "Less prone to overfitting than trees on small data"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {["Assumes a linear decision boundary in feature space", "Can't model XOR-type or complex non-linear separations", "Needs scaled features for gradient-based solvers to converge well", "Collinear features make coefficients unstable (use Ridge/L2)", "No built-in non-linearity — requires feature engineering"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Need probability estimates (not just class labels)", "Logistic Regression", "Probabilities are well-calibrated by default"],
+                  ["Linear decision boundary is sufficient", "Logistic Regression", "Fastest and most interpretable when linearity holds"],
+                  ["High-dimensional sparse data (text/NLP)", "Logistic Regression + L1", "L1 does implicit feature selection; scales to millions of features"],
+                  ["Complex non-linear boundary", "Random Forest / SVM (RBF kernel)", "Tree ensembles or kernel methods capture non-linearity"],
+                  ["Small dataset, clear margin", "SVM", "SVM maximizes margin — more robust with few samples"],
+                  ["Maximize AUC on imbalanced data", "Logistic + class_weight='balanced'", "Simple and effective baseline for imbalanced classification"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   window.ML_STAGES = STAGES;

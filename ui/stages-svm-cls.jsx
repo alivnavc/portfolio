@@ -1016,6 +1016,103 @@
         </>
       ),
     },
+
+    /* ── Stage 11: Hyperparameters & when to use ── */
+    {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use",
+      map: "Hyperparams",
+      why: "C and gamma are the two knobs that control everything. Getting them wrong turns SVM from state-of-the-art to useless. Grid search over these two is almost always required.",
+      render: () => (
+        <>
+          <Lead>SVM classification has two mandatory hyperparameters: C (regularization) and kernel. For the RBF kernel, gamma is equally important. C and gamma must almost always be tuned together — a bad combination can give worse-than-random results. Always scale your features before training SVM.</Lead>
+
+          <Note icon="⚠">
+            <b>Scale your features!</b> SVM is one of the most sensitive models to feature scaling.
+            Use sklearn's <b>StandardScaler</b> ALWAYS before fitting an SVM. Unscaled features → the
+            kernel distances are dominated by large-magnitude features → terrible performance.
+          </Note>
+
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["C", "Regularization strength (inverse)", "Default 1.0. Larger C = smaller margin, fewer misclassifications allowed (risk of overfitting). Smaller C = wider margin, more misclassifications allowed (risk of underfitting). Search: [0.01, 0.1, 1, 10, 100, 1000]."],
+              ["kernel", "Kernel function", "'rbf' (default, Gaussian). 'linear' for linearly separable data or high-dim sparse features (NLP). 'poly' for polynomial boundaries (degree parameter required). RBF works for most non-linear problems."],
+              ["gamma", "RBF kernel bandwidth", "'scale' (default = 1/(n_features × X.var())). 'auto' = 1/n_features. High gamma = narrow Gaussian = model fits training points tightly (overfits). Low gamma = wide Gaussian = smooth decision boundary. Always tune with C."],
+              ["degree", "Polynomial degree (poly kernel)", "Default 3. Only used with kernel='poly'. Higher degree = more flexible but slower."],
+              ["class_weight", "Handle class imbalance", "'balanced' auto-weights. Critical for imbalanced datasets (fraud, medical). Without it, SVM maximizes accuracy by predicting the majority class."],
+              ["decision_function_shape", "Multi-class strategy", "'ovr' (one-vs-rest, default) or 'ovo' (one-vs-one). OVO trains n×(n-1)/2 classifiers but is more accurate. OVR is faster."],
+              ["probability", "Calibrated probabilities", "Default False. Set True to get predict_proba() — uses 5-fold cross-validation internally, so training is 5x slower. Only enable if you need probabilities."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <Note icon="🔍">
+            <b>Recommended grid search:</b> <code>param_grid = {"{"}{'C': [0.01, 0.1, 1, 10, 100], 'gamma': ['scale', 0.001, 0.01, 0.1]}{"}"}</code>.
+            Use GridSearchCV or RandomizedSearchCV. This 5×4 = 20-combination grid with 5-fold CV = 100 model fits.
+          </Note>
+
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {[
+                "Effective in high-dimensional spaces",
+                "Robust to outliers (margin maximization ignores non-support vectors)",
+                "Kernel trick allows non-linear boundaries without explicit feature engineering",
+                "Memory efficient (only support vectors stored)",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {[
+                "Poor scaling with large datasets (O(n²) to O(n³) training)",
+                "Requires feature scaling",
+                "No probability estimates by default",
+                "Hard to interpret",
+                "Sensitive to C and gamma choice",
+                "Slow when n_samples > 10,000",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Small dataset (< 10,000 samples) with complex boundary", "SVM (RBF kernel)", "SVM excels at small high-dimensional problems"],
+                  ["High-dimensional sparse data (text/NLP)", "SVM (linear kernel)", "Linear SVM + TF-IDF is a classic text classification baseline"],
+                  ["Large dataset (> 100K rows)", "Logistic Regression or GBM", "SVM training is O(n²) — too slow at scale"],
+                  ["Need probability estimates", "Logistic Regression", "Natural probability output without 5x training overhead"],
+                  ["Clear linear boundary", "Logistic Regression", "Simpler, faster, equally accurate"],
+                  ["Image recognition", "CNN (deep learning)", "Convolutional features dominate for vision tasks"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   window.ML_STAGES = STAGES;

@@ -1168,6 +1168,86 @@
         );
       },
     },
+    {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use",
+      map: "Hyperparams",
+      why: "The max_depth hyperparameter is the single most important control lever — it directly determines the bias-variance trade-off.",
+      render: () => (
+        <>
+          <Lead>A decision tree regressor has no learning rate — it fits the training data exactly unless you constrain it. The art is knowing how deep to let it grow. Unconstrained trees always overfit. Regularization is done through structural constraints: max_depth, min_samples_leaf, min_samples_split.</Lead>
+          <Note><b>Key insight:</b> A single decision tree is rarely used in production. It's most valuable as the building block inside Random Forest (bagging) and Gradient Boosting (boosting). Understanding its hyperparameters here means you understand every ensemble too.</Note>
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["max_depth", "Max tree depth", "Default None (grows until leaves are pure). For regression: start with 3–6. Shallow = high bias, low variance (underfits). Deep = low bias, high variance (overfits). Tune with cross-validation."],
+              ["min_samples_split", "Min samples to split a node", "Default 2. Increase to 10–50 on noisy data to stop the tree from fitting noise. Higher = shallower tree = more regularization."],
+              ["min_samples_leaf", "Min samples per leaf", "Default 1. The most robust regularizer. Set to 5–20 to ensure every leaf represents enough data. More effective than max_depth alone."],
+              ["max_features", "Features considered per split", "Default None (all features). Set to 'sqrt' or 'log2' to add randomness — this is what Random Forest does. Rarely changed for single trees."],
+              ["criterion", "Split quality measure", "'squared_error' (default, minimizes MSE) or 'friedman_mse' (weighted improvement — faster). Use squared_error unless performance is a concern."],
+              ["splitter", "Split strategy at each node", "'best' (default, find global best split). 'random' for faster training on large datasets — useful in Random Forest trees."],
+              ["ccp_alpha", "Cost-complexity pruning", "Default 0 (no pruning). Set > 0 to post-prune: removes branches whose removal costs less than alpha in accuracy. Use cross-validation to find the best alpha."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {[
+                "Fully interpretable (you can print and read the tree)",
+                "Handles mixed types and missing values (with preprocessing)",
+                "No feature scaling needed",
+                "Fast training",
+                "Non-parametric (no distribution assumptions)",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {[
+                "High variance (small data change → very different tree)",
+                "Overfits easily without constraints",
+                "Cannot extrapolate beyond training range (predicts a constant outside range)",
+                "Unstable (different random seeds → different trees)",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Need full interpretability (each decision must be explainable)", "Single Decision Tree (depth 3–5)", "Print the tree, share it in a PowerPoint"],
+                  ["Best predictive accuracy", "Gradient Boosting / XGBoost", "Sequential boosting consistently outperforms single trees"],
+                  ["Robust baseline, no tuning", "Random Forest", "Bagging of trees has much lower variance"],
+                  ["Target has outliers", "Decision Tree or MAE-loss GBM", "Trees are robust to outliers in features; use MAE for outliers in target"],
+                  ["Need to extrapolate beyond training range", "Linear Regression", "Trees can only predict values seen in training data"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   // ── Input controls ──

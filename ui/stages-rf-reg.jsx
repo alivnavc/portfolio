@@ -1493,6 +1493,91 @@
         );
       },
     },
+    {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use",
+      map: "Hyperparams",
+      why: "Random Forest's biggest practical advantage is robust defaults. You typically only need to tune n_estimators and max_features.",
+      render: () => (
+        <>
+          <Lead>Random Forest regression is one of the best 'first model to try' algorithms. It works well with default settings across a huge range of regression tasks, handles outliers gracefully, and gives reliable feature importances for free. When you need better accuracy, graduate to XGBoost.</Lead>
+          <Note>The variance of a Random Forest is: σ²_forest = ρσ²_tree/n + (1-1/n)ρσ²_tree ≈ ρσ²_tree. Two levers reduce forest variance: (1) grow more trees (increase n_estimators), (2) reduce tree correlation ρ (decrease max_features). max_features is the key tuning parameter.</Note>
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["n_estimators", "Number of trees", "Default 100. More trees = lower variance, but diminishing returns after 200–500. Monitor OOB error vs n_estimators curve — stop when it flattens."],
+              ["max_features", "Features sampled per split", "Default 1.0 (all features) for regression. Try 'sqrt' or 0.33 to increase tree diversity (lower correlation). Tune this first."],
+              ["max_depth", "Max depth per tree", "Default None (fully grown). Usually not tuned — RF's bagging already reduces overfitting. Limit to 10–20 only if memory is a constraint."],
+              ["min_samples_leaf", "Min samples in each leaf", "Default 1. The most effective regularizer after n_estimators. Increase to 2–5 for noisy data."],
+              ["bootstrap", "Bootstrap samples", "True (default). Setting False gives slightly different bias-variance trade-off and removes OOB capability. Almost always keep True."],
+              ["oob_score", "Out-of-bag R² score", "Set True for a free validation score. OOB samples are the ~37% of data not used to train each tree. No cross-validation needed."],
+              ["n_jobs", "CPU cores", "-1 to use all cores. Trees are fully independent — near-linear speedup."],
+              ["random_state", "Reproducibility seed", "Set to any integer for reproducible results. Essential for experiments and production."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {[
+                "Great out-of-box accuracy",
+                "Reliable feature importances",
+                "OOB validation for free",
+                "Handles outliers and missing values",
+                "No feature scaling",
+                "Trivially parallelizable",
+                "Low risk of catastrophic failure",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {[
+                "Not interpretable as a model",
+                "Slower prediction than single tree",
+                "High memory usage (all trees stored)",
+                "Cannot extrapolate beyond training range",
+                "Outperformed by GBM/XGBoost when tuned",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Quick, robust regression baseline", "Random Forest", "Strong defaults, hard to overfit catastrophically"],
+                  ["Maximize predictive accuracy (competition/production)", "XGBoost / LightGBM", "Sequential boosting beats bagging on most tabular data"],
+                  ["Need feature importances", "Random Forest", "Built-in importances are reliable and fast"],
+                  ["Very large dataset (millions of rows)", "LightGBM", "Histogram-based split finding is much faster"],
+                  ["Need interpretable rules", "Single Decision Tree or Explainable Boosting Machine", "RF's 100+ trees can't be read like one tree"],
+                  ["Target has heavy outliers", "Random Forest (use criterion='absolute_error')", "MAE criterion is more robust than MSE to large outliers"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   window.ML_STAGES = STAGES;

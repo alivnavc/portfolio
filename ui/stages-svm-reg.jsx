@@ -915,6 +915,103 @@
         );
       },
     },
+
+    /* ── Stage 10: Hyperparameters & when to use ── */
+    {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use",
+      map: "Hyperparams",
+      why: "SVR adds epsilon (the insensitivity tube) as a third critical hyperparameter alongside C and gamma. All three must be tuned together.",
+      render: () => (
+        <>
+          <Lead>Support Vector Regression adds one key hyperparameter over SVM classification: epsilon (ε), which defines an insensitivity tube around the prediction. Points inside the tube contribute zero loss — only points outside become support vectors. Larger ε = fewer support vectors = simpler model = more bias.</Lead>
+
+          <Note icon="💡">
+            <b>The ε parameter is unique to SVR.</b> It controls model complexity differently from C:
+            C controls the penalty for points OUTSIDE the tube; ε controls how WIDE the tube is.
+            A wide tube allows large errors without penalty. Together: small ε + large C = fits every point tightly = overfitting risk.
+          </Note>
+
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["C", "Penalty for margin violations", "Default 1.0. Larger C = smaller margin, tighter fit to training points. Smaller C = wider margin, smoother function. Grid search: [0.01, 0.1, 1, 10, 100]."],
+              ["epsilon", "Tube half-width (ε)", "Default 0.1. Points within ε of the prediction incur zero loss. Increase for noisy data. Decrease if you need high precision. Tune in [0.01, 0.1, 0.5, 1.0]."],
+              ["kernel", "Kernel function", "'rbf' (default). 'linear' for linear relationships. RBF works for most non-linear regression."],
+              ["gamma", "RBF bandwidth", "'scale' (default). Same effect as in SVM classification — controls how far influence of each training point reaches. High gamma → overfitting."],
+              ["max_iter", "Max solver iterations", "Default -1 (no limit). Set to 10000 if training doesn't converge. Scale features to improve convergence speed."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <Note icon="🔍">
+            <b>Tuning strategy:</b> For SVR, do a 3-way grid search: C × gamma × epsilon.
+            Recommended starting ranges: <code>C=[0.1, 1, 10, 100]</code>, <code>gamma=['scale', 0.1, 0.01]</code>, <code>epsilon=[0.01, 0.1, 0.5]</code>.
+            That's 36 combinations — use RandomizedSearchCV for larger spaces.
+          </Note>
+
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {[
+                "Robust to outliers in features",
+                "Works well for small non-linear regression problems",
+                "Flexible kernel trick",
+                "Guaranteed global optimum (convex optimization)",
+                "Memory efficient",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {[
+                "O(n²) to O(n³) training",
+                "Requires feature scaling",
+                "Three interacting hyperparameters (C, gamma, epsilon)",
+                "No feature importances",
+                "Very slow for > 10K samples",
+                "Poor interpretability",
+              ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Small dataset with non-linear target", "SVR (RBF)", "Good at capturing non-linear patterns when n < 10K"],
+                  ["Large dataset", "Gradient Boosting / XGBoost", "SVR doesn't scale; tree models train in O(n log n)"],
+                  ["Need feature importances", "Random Forest or GBM", "SVR has no feature importances"],
+                  ["Outliers in target variable", "SVR or Huber Regression", "SVR's epsilon tube and C parameter limit outlier influence"],
+                  ["Need to understand predictions", "Linear Regression or Decision Tree", "SVR is a black box"],
+                  ["High-dimensional features", "SVR (linear kernel)", "Linear SVR scales better than RBF in high dimensions"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   window.ML_STAGES = STAGES;

@@ -952,7 +952,88 @@
         </>
       ),
     },
-  ];
+  {
+    id: "hyperparams",
+    group: "Practical",
+    title: "Hyperparameters & when to use",
+    map: "Hyperparams",
+    why: "k is the only tuning knob that matters — but choosing it correctly requires understanding the bias-variance trade-off it controls.",
+    render: () => (
+      <>
+        <Lead>KNN has the smallest hyperparameter space of any classifier: just k (the number of neighbors) and how to measure distance. But it has a huge practical limitation: it stores the entire training dataset and must search it at prediction time. This makes it powerful for small datasets and useless for large ones.</Lead>
+        <Note>k controls the bias-variance trade-off directly and visually: k=1 → fits every training point exactly (zero bias, high variance → overfitting). k=n → predicts the majority class for everything (maximum bias, zero variance → underfitting). Optimal k is usually in [3, 20] for most datasets.</Note>
+        <div className="tf-subhead">Key hyperparameters</div>
+        <div className="tf-legend">
+          {[
+            ["n_neighbors (k)", "Number of neighbors", "Default 5. The ONLY critical hyperparameter. Tune with cross-validation over odd values [1, 3, 5, 7, 11, 15, 21]. Odd values avoid tie-breaking for binary classification."],
+            ["weights", "Neighbor weighting scheme", "'uniform' (default, all neighbors equal vote). 'distance' (closer neighbors vote more). Use 'distance' when the decision boundary is complex and near neighbors are more informative."],
+            ["metric", "Distance measure", "'minkowski' with p=2 = Euclidean (default). p=1 = Manhattan. 'cosine' for text/high-dim. ALWAYS scale features first — Euclidean distance is dominated by high-magnitude features."],
+            ["algorithm", "Nearest neighbor search", "'auto' (default, picks best). 'ball_tree' or 'kd_tree' for structured data. 'brute' for high-dimensional data (>20 features, tree methods degrade)."],
+            ["leaf_size", "Tree leaf size", "Default 30. Affects speed/memory trade-off for BallTree/KDTree. Rarely needs tuning."],
+          ].map(([sym, name, desc]) => (
+            <div className="tf-leg" key={sym}>
+              <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+              <div className="tf-leg-name">{name}</div>
+              <div className="tf-leg-desc">{desc}</div>
+            </div>
+          ))}
+        </div>
+        <Note>KNN requires feature scaling (StandardScaler or MinMaxScaler). Without scaling, features with large ranges (e.g., age 0–80) will dominate distance calculations over features with small ranges (e.g., binary flags 0–1).</Note>
+        <div className="tf-subhead">Pros vs Cons</div>
+        <div className="opt-pc">
+          <div className="opt-pc-col is-pro">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+            {[
+              "No training phase (lazy learner)",
+              "Naturally multi-class",
+              "Simple to understand and implement",
+              "Non-parametric (no distribution assumptions)",
+              "Automatically adapts to new data (just add points)",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+          </div>
+          <div className="opt-pc-col is-con">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+            {[
+              "O(n) prediction time per query (must search entire training set)",
+              "O(n) memory — useless for n > 100K",
+              "Terrible in high dimensions (curse of dimensionality)",
+              "Requires feature scaling",
+              "No feature importances",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+          </div>
+        </div>
+        <div className="tf-subhead">When to use (decision guide)</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Small dataset (< 10K), fast prototyping", "KNN", "Zero training time, easy baseline"],
+                ["Large dataset (> 100K rows)", "Logistic Regression or GBM", "KNN prediction is O(n) — too slow"],
+                ["Many features (> 50)", "Random Forest or GBM", "Curse of dimensionality: distances become meaningless in high dims"],
+                ["Need probability estimates", "Logistic Regression", "KNN probabilities (fraction of k neighbors) are noisy"],
+                ["Recommendation systems", "KNN (cosine similarity)", "User-item similarity search is literally KNN"],
+                ["Interpretable model", "Decision Tree", "KNN explains nothing — it just looks up neighbors"],
+              ].map(([sc, ch, wh], i) => (
+                <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                  <td style={{ padding: "7px 12px" }}>{sc}</td>
+                  <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                  <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    ),
+  },
+];
 
   window.ML_STAGES = STAGES;
   window.ML_META = {

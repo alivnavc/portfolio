@@ -267,6 +267,77 @@
         </>
       ),
     },
+  {
+      id: "hyperparams",
+      group: "Practical",
+      title: "Hyperparameters & when to use",
+      map: "Hyperparams",
+      why: "LSTM's hidden_size and number of layers are the most important architectural choices. Learning rate and gradient clipping are critical training hyperparameters.",
+      render: () => (
+        <>
+          <Lead>LSTM's power comes from its gating mechanism that selectively remembers and forgets information over long sequences. The key tuning challenge: LSTMs are sensitive to learning rate and prone to exploding gradients. Two practical rules: (1) always clip gradients (max_norm=1.0), (2) use Adam or RMSprop, not plain SGD.</Lead>
+          <Note>LSTM hyperparameters interact with sequence length: longer sequences require larger hidden_size to store relevant context. But larger hidden_size means more parameters, which requires more training data. The sweet spot for most NLP tasks: hidden_size=128–512, num_layers=2–3.</Note>
+          <div className="tf-subhead">Key hyperparameters</div>
+          <div className="tf-legend">
+            {[
+              ["hidden_size", "Hidden state dimensions", "Default 128. Controls how much information the LSTM can remember. Range: 64–512. Larger = more capacity but more data needed. Double hidden_size before adding more layers."],
+              ["num_layers", "Stacked LSTM depth", "Default 1. 2–3 layers for most tasks. More layers add depth of representation. Use dropout between layers (dropout=0.2–0.4) to regularize stacked LSTMs."],
+              ["dropout", "Dropout between layers", "Default 0. Applied between LSTM layers (not inside the cell). Set 0.2–0.4 for 2+ layer LSTMs. For single-layer LSTMs, dropout doesn't apply inside."],
+              ["bidirectional", "Process sequence both directions", "False by default. Set True for classification/understanding tasks (reads sequence forward AND backward). Cannot use bidirectional for autoregressive generation (can't look at future tokens)."],
+              ["learning_rate", "Learning rate", "1e-3 (Adam). LSTMs are sensitive to LR. If gradients explode, reduce LR. Use gradient clipping (max_norm=1.0) always."],
+              ["gradient_clip", "Gradient clipping threshold", "max_norm=1.0 (industry standard). LSTMs suffer from exploding gradients on long sequences. Clipping prevents weight updates from becoming catastrophically large. Always use for sequences > 50 steps."],
+              ["sequence_length", "Input sequence length (context window)", "For training: use the natural length (sentence, day, week). For RNNs: truncate at 200–500 tokens. Longer sequences → vanishing gradient problem increases even with LSTM (that's why Transformers replaced LSTMs for long sequences)."],
+              ["batch_size", "Mini-batch size", "32–64. Smaller batches provide better gradient estimates for sequential data. Batch sizes that are too large can destabilize RNN training."],
+            ].map(([sym, name, desc]) => (
+              <div className="tf-leg" key={sym}>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+                <div className="tf-leg-name">{name}</div>
+                <div className="tf-leg-desc">{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="tf-subhead">Pros vs Cons</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+              {["Handles variable-length sequences", "Long-range memory via cell state (vs plain RNN)", "Bidirectional variant captures full context", "Works for time-series, text, audio, speech"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+              {["Slow (sequential processing, not parallelizable)", "Vanishing gradient on very long sequences (1000+ tokens)", "Replaced by Transformers for NLP tasks", "Hard to parallelize across time steps (vs CNN 1D or Transformer)", "Sensitive to initialization and LR"].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+            </div>
+          </div>
+          <div className="tf-subhead">When to use (decision guide)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Short to medium sequences (< 200 tokens), NLP tasks", "LSTM (bidirectional)", "Efficient, works well, widely understood"],
+                  ["Long sequences (> 500 tokens), complex language tasks", "Transformer (BERT/GPT)", "Attention mechanism avoids vanishing gradient; better parallelism"],
+                  ["Time-series forecasting (univariate)", "LSTM or N-BEATS (neural basis expansion)", "LSTM captures temporal dependencies"],
+                  ["Time-series with many features + non-stationarity", "Temporal Fusion Transformer", "Attention-based time-series model with interpretability"],
+                  ["Real-time low-latency prediction", "1D CNN or linear model", "LSTM inference is sequential — slower than CNN or attention at inference"],
+                  ["Very small dataset", "Traditional statistical models (ARIMA, Prophet)", "LSTM needs 10K+ timesteps to learn generalizable patterns"],
+                ].map(([sc, ch, wh], i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                    <td style={{ padding: "7px 12px" }}>{sc}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                    <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ),
+    },
   ];
 
   window.NN_STAGES = STAGES;

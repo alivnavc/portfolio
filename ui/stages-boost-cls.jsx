@@ -1981,6 +1981,89 @@
     },
   };
 
+  const stageHyperparams = {
+    id: "hyperparams",
+    group: "Practical",
+    title: "Hyperparameters & when to use",
+    map: "Hyperparams",
+    why: "GBM classification hyperparameters mirror regression but with a different loss function. The same n_estimators / learning_rate trade-off applies.",
+    render: () => (
+      <>
+        <Lead>For classification, Gradient Boosting minimizes log-loss (cross-entropy) instead of MSE. Each tree corrects the log-odds residuals from the previous ensemble. The same regularization levers apply — but now max_depth=3 is even more critical because classification trees can overfit class boundaries quickly.</Lead>
+        <div className="tf-subhead">Key hyperparameters</div>
+        <div className="tf-legend">
+          {[
+            ["n_estimators", "Number of boosting rounds", "Default 100. More is better up to a point. Use early stopping (n_iter_no_change) to find the right number automatically."],
+            ["learning_rate", "Shrinkage / step size", "Default 0.1. Lower (0.01–0.05) with more trees generally wins. Always tune together: if you halve learning_rate, roughly double n_estimators."],
+            ["max_depth", "Max depth per tree", "Default 3. Keep shallow for classification — 3–5 is the standard. Deep trees overfit the training class boundaries."],
+            ["subsample", "Row subsampling fraction", "Default 1.0. Set 0.5–0.8 for stochastic GBM — reduces overfitting and speeds training. Works like dropout."],
+            ["min_samples_leaf", "Min samples per leaf", "Default 1. The most effective regularizer for noisy datasets. Set 5–20."],
+            ["loss", "Loss function", "'log_loss' (default, cross-entropy). 'exponential' = AdaBoost-equivalent (more sensitive to outliers)."],
+            ["max_features", "Column subsampling", "Default None. Set 'sqrt' or 0.5 to add randomness between trees — similar to Random Forest."],
+            ["validation_fraction + n_iter_no_change", "Early stopping", "validation_fraction=0.1, n_iter_no_change=10. Auto-stops when log-loss stops improving on the hold-out set."],
+          ].map(([sym, name, desc]) => (
+            <div className="tf-leg" key={sym}>
+              <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+              <div className="tf-leg-name">{name}</div>
+              <div className="tf-leg-desc">{desc}</div>
+            </div>
+          ))}
+        </div>
+        <div className="tf-subhead">Pros vs Cons</div>
+        <div className="opt-pc">
+          <div className="opt-pc-col is-pro">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+            {[
+              "State-of-the-art classification accuracy on tabular data",
+              "Handles class imbalance via sample_weight",
+              "Flexible loss (log-loss vs exponential)",
+              "Built-in feature importances",
+              "Calibrated probability via calibration wrappers",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+          </div>
+          <div className="opt-pc-col is-con">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+            {[
+              "Sequential training — no easy GPU parallelism",
+              "Sensitive to hyperparameter interactions",
+              "Overfits small or noisy datasets",
+              "Not interpretable (ensemble black box)",
+              "Slower than Random Forest at training time",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+          </div>
+        </div>
+        <div className="tf-subhead">When to use (decision guide)</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Maximum classification accuracy", "XGBoost / LightGBM / CatBoost", "Same algorithm, 10–100x faster with regularization improvements"],
+                ["Class imbalance (fraud, medical)", "GBM with scale_pos_weight or sample_weight", "Can handle imbalance better than simple thresholding"],
+                ["Need probability calibration", "GBM + sklearn CalibratedClassifierCV", "GBM probabilities are not naturally well-calibrated like Logistic"],
+                ["Small dataset (< 1000 rows)", "Logistic Regression or Random Forest", "GBM needs sufficient data to benefit from sequential correction"],
+                ["Need explainable model", "Logistic Regression or Decision Tree", "GBM's ensemble is hard to explain to non-technical stakeholders"],
+                ["Speed is critical (real-time inference)", "Logistic Regression or converted ONNX model", "Shallow tree ensembles can be fast but logistic is faster"],
+              ].map(([sc, ch, wh], i) => (
+                <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                  <td style={{ padding: "7px 12px" }}>{sc}</td>
+                  <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                  <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    ),
+  };
+
   // ────────────────────────────────────────────────────────
   //  ASSEMBLE STAGES
   // ────────────────────────────────────────────────────────
@@ -1997,6 +2080,7 @@
     stageLogLoss,
     stageMissing,
     stageEval,
+    stageHyperparams,
   ];
 
   // ── META ──

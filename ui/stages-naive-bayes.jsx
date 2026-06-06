@@ -1458,7 +1458,89 @@
       ),
     },
 
-  ];
+  {
+    id: "hyperparams",
+    group: "Practical",
+    title: "Hyperparameters & when to use",
+    map: "Hyperparams",
+    why: "Naive Bayes has almost no hyperparameters — just smoothing. Its power comes from speed and surprisingly good performance on text, not from tuning.",
+    render: () => (
+      <>
+        <Lead>Naive Bayes is the fastest classifier you can train. A Gaussian NB model on 1 million samples trains in under a second. It works because the 'naive' independence assumption, while technically wrong for most data, often doesn't matter much for classification (you only need the right class ranking, not exact probabilities). It dominates for text classification with Multinomial NB.</Lead>
+        <Note>The 'naive' independence assumption is almost always violated — but Naive Bayes still works surprisingly well. The reason: for classification you only need P(y|x) to pick the right class, not to be calibrated. The wrong probabilities but right rankings still give correct classification.</Note>
+        <div className="tf-subhead">Key hyperparameters</div>
+        <div className="tf-legend">
+          {[
+            ["var_smoothing", "Variance smoothing (GaussianNB)", "Default 1e-9. Adds this value to all variances to prevent division by zero. Increase (1e-8 to 1e-5) if features are nearly constant. Rarely needs tuning."],
+            ["alpha", "Laplace / Lidstone smoothing (MultinomialNB / BernoulliNB)", "Default 1.0 (Laplace smoothing). Set alpha=0 for no smoothing (risky — unseen words get P=0). Set alpha=0.5 (Jeffreys prior) for sparser text. Tune in [0.01, 0.1, 0.5, 1.0]."],
+            ["fit_prior", "Learn class prior probabilities (MultinomialNB)", "Default True. Set False if classes are artificially balanced and you don't want the model to use prior class frequencies."],
+            ["binarize", "Threshold to binarize features (BernoulliNB)", "Default 0.0 (anything > 0 is 1). Set to a specific threshold to convert continuous features to binary."],
+          ].map(([sym, name, desc]) => (
+            <div className="tf-leg" key={sym}>
+              <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
+              <div className="tf-leg-name">{name}</div>
+              <div className="tf-leg-desc">{desc}</div>
+            </div>
+          ))}
+        </div>
+        <Note>Which variant to use: GaussianNB → continuous features (age, height, income). MultinomialNB → count data (word frequencies, TF-IDF) for text classification. BernoulliNB → binary features (word presence/absence). ComplementNB → imbalanced text classification.</Note>
+        <div className="tf-subhead">Pros vs Cons</div>
+        <div className="opt-pc">
+          <div className="opt-pc-col is-pro">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
+            {[
+              "Extremely fast training — O(n×d)",
+              "Works with tiny datasets",
+              "No feature scaling needed",
+              "Handles missing data naturally (skip the feature in product)",
+              "Real-time updates via online learning (partial_fit)",
+              "Excellent for text classification",
+              "Good probability estimates when classes are balanced",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
+          </div>
+          <div className="opt-pc-col is-con">
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
+            {[
+              "Naive independence assumption is almost always wrong",
+              "Poor on datasets with strong feature correlations",
+              "GaussianNB assumes Gaussian distribution (violated by skewed features)",
+              "Overconfident probability estimates",
+              "Cannot capture feature interactions",
+            ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
+          </div>
+        </div>
+        <div className="tf-subhead">When to use (decision guide)</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Text classification (spam, sentiment, topic)", "Multinomial Naive Bayes", "TF-IDF + MultinomialNB is the classic fast baseline"],
+                ["Real-time classification (< 1ms required)", "Naive Bayes", "Fastest classifier; prediction is just a few multiplications"],
+                ["Tiny labeled dataset", "Naive Bayes", "Works with very few examples; doesn't overfit like trees"],
+                ["Maximum accuracy on structured data", "GBM / XGBoost", "Naive Bayes' independence assumption hurts on correlated features"],
+                ["Features are highly correlated", "Logistic Regression or GBM", "Correlation violates independence assumption badly"],
+                ["Online/streaming learning", "Naive Bayes (partial_fit)", "Can update incrementally without retraining from scratch"],
+              ].map(([sc, ch, wh], i) => (
+                <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                  <td style={{ padding: "7px 12px" }}>{sc}</td>
+                  <td style={{ padding: "7px 12px", fontWeight: 600 }}>{ch}</td>
+                  <td style={{ padding: "7px 12px", color: "#555" }}>{wh}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    ),
+  },
+];
 
   window.ML_STAGES = STAGES;
   window.ML_META = {
