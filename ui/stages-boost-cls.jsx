@@ -753,6 +753,321 @@
   };
 
   // ────────────────────────────────────────────────────────
+  //  STAGE 6c: Sequential Trees — Probability Evolution
+  // ────────────────────────────────────────────────────────
+
+  function SeqTreesClsSVG() {
+    // ── Actual values from BOOST_CLS / ml-boosting.js ──
+    // η = 0.5, initLogOdds = 0, initProb = 0.5
+    // Stump 1: word_count ≤ 0.55, leftVal=-0.875, rightVal=+0.875
+    // Stump 2: has_link   ≤ 0.5,  leftVal=-0.3,   rightVal=+0.3
+    // Stump 3: word_count ≤ 0.35, leftVal=-0.15,  rightVal=+0.1
+    // Log-losses: [0.6931, 0.4981, 0.4714, 0.4606]
+    //
+    // Training emails (index 0-7):
+    // wc=[0.2,0.3,0.5,0.4, 0.6,0.8,0.7,0.9]
+    // lk=[0,  0,  0,  1,   1,  1,  0,  1]
+    // y= [0,  0,  0,  0,   1,  1,  1,  1]  (0=ham,1=spam)
+
+    const SVG_W = 860, SVG_H = 720;
+    const T1_Y  = 30;
+    const P1_Y  = 198;
+    const T2_Y  = 268;
+    const P2_Y  = 436;
+    const T3_Y  = 506;
+    const FIN_Y = 674;
+
+    const TREE_COLORS = ["#2b5bff", "#e0851e", "#1f9e6b"];
+    const TREE_BG     = ["rgba(43,91,255,.07)", "rgba(224,133,30,.07)", "rgba(31,158,107,.07)"];
+    const TREE_LEAF   = ["rgba(43,91,255,.13)", "rgba(224,133,30,.13)", "rgba(31,158,107,.13)"];
+
+    const data = BOOST_CLS.data; // [wc, link, label]
+    const ys   = data.map(d => d[2]);
+    const eta  = BOOST_CLS.eta; // 0.5
+    const initLO = 0.0;
+
+    const sig = (x) => 1 / (1 + Math.exp(-x));
+
+    // logOdds and probs at each round
+    const lo0 = data.map(() => initLO);
+    const p0  = lo0.map(sig);
+    const r0  = ys.map((y, i) => y - p0[i]);
+
+    const s1  = BOOST_CLS.stumps[0]; // wc <= 0.55
+    const lo1 = lo0.map((lo, i) => lo + eta * (data[i][s1.feature] <= s1.threshold ? s1.leftVal : s1.rightVal));
+    const p1  = lo1.map(sig);
+    const r1  = ys.map((y, i) => y - p1[i]);
+
+    const s2  = BOOST_CLS.stumps[1]; // has_link <= 0.5
+    const lo2 = lo1.map((lo, i) => lo + eta * (data[i][s2.feature] <= s2.threshold ? s2.leftVal : s2.rightVal));
+    const p2  = lo2.map(sig);
+    const r2  = ys.map((y, i) => y - p2[i]);
+
+    const s3  = BOOST_CLS.stumps[2]; // wc <= 0.35
+    const lo3 = lo2.map((lo, i) => lo + eta * (data[i][s3.feature] <= s3.threshold ? s3.leftVal : s3.rightVal));
+    const p3  = lo3.map(sig);
+
+    const featNames = BOOST_CLS.features; // ["word_count","has_link"]
+    const treeTitles = [
+      "Tree 1 — trained on initial pseudo-residuals",
+      "Tree 2 — trained on Round 1 pseudo-residuals",
+      "Tree 3 — trained on Round 2 pseudo-residuals",
+    ];
+    const splitLabels = [
+      `word_count ≤ ${s1.threshold} ?`,
+      `has_link ≤ ${s2.threshold} ?`,
+      `word_count ≤ ${s3.threshold} ?`,
+    ];
+
+    // ── helper: draw stump ──
+    function Stump({ treeIdx, sectionY, stump, splitLabel }) {
+      const col    = TREE_COLORS[treeIdx];
+      const bg     = TREE_BG[treeIdx];
+      const leafBg = TREE_LEAF[treeIdx];
+      const SX     = 30;
+      const midX   = SX + 130;
+      const rootY  = sectionY + 44;
+      const childY = sectionY + 122;
+      const leftX  = SX + 44;
+      const rightX = SX + 216;
+      return (
+        <>
+          <rect x={SX} y={sectionY} width={500} height={150}
+            rx="10" fill={bg} stroke={col} strokeWidth="1.5" opacity="0.7" />
+          <rect x={SX} y={sectionY} width={500} height={28}
+            rx="10" fill={col} opacity="0.9" />
+          <text x={SX + 250} y={sectionY + 18} textAnchor="middle"
+            fontSize="13" fontWeight="700" fill="white">{treeTitles[treeIdx]}</text>
+          <line x1={midX} y1={rootY + 18} x2={leftX} y2={childY - 18}
+            stroke={col} strokeWidth="2" />
+          <line x1={midX} y1={rootY + 18} x2={rightX} y2={childY - 18}
+            stroke={col} strokeWidth="2" />
+          <text x={(midX + leftX) / 2 - 14} y={(rootY + childY) / 2 + 2}
+            fontSize="11" fill={col} fontStyle="italic" fontWeight="600">Yes, ≤</text>
+          <text x={(midX + rightX) / 2 + 10} y={(rootY + childY) / 2 + 2}
+            fontSize="11" fill={col} fontStyle="italic" fontWeight="600">No, &gt;</text>
+          {/* root */}
+          <rect x={midX - 88} y={rootY - 18} width={176} height={36}
+            rx="8" fill="white" stroke={col} strokeWidth="2.5" />
+          <text x={midX} y={rootY + 6} textAnchor="middle"
+            fontSize="13" fontWeight="800" fill={col}>{splitLabel}</text>
+          {/* left leaf: log-odds update */}
+          <rect x={leftX - 52} y={childY - 18} width={104} height={38}
+            rx="8" fill={leafBg} stroke={col} strokeWidth="1.8" />
+          <text x={leftX} y={childY - 3} textAnchor="middle"
+            fontSize="11" fontWeight="700"
+            fill={stump.leftVal >= 0 ? SPAM_COL : HAM_COL}>
+            log-odds: {stump.leftVal >= 0 ? "+" : ""}{stump.leftVal.toFixed(3)}
+          </text>
+          <text x={leftX} y={childY + 13} textAnchor="middle"
+            fontSize="9.5" fill={stump.leftVal >= 0 ? SPAM_COL : HAM_COL}>
+            {stump.leftVal >= 0 ? "push P(spam) UP" : "push P(spam) DOWN"}
+          </text>
+          {/* right leaf */}
+          <rect x={rightX - 52} y={childY - 18} width={104} height={38}
+            rx="8" fill={leafBg} stroke={col} strokeWidth="1.8" />
+          <text x={rightX} y={childY - 3} textAnchor="middle"
+            fontSize="11" fontWeight="700"
+            fill={stump.rightVal >= 0 ? SPAM_COL : HAM_COL}>
+            log-odds: {stump.rightVal >= 0 ? "+" : ""}{stump.rightVal.toFixed(3)}
+          </text>
+          <text x={rightX} y={childY + 13} textAnchor="middle"
+            fontSize="9.5" fill={stump.rightVal >= 0 ? SPAM_COL : HAM_COL}>
+            {stump.rightVal >= 0 ? "push P(spam) UP" : "push P(spam) DOWN"}
+          </text>
+        </>
+      );
+    }
+
+    // ── helper: probability evolution mini panel ──
+    function ProbPanel({ treeIdx, sectionY, probsBefore, probsAfter }) {
+      const col = TREE_COLORS[treeIdx];
+      const PX  = 546;
+      const PY2 = sectionY + 4;
+      const barMaxH = 100;
+      const barW    = 24;
+      const barSpacing = 296 / data.length;
+
+      return (
+        <>
+          <rect x={PX} y={PY2} width={296} height={148} rx="8"
+            fill="white" stroke={col} strokeWidth="1.2" opacity="0.85" />
+          <text x={PX + 148} y={PY2 + 16} textAnchor="middle"
+            fontSize="11" fontWeight="700" fill={col}>P(spam) before → after</text>
+          {/* 0.5 threshold dashed line */}
+          <line x1={PX + 8} y1={PY2 + 16 + (1 - 0.5) * barMaxH}
+            x2={PX + 288} y2={PY2 + 16 + (1 - 0.5) * barMaxH}
+            stroke="#aaa" strokeWidth="0.8" strokeDasharray="3 2" />
+          <text x={PX + 292} y={PY2 + 16 + (1 - 0.5) * barMaxH + 4}
+            fontSize="8" fill="#aaa">0.5</text>
+          {data.map((d, i) => {
+            const bx    = PX + 12 + i * barSpacing;
+            const pb    = probsBefore[i];
+            const pa    = probsAfter[i];
+            const isSpam = d[2] === 1;
+            const correct = (pa >= 0.5) === isSpam;
+            const dotCol = correct ? "#1f9e6b" : "#e0492e";
+            const barH = Math.max(3, pa * barMaxH);
+            return (
+              <g key={i}>
+                {/* before dot */}
+                <circle cx={bx + barW / 2} cy={PY2 + 16 + (1 - pb) * barMaxH}
+                  r="3" fill="#bbb" opacity="0.7" />
+                {/* after bar */}
+                <rect x={bx} y={PY2 + 16 + barMaxH - barH}
+                  width={barW} height={barH}
+                  fill={isSpam ? SPAM_COL : HAM_COL}
+                  rx="2" opacity={correct ? 0.8 : 0.4} />
+                {/* arrow from before to after */}
+                <line x1={bx + barW / 2} y1={PY2 + 16 + (1 - pb) * barMaxH}
+                  x2={bx + barW / 2} y2={PY2 + 16 + barMaxH - barH}
+                  stroke={dotCol} strokeWidth="1" opacity="0.6"
+                  markerEnd="url(#arr)" />
+                {/* email index label */}
+                <text x={bx + barW / 2} y={PY2 + 132} textAnchor="middle"
+                  fontSize="8.5" fill={isSpam ? SPAM_COL : HAM_COL} fontWeight="700">
+                  {isSpam ? "S" : "H"}
+                </text>
+                {/* P value above bar */}
+                <text x={bx + barW / 2} y={PY2 + 14 + barMaxH - barH}
+                  textAnchor="middle" fontSize="8" fill={dotCol} fontWeight="600">
+                  {pa.toFixed(2)}
+                </text>
+              </g>
+            );
+          })}
+        </>
+      );
+    }
+
+    // ── helper: pseudo-residual shrink band ──
+    function PseudoBand({ topY, residBefore, residAfter, labelAfter, col }) {
+      const BAR_AREA_X = 30;
+      const BAR_AREA_W = 500;
+      const nPts = residBefore.length;
+      const barW = 22;
+      const barSpacing = BAR_AREA_W / nPts;
+      const maxAbs = Math.max(...residBefore.map(Math.abs), 0.1);
+      const barMaxH = 24;
+
+      const barX = (i) => BAR_AREA_X + i * barSpacing + (barSpacing - barW) / 2;
+      const barH = (r, ref) => Math.max(2, (Math.abs(r) / ref) * barMaxH);
+
+      return (
+        <>
+          <text x={BAR_AREA_X + 4} y={topY + 14}
+            fontSize="10.5" fontWeight="700" fill="#555">Pseudo-residuals before (grayed):</text>
+          {residBefore.map((r, i) => (
+            <rect key={i}
+              x={barX(i)} y={topY + 18 - barH(r, maxAbs)}
+              width={barW} height={barH(r, maxAbs)}
+              fill={r >= 0 ? SPAM_COL : HAM_COL} rx="2" opacity="0.25" />
+          ))}
+          <text x={BAR_AREA_X + BAR_AREA_W / 2} y={topY + 34}
+            textAnchor="middle" fontSize="11" fill={col} fontWeight="700">
+            ↓ pseudo-residuals shrink: y − P̂ is smaller when P̂ is closer to y
+          </text>
+          <text x={BAR_AREA_X + 4} y={topY + 48}
+            fontSize="10.5" fontWeight="700" fill="#555">{labelAfter}</text>
+          {residAfter.map((r, i) => (
+            <rect key={i}
+              x={barX(i)} y={topY + 52 - barH(r, maxAbs)}
+              width={barW} height={barH(r, maxAbs)}
+              fill={r >= 0 ? SPAM_COL : HAM_COL} rx="2" opacity="0.75" />
+          ))}
+          {data.map((d, i) => (
+            <text key={i} x={barX(i) + barW / 2} y={topY + 62}
+              textAnchor="middle" fontSize="8.5"
+              fill={d[2] === 1 ? SPAM_COL : HAM_COL} fontWeight="600">
+              {d[2] === 1 ? "S" : "H"}
+            </text>
+          ))}
+        </>
+      );
+    }
+
+    return (
+      <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+        style={{ width: "100%", maxWidth: SVG_W, display: "block", fontFamily: "var(--ui-font)" }}>
+
+        {/* arrow marker def */}
+        <defs>
+          <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 z" fill="#888" opacity="0.6" />
+          </marker>
+        </defs>
+
+        {/* ── TREE 1 ── */}
+        <Stump treeIdx={0} sectionY={T1_Y} stump={s1} splitLabel={splitLabels[0]} />
+        <ProbPanel treeIdx={0} sectionY={T1_Y} probsBefore={p0} probsAfter={p1} />
+
+        {/* ── PSEUDO-RESIDUAL BAND 1 ── */}
+        <rect x={20} y={P1_Y} width={820} height={68} rx="8"
+          fill="rgba(148,162,188,.06)" stroke="var(--line)" strokeWidth="1" />
+        <PseudoBand topY={P1_Y + 4} residBefore={r0} residAfter={r1}
+          labelAfter="After Round 1 (smaller magnitudes):" col={TREE_COLORS[0]} />
+
+        {/* ── TREE 2 ── */}
+        <Stump treeIdx={1} sectionY={T2_Y} stump={s2} splitLabel={splitLabels[1]} />
+        <ProbPanel treeIdx={1} sectionY={T2_Y} probsBefore={p1} probsAfter={p2} />
+
+        {/* ── PSEUDO-RESIDUAL BAND 2 ── */}
+        <rect x={20} y={P2_Y} width={820} height={68} rx="8"
+          fill="rgba(148,162,188,.06)" stroke="var(--line)" strokeWidth="1" />
+        <PseudoBand topY={P2_Y + 4} residBefore={r1} residAfter={r2}
+          labelAfter="After Round 2 (even smaller):" col={TREE_COLORS[1]} />
+
+        {/* ── TREE 3 ── */}
+        <Stump treeIdx={2} sectionY={T3_Y} stump={s3} splitLabel={splitLabels[2]} />
+        <ProbPanel treeIdx={2} sectionY={T3_Y} probsBefore={p2} probsAfter={p3} />
+
+        {/* ── FINAL FORMULA ── */}
+        <rect x={20} y={FIN_Y} width={820} height={44} rx="10"
+          fill="rgba(43,91,255,.06)" stroke="#2b5bff" strokeWidth="2" />
+        <text x={430} y={FIN_Y + 19} textAnchor="middle"
+          fontSize="14" fontWeight="800" fill="#2b5bff">
+          F(x) = F₀ + η·T₁(x) + η·T₂(x) + η·T₃(x) → P(spam) = σ(F(x))
+        </text>
+        <text x={430} y={FIN_Y + 37} textAnchor="middle"
+          fontSize="11" fill="#555">
+          Log-loss: 0.6931 → 0.4981 → 0.4714 → 0.4606 &nbsp;|&nbsp; Leaf magnitudes shrink: 0.875 → 0.3 → 0.15
+        </text>
+      </svg>
+    );
+  }
+
+  const stageSeqTrees = {
+    id: "seq-trees", group: "Training",
+    title: "3 Sequential Stumps — Probabilities Sharpen Each Round",
+    map: "Seq Trees",
+    why: "Seeing all 3 trees laid out sequentially — with the pseudo-residuals flowing between them — makes the 'student studying wrong answers' analogy concrete and visual.",
+    render: () => (
+      <>
+        <Lead>
+          Each tree in gradient boosting classification sees a <b>different target</b>: the
+          pseudo-residuals from the previous round. Tree 1 sees large pseudo-residuals
+          (±0.5) — everyone starts at P(spam) = 0.5. It makes big log-odds updates (±0.875),
+          splitting on <b>word_count ≤ 0.55</b>. After Round 1, probabilities spread apart.
+          Tree 2 and Tree 3 make progressively smaller corrections as the model converges.
+        </Lead>
+        <Lead>
+          The right-side panels for each tree show the probabilities <b>before (gray dots) and
+          after (colored bars)</b> that round. Green/red bars = ham/spam emails. Faded bars =
+          currently misclassified (P on wrong side of 0.5). Watch the bars spread toward 0
+          and 1 across the three rounds.
+        </Lead>
+        <SeqTreesClsSVG />
+        <Note>
+          The leaf values shrink automatically each round: 0.875 (Tree 1) → 0.3 (Tree 2)
+          → 0.15 (Tree 3). This happens because pseudo-residuals shrink when the model's
+          probability estimates improve. No hyperparameter controls this — it is a natural
+          consequence of fitting residuals of residuals.
+        </Note>
+      </>
+    ),
+  };
+
+  // ────────────────────────────────────────────────────────
   //  STAGE 6b: Boost Animation (Classification)
   // ────────────────────────────────────────────────────────
 
@@ -1676,6 +1991,7 @@
     stagePseudoResid,
     stageTree1,
     stageMoreTrees,
+    stageSeqTrees,
     stageBoostClsAnim,
     stageEnsemble,
     stageLogLoss,

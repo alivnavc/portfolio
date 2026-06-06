@@ -990,6 +990,306 @@
       ),
     },
 
+    /* ── 4b. Three Trees Side by Side ── */
+    {
+      id: "three-trees", group: "Training", title: "The 3 Decision Trees — Side by Side",
+      map: "3 Trees",
+      why: "Seeing all three trees simultaneously reveals how bootstrap sampling + random features produce different (decorrelated) trees from the same dataset. Each tree has learned slightly different decision rules.",
+      render: () => {
+        /* ── data from model ── */
+        const data = RF.data;
+        // Bootstrap sample info per tree
+        const bsInfo = [
+          { unique: 8, oob: 4 },  // bootstrap [0,0,2,3,4,5,6,6,8,9,10,11] → 9 unique, OOB: 1,7
+          { unique: 9, oob: 3 },  // bootstrap [0,1,2,4,4,5,7,8,8,9,11,11] → 9 unique, OOB: 3,6,10
+          { unique: 9, oob: 3 },  // bootstrap [1,2,3,3,4,6,7,8,9,10,10,11] → 10 unique, OOB: 0,5
+        ];
+        // Compute actual unique counts from bootstraps
+        const actualInfo = RF.bootstraps.map(bs => {
+          const s = new Set(bs);
+          const oobCount = data.length - s.size;
+          return { unique: s.size, oob: oobCount };
+        });
+
+        /* ── ThreeTreesSVG ── */
+        function ThreeTreesSVG() {
+          const W = 920, H = 520;
+          // Column centres
+          const cols = [
+            { cx: 145, color: "#2196f3", headerBg: "#e3f2fd", headerStroke: "#2196f3", headerText: "#0d47a1", label: "Tree 1", treeIdx: 0 },
+            { cx: 460, color: "#ff9800", headerBg: "#fff3e0", headerStroke: "#ff9800", headerText: "#e65100", label: "Tree 2", treeIdx: 1 },
+            { cx: 775, color: "#4caf50", headerBg: "#e8f5e9", headerStroke: "#4caf50", headerText: "#1b5e20", label: "Tree 3", treeIdx: 2 },
+          ];
+
+          // Tree structures from model
+          const trees = [
+            {
+              root: { feat: "petal_len", thresh: "2.40", n: 12, gini: "0.44", dist: [4, 4, 4] },
+              leftLeaf: { label: "Setosa", cls: 0, n: 4, gini: "0.00" },
+              rightInternal: { feat: "petal_wid", thresh: "1.70", n: 8, gini: "0.50", dist: [0, 4, 4] },
+              rightLeft: { label: "Versicolor", cls: 1, n: 4, gini: "0.00" },
+              rightRight: { label: "Virginica", cls: 2, n: 4, gini: "0.00" },
+            },
+            {
+              root: { feat: "petal_len", thresh: "2.60", n: 12, gini: "0.44", dist: [4, 4, 4] },
+              leftLeaf: { label: "Setosa", cls: 0, n: 4, gini: "0.00" },
+              rightInternal: { feat: "petal_wid", thresh: "1.90", n: 8, gini: "0.50", dist: [0, 4, 4] },
+              rightLeft: { label: "Versicolor", cls: 1, n: 5, gini: "0.00" },
+              rightRight: { label: "Virginica", cls: 2, n: 3, gini: "0.00" },
+            },
+            {
+              root: { feat: "petal_len", thresh: "2.50", n: 12, gini: "0.44", dist: [4, 4, 4] },
+              leftLeaf: { label: "Setosa", cls: 0, n: 4, gini: "0.00" },
+              rightInternal: { feat: "petal_len", thresh: "5.20", n: 8, gini: "0.50", dist: [0, 4, 4] },
+              rightLeft: { label: "Versicolor", cls: 1, n: 4, gini: "0.00" },
+              rightRight: { label: "Virginica", cls: 2, n: 4, gini: "0.00" },
+            },
+          ];
+
+          const clsColors = ["#4caf50", "#2196f3", "#ff9800"];
+          const clsBg = ["#e8f5e9", "#e3f2fd", "#fff3e0"];
+          const clsShort = ["Setosa", "Versicol.", "Virginica"];
+
+          // Layout constants
+          const nodeW = 130, nodeH = 58;
+          const leafW = 124, leafH = 52;
+          const rootY = 90;
+          const midY = 220;
+          const leafY = 360;
+
+          function InternalNode({ cx, cy, feat, thresh, n, gini, dist, colColor }) {
+            const x = cx - nodeW / 2, y = cy - nodeH / 2;
+            return (
+              <g>
+                <rect x={x} y={y} width={nodeW} height={nodeH} rx={8}
+                  fill="#f5f7ff" stroke={colColor} strokeWidth={2} />
+                <text x={cx} y={cy - 16} textAnchor="middle" fontSize={12} fontWeight="700" fill="#1a237e">
+                  {feat} ≤ {thresh}
+                </text>
+                <text x={cx} y={cy} textAnchor="middle" fontSize={10} fill="#666">
+                  n={n}, Gini={gini}
+                </text>
+                {/* class distribution dots */}
+                <g>
+                  {dist.map((count, ci) => count > 0 && Array.from({ length: Math.min(count, 4) }).map((_, di) => (
+                    <circle
+                      key={`${ci}-${di}`}
+                      cx={cx - 18 + ci * 14 + di * 3}
+                      cy={cy + 16}
+                      r={4}
+                      fill={clsColors[ci]}
+                      opacity={0.85}
+                    />
+                  )))}
+                </g>
+              </g>
+            );
+          }
+
+          function LeafNode({ cx, cy, label, cls, n, gini }) {
+            const x = cx - leafW / 2, y = cy - leafH / 2;
+            return (
+              <g>
+                <rect x={x} y={y} width={leafW} height={leafH} rx={8}
+                  fill={clsBg[cls]} stroke={clsColors[cls]} strokeWidth={2} />
+                <text x={cx} y={cy - 10} textAnchor="middle" fontSize={13} fontWeight="800" fill={clsColors[cls]}>
+                  → {label}
+                </text>
+                <text x={cx} y={cy + 8} textAnchor="middle" fontSize={10} fill="#666">
+                  n={n}, Gini={gini}
+                </text>
+              </g>
+            );
+          }
+
+          function ConnectorLine({ x1, y1, x2, y2, color, label, labelSide }) {
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            return (
+              <g>
+                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={2} />
+                <text
+                  x={labelSide === "left" ? midX - 10 : midX + 10}
+                  y={midY}
+                  textAnchor={labelSide === "left" ? "end" : "start"}
+                  fontSize={11}
+                  fontWeight="700"
+                  fill={color}
+                >{label}</text>
+              </g>
+            );
+          }
+
+          return (
+            <svg width={W} height={H} style={{ display: "block", border: "1px solid #e0e0e0", borderRadius: 12, background: "#fefefe", overflow: "visible" }}>
+              {cols.map((col, ci) => {
+                const t = trees[ci];
+                const cx = col.cx;
+
+                // Node centres
+                const rootCx = cx, rootCy = rootY;
+                const leftLeafCx = cx - 140, leftLeafCy = midY;
+                const rightInternalCx = cx + 110, rightInternalCy = midY;
+                const rightLeftCx = cx + 30, rightLeftCy = leafY;
+                const rightRightCx = cx + 185, rightRightCy = leafY;
+
+                // Header band
+                const colLeft = ci === 0 ? 4 : ci === 1 ? 310 : 624;
+                const colRight = ci === 0 ? 296 : ci === 1 ? 606 : 916;
+                const colWidth = colRight - colLeft;
+
+                return (
+                  <g key={ci}>
+                    {/* Column header */}
+                    <rect x={colLeft} y={4} width={colWidth} height={36} rx={8}
+                      fill={col.headerBg} stroke={col.headerStroke} strokeWidth={1.5} />
+                    <text x={cx} y={27} textAnchor="middle" fontSize={14} fontWeight="800" fill={col.headerText}>
+                      {col.label} — bootstrap {col.treeIdx + 1}
+                    </text>
+
+                    {/* Edges: root → left leaf */}
+                    <ConnectorLine
+                      x1={rootCx - nodeW / 4} y1={rootCy + nodeH / 2}
+                      x2={leftLeafCx} y2={leftLeafCy - leafH / 2}
+                      color="#4caf50" label="≤" labelSide="left"
+                    />
+                    {/* Edges: root → right internal */}
+                    <ConnectorLine
+                      x1={rootCx + nodeW / 4} y1={rootCy + nodeH / 2}
+                      x2={rightInternalCx} y2={rightInternalCy - nodeH / 2}
+                      color="#ef5350" label=">" labelSide="right"
+                    />
+                    {/* Edges: right internal → right-left leaf */}
+                    <ConnectorLine
+                      x1={rightInternalCx - nodeW / 4} y1={rightInternalCy + nodeH / 2}
+                      x2={rightLeftCx} y2={rightLeftCy - leafH / 2}
+                      color="#4caf50" label="≤" labelSide="left"
+                    />
+                    {/* Edges: right internal → right-right leaf */}
+                    <ConnectorLine
+                      x1={rightInternalCx + nodeW / 4} y1={rightInternalCy + nodeH / 2}
+                      x2={rightRightCx} y2={rightRightCy - leafH / 2}
+                      color="#ef5350" label=">" labelSide="right"
+                    />
+
+                    {/* Nodes */}
+                    <InternalNode
+                      cx={rootCx} cy={rootCy}
+                      feat={t.root.feat} thresh={t.root.thresh}
+                      n={t.root.n} gini={t.root.gini} dist={t.root.dist}
+                      colColor={col.color}
+                    />
+                    <LeafNode
+                      cx={leftLeafCx} cy={leftLeafCy}
+                      label={t.leftLeaf.label} cls={t.leftLeaf.cls}
+                      n={t.leftLeaf.n} gini={t.leftLeaf.gini}
+                    />
+                    <InternalNode
+                      cx={rightInternalCx} cy={rightInternalCy}
+                      feat={t.rightInternal.feat} thresh={t.rightInternal.thresh}
+                      n={t.rightInternal.n} gini={t.rightInternal.gini} dist={t.rightInternal.dist}
+                      colColor={col.color}
+                    />
+                    <LeafNode
+                      cx={rightLeftCx} cy={rightLeftCy}
+                      label={t.rightLeft.label} cls={t.rightLeft.cls}
+                      n={t.rightLeft.n} gini={t.rightLeft.gini}
+                    />
+                    <LeafNode
+                      cx={rightRightCx} cy={rightRightCy}
+                      label={t.rightRight.label} cls={t.rightRight.cls}
+                      n={t.rightRight.n} gini={t.rightRight.gini}
+                    />
+
+                    {/* Bootstrap info below tree */}
+                    <rect x={colLeft + 8} y={leafY + 40} width={colWidth - 16} height={38} rx={6}
+                      fill={col.headerBg} stroke={col.headerStroke} strokeWidth={1} opacity={0.7} />
+                    <text x={cx} y={leafY + 57} textAnchor="middle" fontSize={11} fill={col.headerText} fontWeight="600">
+                      Bootstrap sample: n={actualInfo[ci].unique} unique
+                    </text>
+                    <text x={cx} y={leafY + 72} textAnchor="middle" fontSize={10} fill="#888">
+                      OOB: {actualInfo[ci].oob} point{actualInfo[ci].oob !== 1 ? "s" : ""} left out
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Annotation row */}
+              {[
+                { x: 145, text1: "Tree 1: uses petal_len + petal_wid", text2: "(both features at different levels)", color: "#0d47a1" },
+                { x: 460, text1: "Tree 2: uses petal_len + petal_wid", text2: "(different thresholds from Bootstrap 2)", color: "#e65100" },
+                { x: 775, text1: "Tree 3: uses petal_len TWICE", text2: "(random subset excluded petal_wid at right!)", color: "#1b5e20" },
+              ].map((ann, i) => (
+                <g key={i}>
+                  <text x={ann.x} y={leafY + 100} textAnchor="middle" fontSize={11} fontWeight="700" fill={ann.color}>{ann.text1}</text>
+                  <text x={ann.x} y={leafY + 114} textAnchor="middle" fontSize={10} fill="#777" fontStyle="italic">{ann.text2}</text>
+                </g>
+              ))}
+
+              {/* Column dividers */}
+              <line x1={305} y1={4} x2={305} y2={H - 10} stroke="#e0e0e0" strokeWidth={1} strokeDasharray="4 3" />
+              <line x1={615} y1={4} x2={615} y2={H - 10} stroke="#e0e0e0" strokeWidth={1} strokeDasharray="4 3" />
+
+              {/* Legend */}
+              <g transform={`translate(10, ${H - 28})`}>
+                <circle cx={8} cy={8} r={6} fill="#4caf50" />
+                <text x={18} y={12} fontSize={10} fill="#555">Green line + "≤" = left branch (condition true)</text>
+                <circle cx={250} cy={8} r={6} fill="#ef5350" />
+                <text x={260} y={12} fontSize={10} fill="#555">Red line + "&gt;" = right branch (condition false)</text>
+                <rect x={480} y={2} width={12} height={12} rx={2} fill="#e8f5e9" stroke="#4caf50" strokeWidth={1} />
+                <text x={496} y={12} fontSize={10} fill="#555">Leaf = final class prediction</text>
+              </g>
+            </svg>
+          );
+        }
+
+        return (
+          <>
+            <Lead>
+              Here are all three trees from our random forest, drawn <b>side by side at full size</b>.
+              Each column is one complete decision tree — from root split at the top down to the
+              class-prediction leaves at the bottom. The trees look similar because they're trained on
+              the same Iris data, but look carefully at the <b>thresholds</b> and <b>features</b>:
+              they differ in ways that matter.
+            </Lead>
+            <Lead>
+              Tree 3 is the most revealing: its right subtree splits on <b>petal_len again</b> instead
+              of petal_wid. At that node, the random feature subset drew only {"{"}petal_len{"}"} — so it
+              had no choice but to split on it. This is the √p trick in action: forcing the tree to
+              use a suboptimal feature occasionally, which decorrelates the forest.
+            </Lead>
+            <div style={{ overflowX: "auto", margin: "16px 0" }}>
+              <ThreeTreesSVG />
+            </div>
+            <div style={{ background: "#e8f5e9", border: "2px solid #4caf50", borderRadius: 10, padding: "14px 18px", margin: "16px 0", fontSize: 13, lineHeight: 1.7 }}>
+              <b style={{ color: "#1b5e20", fontSize: 14 }}>Key insight — decorrelation in action:</b><br />
+              Notice how Tree 3 never asks about <b>petal_width</b> at its second split — petal_length
+              was drawn twice by the random feature selector at that node. This is how Random Forest
+              <b> decorrelates</b> its trees. Correlated trees give you little benefit from averaging
+              (variance formula: ρσ² + (1−ρ)σ²/B — if ρ→1, the B in the denominator disappears and
+              you gain nothing). Decorrelated trees each catch different patterns in the data, so their
+              errors cancel rather than compound.
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "12px 0" }}>
+              {[
+                ["#2196f3", "Tree 1", "petal_len ≤ 2.40 → setosa, then petal_wid ≤ 1.70 → vers./virg."],
+                ["#ff9800", "Tree 2", "petal_len ≤ 2.60 → setosa, then petal_wid ≤ 1.90 → vers./virg."],
+                ["#4caf50", "Tree 3", "petal_len ≤ 2.50 → setosa, then petal_len ≤ 5.20 → vers./virg. (uses petal_len again!)"],
+              ].map(([color, label, desc]) => (
+                <div key={label} style={{
+                  flex: "1 1 200px", padding: "10px 14px", borderRadius: 9,
+                  border: `2px solid ${color}`, background: color + "10",
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: "#555", lineHeight: 1.5 }}>{desc}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      },
+    },
+
     /* ── 5. Random Feature Subsets ── */
     {
       id: "features", group: "Ensemble", title: "Random feature subsets — decorrelating the trees",

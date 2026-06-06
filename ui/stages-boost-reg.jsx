@@ -789,6 +789,305 @@
   };
 
   // ────────────────────────────────────────────────────────
+  //  STAGE 6c: Sequential Trees — Full Structure
+  // ────────────────────────────────────────────────────────
+
+  function SeqTreesSVG() {
+    // ── Actual values from BOOST_REG / ml-boosting.js ──
+    // η = 0.5, initPred = 4.8625
+    // Stump 1: age ≤ 16, left=+1.95, right=-2.425  → after: MSE 5.4998→1.9251
+    // Stump 2: age ≤ 10, left=+0.425, right=-0.475  → after: MSE 1.9251→1.4726
+    // Stump 3: age ≤ 30, left=+0.12, right=-0.38   → after: MSE 1.4726→1.2852
+    //
+    // Training points:
+    // xs=[5,7,10,12,20,28,35,42], ys=[8.2,7.5,6.8,5.7,3.8,2.9,2.2,1.8]
+    // Residuals after F0 (=4.8625):
+    //   [3.3375,2.6375,1.9375,0.8375,-1.0625,-1.9625,-2.6625,-3.0625]
+    // Residuals after T1:
+    //   [2.3625,1.6625,0.9625,-0.1375,0.15,-0.75,-1.45,-1.85]
+    // Residuals after T2:
+    //   [2.15,1.45,0.75,0.1,0.3875,-0.5125,-1.2125,-1.6125]
+    // Residuals after T3:
+    //   [2.09,1.39,0.69,0.04,0.3275,-0.5725,-1.0225,-1.4225]
+
+    const SVG_W = 860, SVG_H = 720;
+    // Section Y positions
+    const T1_Y = 30;     // Tree 1 section top
+    const R1_Y = 195;    // Residual band 1 top
+    const T2_Y = 265;    // Tree 2 section top
+    const R2_Y = 430;    // Residual band 2 top
+    const T3_Y = 500;    // Tree 3 section top
+    const FIN_Y = 668;   // Final formula
+
+    const TREE_COLORS = ["#2b5bff", "#e0851e", "#1f9e6b"];
+    const TREE_BG     = ["rgba(43,91,255,.07)", "rgba(224,133,30,.07)", "rgba(31,158,107,.07)"];
+    const TREE_LEAF   = ["rgba(43,91,255,.13)", "rgba(224,133,30,.13)", "rgba(31,158,107,.13)"];
+
+    const xs   = [5,7,10,12,20,28,35,42];
+    const ys   = [8.2,7.5,6.8,5.7,3.8,2.9,2.2,1.8];
+    const initPred = 4.8625;
+    const eta = 0.5;
+
+    const resid0 = xs.map((_, i) => ys[i] - initPred);
+    // After T1: preds += 0.5 * (age<=16 ? 1.95 : -2.425)
+    const preds1 = xs.map((x, i) => initPred + eta * (x <= 16 ? 1.95 : -2.425));
+    const resid1 = xs.map((x, i) => ys[i] - preds1[i]);
+    // After T2: preds += 0.5 * (age<=10 ? 0.425 : -0.475)
+    const preds2 = preds1.map((p, i) => p + eta * (xs[i] <= 10 ? 0.425 : -0.475));
+    const resid2 = xs.map((x, i) => ys[i] - preds2[i]);
+    // After T3: preds += 0.5 * (age<=30 ? 0.12 : -0.38)
+    const preds3 = preds2.map((p, i) => p + eta * (xs[i] <= 30 ? 0.12 : -0.38));
+    const resid3 = xs.map((x, i) => ys[i] - preds3[i]);
+
+    // ── helper: draw a decision stump ──
+    function Stump({ treeIdx, sectionY, stump }) {
+      const col   = TREE_COLORS[treeIdx];
+      const bg    = TREE_BG[treeIdx];
+      const leafBg = TREE_LEAF[treeIdx];
+      const STUMP_X = 30;
+      const midX  = STUMP_X + 130;
+      const rootY = sectionY + 44;
+      const childY= sectionY + 120;
+      const leftX = STUMP_X + 44;
+      const rightX= STUMP_X + 216;
+      const treeTitles = [
+        "Tree 1 — trained on F₀ residuals",
+        "Tree 2 — trained on F₁ residuals",
+        "Tree 3 — trained on F₂ residuals",
+      ];
+      return (
+        <>
+          {/* section background */}
+          <rect x={STUMP_X} y={sectionY} width={500} height={150}
+            rx="10" fill={bg} stroke={col} strokeWidth="1.5" opacity="0.7" />
+          {/* tree title bar */}
+          <rect x={STUMP_X} y={sectionY} width={500} height={28}
+            rx="10" fill={col} opacity="0.9" />
+          <text x={STUMP_X + 250} y={sectionY + 18} textAnchor="middle"
+            fontSize="13" fontWeight="700" fill="white">{treeTitles[treeIdx]}</text>
+          {/* connector lines */}
+          <line x1={midX} y1={rootY + 18} x2={leftX} y2={childY - 18}
+            stroke={col} strokeWidth="2" />
+          <line x1={midX} y1={rootY + 18} x2={rightX} y2={childY - 18}
+            stroke={col} strokeWidth="2" />
+          {/* branch labels */}
+          <text x={(midX + leftX) / 2 - 16} y={(rootY + childY) / 2 + 2}
+            fontSize="11" fill={col} fontStyle="italic" fontWeight="600">Yes, ≤</text>
+          <text x={(midX + rightX) / 2 + 10} y={(rootY + childY) / 2 + 2}
+            fontSize="11" fill={col} fontStyle="italic" fontWeight="600">No, &gt;</text>
+          {/* root node */}
+          <rect x={midX - 80} y={rootY - 18} width={160} height={36}
+            rx="8" fill="white" stroke={col} strokeWidth="2.5" />
+          <text x={midX} y={rootY + 6} textAnchor="middle"
+            fontSize="14" fontWeight="800" fill={col}>
+            age ≤ {stump.threshold} ?
+          </text>
+          {/* left leaf */}
+          <rect x={leftX - 46} y={childY - 18} width={92} height={36}
+            rx="8" fill={leafBg} stroke={col} strokeWidth="1.8" />
+          <text x={leftX} y={childY - 2} textAnchor="middle"
+            fontSize="12" fontWeight="700" fill={col}>
+            predict: {stump.leftVal >= 0 ? "+" : ""}{stump.leftVal.toFixed(3)}
+          </text>
+          <text x={leftX} y={childY + 13} textAnchor="middle"
+            fontSize="9.5" fill="#666">age ≤ {stump.threshold}</text>
+          {/* right leaf */}
+          <rect x={rightX - 46} y={childY - 18} width={92} height={36}
+            rx="8" fill={leafBg} stroke={col} strokeWidth="1.8" />
+          <text x={rightX} y={childY - 2} textAnchor="middle"
+            fontSize="12" fontWeight="700" fill={col}>
+            predict: {stump.rightVal >= 0 ? "+" : ""}{stump.rightVal.toFixed(3)}
+          </text>
+          <text x={rightX} y={childY + 13} textAnchor="middle"
+            fontSize="9.5" fill="#666">age &gt; {stump.threshold}</text>
+        </>
+      );
+    }
+
+    // ── helper: mini example table for 3 chosen points ──
+    function MiniTable({ treeIdx, sectionY, stump, residualsBefore }) {
+      const col = TREE_COLORS[treeIdx];
+      const sampleIdxs = [0, 3, 5]; // age=5, age=12, age=28
+      const TX = 546;
+      const TY = sectionY + 4;
+      return (
+        <>
+          <rect x={TX} y={TY} width={296} height={148} rx="8"
+            fill="white" stroke={col} strokeWidth="1.2" opacity="0.85" />
+          <text x={TX + 148} y={TY + 17} textAnchor="middle"
+            fontSize="11" fontWeight="700" fill={col}>3 example predictions</text>
+          {/* header row */}
+          {["age", "resid in", "T(x)", "η·T(x)"].map((h, hi) => (
+            <text key={hi} x={TX + 18 + hi * 68} y={TY + 33}
+              fontSize="10" fontWeight="700" fill="#555">{h}</text>
+          ))}
+          <line x1={TX + 8} y1={TY + 37} x2={TX + 288} y2={TY + 37}
+            stroke={col} strokeWidth="0.8" opacity="0.5" />
+          {sampleIdxs.map((si, row) => {
+            const age = xs[si];
+            const rBefore = residualsBefore[si];
+            const tPred = age <= stump.threshold ? stump.leftVal : stump.rightVal;
+            const etaTp = eta * tPred;
+            const rowY = TY + 52 + row * 32;
+            return (
+              <g key={row}>
+                <text x={TX + 18} y={rowY} fontSize="12" fontWeight="700" fill="#333">{age}</text>
+                <text x={TX + 86} y={rowY} fontSize="11"
+                  fill={rBefore >= 0 ? "#1f9e6b" : "#e0492e"} fontWeight="600">
+                  {rBefore >= 0 ? "+" : ""}{rBefore.toFixed(3)}
+                </text>
+                <text x={TX + 154} y={rowY} fontSize="11"
+                  fill={tPred >= 0 ? "#1f9e6b" : "#e0492e"} fontWeight="600">
+                  {tPred >= 0 ? "+" : ""}{tPred.toFixed(3)}
+                </text>
+                <text x={TX + 222} y={rowY} fontSize="11"
+                  fill={etaTp >= 0 ? "#1f9e6b" : "#e0492e"} fontWeight="700">
+                  {etaTp >= 0 ? "+" : ""}{etaTp.toFixed(3)}
+                </text>
+                <line x1={TX + 8} y1={rowY + 5} x2={TX + 288} y2={rowY + 5}
+                  stroke="#ddd" strokeWidth="0.7" />
+              </g>
+            );
+          })}
+        </>
+      );
+    }
+
+    // ── helper: residual bar strip between trees ──
+    function ResidBand({ topY, residBefore, residAfter, labelBefore, labelAfter, col }) {
+      const BAR_AREA_X = 30;
+      const BAR_AREA_W = 500;
+      const nPts = residBefore.length;
+      const barW = 22;
+      const barSpacing = BAR_AREA_W / nPts;
+      const maxAbs = Math.max(...residBefore.map(Math.abs), 0.1);
+      const barMaxH = 26;
+
+      const barX = (i) => BAR_AREA_X + i * barSpacing + (barSpacing - barW) / 2;
+      const barH = (r) => Math.max(2, (Math.abs(r) / maxAbs) * barMaxH);
+      const barCol = (r) => r >= 0 ? "#1f9e6b" : "#e0492e";
+
+      return (
+        <>
+          {/* Before label */}
+          <text x={BAR_AREA_X + 4} y={topY + 16}
+            fontSize="10.5" fontWeight="700" fill="#555">{labelBefore}</text>
+          {/* Before bars */}
+          {residBefore.map((r, i) => (
+            <rect key={i}
+              x={barX(i)} y={topY + 22 - barH(r)}
+              width={barW} height={barH(r)}
+              fill={barCol(r)} rx="2" opacity="0.75" />
+          ))}
+          {/* Arrow */}
+          <text x={BAR_AREA_X + BAR_AREA_W / 2} y={topY + 38}
+            textAnchor="middle" fontSize="11" fill={col} fontWeight="700">
+            ↓ new residuals = old − η·T(x) &nbsp;
+            (MSE reduced by {(((maxAbs**2) - Math.max(...residAfter.map(r=>r*r), 0.01))/maxAbs**2 * 100).toFixed(0)}% avg |r|)
+          </text>
+          {/* After label */}
+          <text x={BAR_AREA_X + 4} y={topY + 50}
+            fontSize="10.5" fontWeight="700" fill="#555">{labelAfter}</text>
+          {/* After bars */}
+          {residAfter.map((r, i) => (
+            <rect key={i}
+              x={barX(i)} y={topY + 56 - barH(r) * (Math.abs(r) / maxAbs)}
+              width={barW} height={Math.max(2, (Math.abs(r) / maxAbs) * barMaxH * (Math.abs(r) / maxAbs))}
+              fill={barCol(r)} rx="2" opacity="0.55" />
+          ))}
+          {/* x-axis labels: ages */}
+          {xs.map((x, i) => (
+            <text key={i} x={barX(i) + barW / 2} y={topY + 64}
+              textAnchor="middle" fontSize="8.5" fill="#888">{x}</text>
+          ))}
+        </>
+      );
+    }
+
+    return (
+      <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+        style={{ width: "100%", maxWidth: SVG_W, display: "block", fontFamily: "var(--ui-font)" }}>
+
+        {/* ── TREE 1 ── */}
+        <Stump treeIdx={0} sectionY={T1_Y} stump={BOOST_REG.stumps[0]} />
+        <MiniTable treeIdx={0} sectionY={T1_Y} stump={BOOST_REG.stumps[0]} residualsBefore={resid0} />
+
+        {/* ── RESIDUAL BAND 1 ── */}
+        <rect x={20} y={R1_Y} width={820} height={68} rx="8"
+          fill="rgba(148,162,188,.06)" stroke="var(--line)" strokeWidth="1" />
+        <ResidBand
+          topY={R1_Y + 4}
+          residBefore={resid0} residAfter={resid1}
+          labelBefore="Residuals before T1 (large):"
+          labelAfter="Residuals after T1 (shrunk):"
+          col={TREE_COLORS[0]} />
+
+        {/* ── TREE 2 ── */}
+        <Stump treeIdx={1} sectionY={T2_Y} stump={BOOST_REG.stumps[1]} />
+        <MiniTable treeIdx={1} sectionY={T2_Y} stump={BOOST_REG.stumps[1]} residualsBefore={resid1} />
+
+        {/* ── RESIDUAL BAND 2 ── */}
+        <rect x={20} y={R2_Y} width={820} height={68} rx="8"
+          fill="rgba(148,162,188,.06)" stroke="var(--line)" strokeWidth="1" />
+        <ResidBand
+          topY={R2_Y + 4}
+          residBefore={resid1} residAfter={resid2}
+          labelBefore="Residuals before T2:"
+          labelAfter="Residuals after T2 (smaller still):"
+          col={TREE_COLORS[1]} />
+
+        {/* ── TREE 3 ── */}
+        <Stump treeIdx={2} sectionY={T3_Y} stump={BOOST_REG.stumps[2]} />
+        <MiniTable treeIdx={2} sectionY={T3_Y} stump={BOOST_REG.stumps[2]} residualsBefore={resid2} />
+
+        {/* ── FINAL FORMULA ── */}
+        <rect x={20} y={FIN_Y} width={820} height={44} rx="10"
+          fill="rgba(43,91,255,.06)" stroke="#2b5bff" strokeWidth="2" />
+        <text x={430} y={FIN_Y + 19} textAnchor="middle"
+          fontSize="14" fontWeight="800" fill="#2b5bff">
+          F(x) = ȳ + η·T₁(x) + η·T₂(x) + η·T₃(x)
+        </text>
+        <text x={430} y={FIN_Y + 37} textAnchor="middle"
+          fontSize="11" fill="#555">
+          = {fmt(initPred, 3)} + 0.5·T₁(x) + 0.5·T₂(x) + 0.5·T₃(x) &nbsp;|&nbsp; MSE: 5.500 → 1.925 → 1.473 → 1.285
+        </text>
+      </svg>
+    );
+  }
+
+  const stageSeqTrees = {
+    id: "seq-trees", group: "Training",
+    title: "3 Sequential Trees — Each Targets the Previous Errors",
+    map: "Seq Trees",
+    why: "Seeing all 3 trees laid out sequentially — with the residuals flowing between them — makes the 'student studying wrong answers' analogy concrete and visual.",
+    render: () => (
+      <>
+        <Lead>
+          The <b>key mechanic of gradient boosting</b> is the chain: each tree sees only the
+          errors the previous ensemble could not fix. Tree 1 makes big corrections (leaf values ≈
+          ±1.95 / −2.43) because the initial residuals are large. Tree 2 corrects what Tree 1
+          missed (leaf values ≈ ±0.43 / −0.48). Tree 3 fine-tunes further (±0.12 / −0.38).
+          This is the "student studying wrong answers" pattern — each round, the student
+          focuses only on what they still got wrong.
+        </Lead>
+        <Lead>
+          The residual bars between each tree make the shrinkage visible. After Tree 1, the
+          biggest errors (young houses under-predicted, old houses over-predicted) are fixed.
+          After Tree 2, only subtle patterns remain. After Tree 3, MSE has dropped from
+          5.500 → 1.285 — a <b>77% reduction</b> in 3 stumps.
+        </Lead>
+        <SeqTreesSVG />
+        <Note>
+          The leaf values get smaller with every round because the residuals we are fitting
+          get smaller. Tree 1's leaves (±1.95, −2.43) reflect large initial errors;
+          Tree 3's leaves (±0.12, −0.38) reflect the fine-grained residuals that remain.
+          This automatic magnitude decay is a natural form of regularization.
+        </Note>
+      </>
+    ),
+  };
+
+  // ────────────────────────────────────────────────────────
   //  STAGE 6b: Boost Animation
   // ────────────────────────────────────────────────────────
 
@@ -1598,6 +1897,7 @@
     stageTree1,
     stageTree2,
     stageTree3,
+    stageSeqTrees,
     stageBoostAnim,
     stageEnsemble,
     stageEta,

@@ -39,52 +39,66 @@ function MLApp() {
   return (
     <window.TipLayer>
       <div className="tf-app">
-        {/* ── top nav bar ── */}
-        <div className="tf-archbar">
-          <a className="tf-sitebrand" href="index.html" title="Home">
-            <span className="tf-sitebrand-mark">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="2.4"/><circle cx="5" cy="6" r="1.6"/>
-                <circle cx="19" cy="6" r="1.6"/><circle cx="5" cy="18" r="1.6"/>
-                <circle cx="19" cy="18" r="1.6"/>
-                <path d="M6.6 7 10 10.4M17.4 7 14 10.4M6.6 17 10 13.6M17.4 17 14 13.6"/>
-              </svg>
-            </span>
-            <span className="tf-sitebrand-name">Neural Codex</span>
-          </a>
-          <span className="tf-archbar-sep">/</span>
-          <span className="tf-archbar-lbl">{META.category || "ML Algorithms"}</span>
-          <span className="tf-archbar-sep">/</span>
-          <span className="tf-archbar-cur">{META.cur}</span>
-          {META.modeLinks && META.modeLinks.length > 0 && (
-            <div className="tf-archtabs" style={{marginLeft: 10}}>
-              {META.modeLinks.map(m => (
-                <a key={m.href} className={"tf-archtab" + (m.active ? " is-on" : "")} href={m.href}>
-                  {m.label}
-                </a>
-              ))}
+        {/* ── sticky header: nav bar + controls ���─ */}
+        <div style={{position:"sticky",top:0,zIndex:100,background:"var(--bg)"}}>
+          <div className="tf-archbar">
+            <a className="tf-sitebrand" href="index.html" title="Home">
+              <span className="tf-sitebrand-mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="2.4"/><circle cx="5" cy="6" r="1.6"/>
+                  <circle cx="19" cy="6" r="1.6"/><circle cx="5" cy="18" r="1.6"/>
+                  <circle cx="19" cy="18" r="1.6"/>
+                  <path d="M6.6 7 10 10.4M17.4 7 14 10.4M6.6 17 10 13.6M17.4 17 14 13.6"/>
+                </svg>
+              </span>
+              <span className="tf-sitebrand-name">Neural Codex</span>
+            </a>
+            <span className="tf-archbar-sep">/</span>
+            <span className="tf-archbar-lbl">{META.category || "ML Algorithms"}</span>
+            <span className="tf-archbar-sep">/</span>
+            <span className="tf-archbar-cur">{META.cur}</span>
+            {META.modeLinks && META.modeLinks.length > 0 && (
+              <div className="tf-archtabs" style={{marginLeft: 10}}>
+                {META.modeLinks.map(m => (
+                  <a key={m.href} className={"tf-archtab" + (m.active ? " is-on" : "")} href={m.href}>
+                    {m.label}
+                  </a>
+                ))}
+              </div>
+            )}
+            <div className="tf-archbar-right">
+              <a className="tf-archbar-home" href="index.html">Home</a>
+              <a className="tf-archbar-home" href="about.html">About me</a>
             </div>
-          )}
-          <div className="tf-archbar-right">
-            <a className="tf-archbar-home" href="index.html">Home</a>
-            <a className="tf-archbar-home" href="about.html">About me</a>
           </div>
+
+          {/* ── controls bar (only shown when page has sliders) ── */}
+          {META.renderInput && (
+            <header className="tf-top">
+              <div className="tf-brand">
+                <div className="tf-brand-text">
+                  <b>{META.title}</b>
+                  <span>{META.subtitle}</span>
+                </div>
+              </div>
+              <div className="nn-input-bar">
+                {META.renderInput(input, setInput, trace)}
+              </div>
+            </header>
+          )}
         </div>
 
-        {/* ── page header with interactive controls ── */}
-        <header className="tf-top">
-          <div className="tf-brand">
-            <div className="tf-brand-text">
-              <b>{META.title}</b>
-              <span>{META.subtitle}</span>
+        {/* ── page title (no sliders) ── */}
+        {!META.renderInput && (
+          <header className="tf-top">
+            <div className="tf-brand">
+              <div className="tf-brand-text">
+                <b>{META.title}</b>
+                <span>{META.subtitle}</span>
+              </div>
             </div>
-          </div>
-          {META.renderInput && (
-            <div className="nn-input-bar">
-              {META.renderInput(input, setInput, trace)}
-            </div>
-          )}
-        </header>
+          </header>
+        )}
 
         {/* ── main content ── */}
         <div className="tf-main tf-main--solo">

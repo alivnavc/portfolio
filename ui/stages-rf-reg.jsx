@@ -739,6 +739,290 @@
       },
     },
 
+    /* ── 3b. Three Regression Trees Side by Side ── */
+    {
+      id: "three-trees", group: "Training", title: "The 3 Regression Trees — Different Splits, Different Predictions",
+      map: "3 Trees",
+      why: "Seeing all three regression trees simultaneously shows how different bootstrap samples produce different split thresholds and different leaf predictions. The averaging step then stabilises these individual estimates.",
+      render: () => {
+        // Model data from ml-rf.js
+        // Tree 1: age <= 10 → 7.5 / age <= 25 → 4.75 / > 25 → 2.3
+        // Tree 2: age <= 9  → 7.85 / age <= 20 → 6.25 / > 20 → 2.63
+        // Tree 3: age <= 11 → 7.05 / age <= 30 → 4.275 / > 30 → 2.0
+
+        // Bootstrap samples from ml-rf.js
+        // [0,0,2,3,4,5,6,7] → house #0 twice, house #1 OOB
+        // [0,1,3,4,4,5,6,7] → house #4 twice, house #2 OOB
+        // [1,2,3,4,5,6,7,7] → house #7 twice, house #0 OOB
+
+        // Query point
+        const QUERY_AGE = 10;
+        const treePreds = [7.5, 7.85, 7.05]; // each tree's prediction at age=10
+        const avgPred = treePreds.reduce((a, b) => a + b, 0) / 3;
+
+        const treeColors = ["#2196f3", "#4caf50", "#ff9800"];
+        const treeBg = ["#e3f2fd", "#e8f5e9", "#fff3e0"];
+        const treeHeaderText = ["#0d47a1", "#1b5e20", "#e65100"];
+
+        // Colour helper for leaf node background (blue=low price → green=high price)
+        function leafColor(predict) {
+          // scale: 0 → blue, 5 → mid, 10 → green
+          const t = Math.max(0, Math.min(1, predict / 9.5));
+          const r = Math.round(33 + (76 - 33) * (1 - t));
+          const g = Math.round(150 + (175 - 150) * t);
+          const b = Math.round(243 + (80 - 243) * t);
+          return `rgba(${r},${g},${b},0.18)`;
+        }
+        function leafStroke(predict) {
+          const t = Math.max(0, Math.min(1, predict / 9.5));
+          const r = Math.round(33 + (76 - 33) * (1 - t));
+          const g = Math.round(150 + (175 - 150) * t);
+          const b = Math.round(243 + (80 - 243) * t);
+          return `rgb(${r},${g},${b})`;
+        }
+
+        function ThreeRegTreesSVG() {
+          const W = 920, H = 580;
+          const nodeW = 138, nodeH = 58;
+          const leafW = 132, leafH = 60;
+          const rootY = 95;
+          const midY = 230;
+          const leafY = 375;
+
+          const cols = [
+            { cx: 145, treeIdx: 0, label: "Tree 1", color: treeColors[0], bg: treeBg[0], textColor: treeHeaderText[0] },
+            { cx: 460, treeIdx: 1, label: "Tree 2", color: treeColors[1], bg: treeBg[1], textColor: treeHeaderText[1] },
+            { cx: 775, treeIdx: 2, label: "Tree 3", color: treeColors[2], bg: treeBg[2], textColor: treeHeaderText[2] },
+          ];
+
+          const trees = [
+            {
+              root: { thresh: "10", n: 8, variance: "5.44" },
+              leftLeaf: { pred: 7.50, n: 3, desc: "age ≤ 10" },
+              rightInternal: { thresh: "25", n: 5, variance: "2.14" },
+              rightLeft: { pred: 4.75, n: 2, desc: "10 < age ≤ 25" },
+              rightRight: { pred: 2.30, n: 3, desc: "age > 25" },
+              bsNote: "House #0 drawn twice",
+            },
+            {
+              root: { thresh: "9", n: 8, variance: "5.44" },
+              leftLeaf: { pred: 7.85, n: 2, desc: "age ≤ 9" },
+              rightInternal: { thresh: "20", n: 6, variance: "3.01" },
+              rightLeft: { pred: 6.25, n: 2, desc: "9 < age ≤ 20" },
+              rightRight: { pred: 2.63, n: 4, desc: "age > 20" },
+              bsNote: "House #4 drawn twice",
+            },
+            {
+              root: { thresh: "11", n: 8, variance: "5.44" },
+              leftLeaf: { pred: 7.05, n: 4, desc: "age ≤ 11" },
+              rightInternal: { thresh: "30", n: 4, variance: "1.25" },
+              rightLeft: { pred: 4.275, n: 3, desc: "11 < age ≤ 30" },
+              rightRight: { pred: 2.00, n: 1, desc: "age > 30" },
+              bsNote: "House #7 drawn twice",
+            },
+          ];
+
+          function InternalNode({ cx, cy, thresh, n, variance, color }) {
+            const x = cx - nodeW / 2, y = cy - nodeH / 2;
+            return (
+              <g>
+                <rect x={x} y={y} width={nodeW} height={nodeH} rx={8}
+                  fill="#f5f7ff" stroke={color} strokeWidth={2} />
+                <text x={cx} y={cy - 14} textAnchor="middle" fontSize={13} fontWeight="700" fill="#1a237e">
+                  age ≤ {thresh}
+                </text>
+                <text x={cx} y={cy + 2} textAnchor="middle" fontSize={10} fill="#666">
+                  n={n}, var={variance}
+                </text>
+                {/* mini bar showing mean of y in node */}
+                <rect x={cx - 40} y={cy + 12} width={80} height={8} rx={3} fill="#e8eaf6" />
+                <rect x={cx - 40} y={cy + 12} width={Math.round(80 * n / 8)} height={8} rx={3} fill={color} opacity={0.7} />
+              </g>
+            );
+          }
+
+          function LeafNode({ cx, cy, pred, n, desc }) {
+            const x = cx - leafW / 2, y = cy - leafH / 2;
+            const bg = leafColor(pred);
+            const stroke = leafStroke(pred);
+            return (
+              <g>
+                <rect x={x} y={y} width={leafW} height={leafH} rx={8}
+                  fill={bg} stroke={stroke} strokeWidth={2} />
+                <text x={cx} y={cy - 12} textAnchor="middle" fontSize={13} fontWeight="800" fill="#1a237e">
+                  predict: ${pred.toFixed(2)}×100k
+                </text>
+                <text x={cx} y={cy + 4} textAnchor="middle" fontSize={10} fill="#555">
+                  n={n} point{n !== 1 ? "s" : ""}
+                </text>
+                <text x={cx} y={cy + 18} textAnchor="middle" fontSize={9} fill="#888" fontStyle="italic">
+                  {desc}
+                </text>
+              </g>
+            );
+          }
+
+          function Edge({ x1, y1, x2, y2, color, label, labelSide }) {
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            return (
+              <g>
+                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={2} />
+                <text
+                  x={labelSide === "left" ? midX - 8 : midX + 8}
+                  y={midY}
+                  textAnchor={labelSide === "left" ? "end" : "start"}
+                  fontSize={11} fontWeight="700" fill={color}
+                >{label}</text>
+              </g>
+            );
+          }
+
+          return (
+            <svg width={W} height={H} style={{ display: "block", border: "1px solid #e0e0e0", borderRadius: 12, background: "#fefefe", overflow: "visible" }}>
+
+              {cols.map((col, ci) => {
+                const t = trees[ci];
+                const cx = col.cx;
+                const rootCx = cx, rootCy = rootY;
+                const leftLeafCx = cx - 148, leftLeafCy = midY;
+                const rightInternalCx = cx + 112, rightInternalCy = midY;
+                const rightLeftCx = cx + 30, rightLeftCy = leafY;
+                const rightRightCx = cx + 192, rightRightCy = leafY;
+
+                const colLeft = ci === 0 ? 4 : ci === 1 ? 310 : 624;
+                const colRight = ci === 0 ? 296 : ci === 1 ? 606 : 916;
+                const colWidth = colRight - colLeft;
+
+                return (
+                  <g key={ci}>
+                    {/* Header band */}
+                    <rect x={colLeft} y={4} width={colWidth} height={38} rx={8}
+                      fill={col.bg} stroke={col.color} strokeWidth={1.5} />
+                    <text x={cx} y={20} textAnchor="middle" fontSize={13} fontWeight="800" fill={col.textColor}>
+                      {col.label}
+                    </text>
+                    <text x={cx} y={35} textAnchor="middle" fontSize={10} fill={col.textColor} opacity={0.8}>
+                      {t.bsNote}
+                    </text>
+
+                    {/* Edges */}
+                    <Edge x1={rootCx - nodeW / 4} y1={rootCy + nodeH / 2}
+                      x2={leftLeafCx} y2={leftLeafCy - leafH / 2}
+                      color="#4caf50" label="≤" labelSide="left" />
+                    <Edge x1={rootCx + nodeW / 4} y1={rootCy + nodeH / 2}
+                      x2={rightInternalCx} y2={rightInternalCy - nodeH / 2}
+                      color="#ef5350" label=">" labelSide="right" />
+                    <Edge x1={rightInternalCx - nodeW / 4} y1={rightInternalCy + nodeH / 2}
+                      x2={rightLeftCx} y2={rightLeftCy - leafH / 2}
+                      color="#4caf50" label="≤" labelSide="left" />
+                    <Edge x1={rightInternalCx + nodeW / 4} y1={rightInternalCy + nodeH / 2}
+                      x2={rightRightCx} y2={rightRightCy - leafH / 2}
+                      color="#ef5350" label=">" labelSide="right" />
+
+                    {/* Nodes */}
+                    <InternalNode cx={rootCx} cy={rootCy}
+                      thresh={t.root.thresh} n={t.root.n} variance={t.root.variance} color={col.color} />
+                    <LeafNode cx={leftLeafCx} cy={leftLeafCy}
+                      pred={t.leftLeaf.pred} n={t.leftLeaf.n} desc={t.leftLeaf.desc} />
+                    <InternalNode cx={rightInternalCx} cy={rightInternalCy}
+                      thresh={t.rightInternal.thresh} n={t.rightInternal.n} variance={t.rightInternal.variance} color={col.color} />
+                    <LeafNode cx={rightLeftCx} cy={rightLeftCy}
+                      pred={t.rightLeft.pred} n={t.rightLeft.n} desc={t.rightLeft.desc} />
+                    <LeafNode cx={rightRightCx} cy={rightRightCy}
+                      pred={t.rightRight.pred} n={t.rightRight.n} desc={t.rightRight.desc} />
+
+                    {/* Bootstrap info */}
+                    <rect x={colLeft + 8} y={leafY + 44} width={colWidth - 16} height={28} rx={6}
+                      fill={col.bg} stroke={col.color} strokeWidth={1} opacity={0.6} />
+                    <text x={cx} y={leafY + 63} textAnchor="middle" fontSize={10} fill={col.textColor} fontWeight="600">
+                      Bootstrap sample: {[7, 6, 7][ci]} unique houses
+                    </text>
+
+                    {/* Prediction arrow for query age=10 */}
+                    <g>
+                      <line x1={cx} y1={leafY + 80} x2={cx} y2={leafY + 108}
+                        stroke={col.color} strokeWidth={2} markerEnd="url(#arrow)" />
+                      <polygon points={`${cx},${leafY + 112} ${cx - 6},${leafY + 100} ${cx + 6},${leafY + 100}`}
+                        fill={col.color} />
+                      <rect x={cx - 55} y={leafY + 116} width={110} height={26} rx={6}
+                        fill={col.color} opacity={0.9} />
+                      <text x={cx} y={leafY + 133} textAnchor="middle" fontSize={11} fontWeight="800" fill="#fff">
+                        age=10 → ${treePreds[ci].toFixed(2)}×100k
+                      </text>
+                    </g>
+                  </g>
+                );
+              })}
+
+              {/* Column dividers */}
+              <line x1={305} y1={4} x2={305} y2={H - 60} stroke="#e0e0e0" strokeWidth={1} strokeDasharray="4 3" />
+              <line x1={615} y1={4} x2={615} y2={H - 60} stroke="#e0e0e0" strokeWidth={1} strokeDasharray="4 3" />
+
+              {/* Average row */}
+              <rect x={10} y={H - 52} width={W - 20} height={42} rx={10}
+                fill="#fce4ec" stroke="#e91e63" strokeWidth={2} />
+              <text x={W / 2} y={H - 34} textAnchor="middle" fontSize={12} fontWeight="700" fill="#b71c1c">
+                Age = {QUERY_AGE} years: Tree 1 → ${treePreds[0].toFixed(2)}   |   Tree 2 → ${treePreds[1].toFixed(2)}   |   Tree 3 → ${treePreds[2].toFixed(2)}
+              </text>
+              <text x={W / 2} y={H - 16} textAnchor="middle" fontSize={13} fontWeight="900" fill="#c62828">
+                Forest Average = (${treePreds[0].toFixed(2)} + ${treePreds[1].toFixed(2)} + ${treePreds[2].toFixed(2)}) ÷ 3 = ${avgPred.toFixed(2)} × 100k
+              </text>
+
+              {/* Legend */}
+              <g transform={`translate(10, ${H - 56})`}>
+              </g>
+            </svg>
+          );
+        }
+
+        return (
+          <>
+            <Lead>
+              Here are all three regression trees drawn <b>side by side</b>. Each column shows one
+              complete tree: an <b>age threshold</b> at the root, then a second split, then three
+              leaf nodes. Each leaf predicts the <b>mean price</b> of the training houses that landed
+              in that region. The arrows at the bottom show what each tree predicts for a query house
+              of <b>age = {QUERY_AGE} years</b>.
+            </Lead>
+            <Lead>
+              The three trees split at <b>different thresholds</b> — age ≤ 10, 9, and 11 at the
+              root; age ≤ 25, 20, and 30 at the second level. This happens because each tree
+              trained on a different bootstrap sample. House #0 (age=5, $8.2M) appears twice in
+              Tree 1's sample, pulling the young-house mean up slightly. These small differences
+              cascade into different leaf predictions.
+            </Lead>
+            <div style={{ overflowX: "auto", margin: "16px 0" }}>
+              <ThreeRegTreesSVG />
+            </div>
+            <div style={{ background: "#e3f2fd", border: "2px solid #2196f3", borderRadius: 10, padding: "14px 18px", margin: "16px 0", fontSize: 13, lineHeight: 1.7 }}>
+              <b style={{ color: "#0d47a1", fontSize: 14 }}>Key insight — why averaging stabilises predictions:</b><br />
+              Different bootstrap samples produce different split points, which in turn produce
+              different leaf predictions. <b>The average is more stable than any single tree</b>
+              because the individual errors (caused by which houses happened to appear in each
+              bootstrap) tend to cancel out. This is the core mathematical benefit of bagging:
+              Var(average) = ρσ² + (1−ρ)σ²/B, where B=3 here reduces per-tree noise significantly.
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "12px 0" }}>
+              {[
+                { color: "#2196f3", label: "Tree 1", detail: "Splits: age ≤ 10, then ≤ 25. Bootstrap: house #0 twice → slightly higher mean for young segment." },
+                { color: "#4caf50", label: "Tree 2", detail: "Splits: age ≤ 9, then ≤ 20. Bootstrap: house #4 twice → pulled the 9–20yr mean toward $3.8M." },
+                { color: "#ff9800", label: "Tree 3", detail: "Splits: age ≤ 11, then ≤ 30. Bootstrap: house #7 twice → lower mean for oldest segment." },
+              ].map(({ color, label, detail }) => (
+                <div key={label} style={{
+                  flex: "1 1 200px", padding: "10px 14px", borderRadius: 9,
+                  border: `2px solid ${color}`, background: color + "10",
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: "#555", lineHeight: 1.5 }}>{detail}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      },
+    },
+
     /* ── 3b. Forest Animation ── */
     {
       id: "forest-animation", group: "Training", title: "Watch 3 Trees Predict & Average",
