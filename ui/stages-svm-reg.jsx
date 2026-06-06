@@ -23,9 +23,9 @@
   const COL_IN = "rgba(43,91,255,0.55)";
 
   /* ── RegBase: axes + grid ────────────────────────────────── */
-  function RegBase({ children, w = W, h = H }) {
+  function RegBase({ children }) {
     return (
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", maxWidth: w, display: "block" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W, display: "block" }}>
         {[2,4,6,8,10].map(v => (
           <g key={v}>
             <line x1={PAD.l} y1={sy(v)} x2={W-PAD.r} y2={sy(v)} stroke="var(--line)" strokeWidth="0.6" strokeDasharray="3 3" />
@@ -53,20 +53,19 @@
     );
   }
 
-  /* ── Epsilon tube path ───────────────────────────────────── */
-  function EpsilonTube({ w, b, eps, color = "rgba(43,91,255,0.10)", stroke = "rgba(43,91,255,0.35)" }) {
-    const x0 = xMin, x1 = xMax;
-    const y0hi = w * x0 + b + eps, y0lo = w * x0 + b - eps;
-    const y1hi = w * x1 + b + eps, y1lo = w * x1 + b - eps;
+  /* ── Epsilon tube ────────────────────────────────────────── */
+  function EpsilonTube({ w, b, eps, fill = "rgba(43,91,255,0.10)", stroke = "rgba(43,91,255,0.35)" }) {
+    const y0hi = w * xMin + b + eps, y0lo = w * xMin + b - eps;
+    const y1hi = w * xMax + b + eps, y1lo = w * xMax + b - eps;
     return (
       <>
         <polygon
-          points={`${sx(x0)},${sy(y0hi)} ${sx(x1)},${sy(y1hi)} ${sx(x1)},${sy(y1lo)} ${sx(x0)},${sy(y0lo)}`}
-          fill={color}
+          points={`${sx(xMin)},${sy(y0hi)} ${sx(xMax)},${sy(y1hi)} ${sx(xMax)},${sy(y1lo)} ${sx(xMin)},${sy(y0lo)}`}
+          fill={fill}
         />
-        <line x1={sx(x0)} y1={sy(y0hi)} x2={sx(x1)} y2={sy(y1hi)}
+        <line x1={sx(xMin)} y1={sy(y0hi)} x2={sx(xMax)} y2={sy(y1hi)}
           stroke={stroke} strokeWidth="1.5" strokeDasharray="5 3" />
-        <line x1={sx(x0)} y1={sy(y0lo)} x2={sx(x1)} y2={sy(y1lo)}
+        <line x1={sx(xMin)} y1={sy(y0lo)} x2={sx(xMax)} y2={sy(y1lo)}
           stroke={stroke} strokeWidth="1.5" strokeDasharray="5 3" />
       </>
     );
@@ -84,7 +83,7 @@
   }
 
   /* ── Data points ─────────────────────────────────────────── */
-  function DataPts({ allPreds, isSV, showQuery, qx, qy }) {
+  function DataPts({ isSV, showQuery, qx, qy }) {
     return (
       <>
         {REG.xs.map((x, i) => {
@@ -129,52 +128,60 @@
 
     /* ── Stage 1: Overview ─────────────────────────────────── */
     {
-      id: "overview", group: "Overview", title: "What is SVR?",
+      id: "overview", group: "Overview", title: "What is Support Vector Regression (SVR)?",
       map: "Overview",
-      why: "SVR extends the maximum-margin idea from classification to regression. Instead of a separating hyperplane, we fit a tube around the data — points inside the tube are treated as correct.",
+      why: "SVR extends the maximum-margin idea from classification to regression. Instead of a separating hyperplane, we fit a tube around the data — points inside the tube are treated as perfect predictions with zero loss.",
       render: (trace) => {
         const { allPreds, isSV } = trace;
         return (
           <>
             <Lead>
-              <b>Support Vector Regression (SVR)</b> fits a tube of width 2ε around the data.
-              Points <em>inside</em> the tube contribute zero loss.
-              Points <em>outside</em> the tube become support vectors and drive the fit.
+              <b>Support Vector Regression (SVR)</b> fits a "pipe" (tube) of width 2ε around the
+              regression line. Points <em>inside</em> the pipe are treated as perfect predictions
+              — they incur <b>zero loss</b>. Only points <em>outside</em> the pipe matter; they
+              are penalised proportionally to how far they stick out.
+            </Lead>
+            <Lead>
+              Think of it as drawing a pipe around the data: only the points sticking out of the
+              pipe influence the fit. This is the <b>ε-insensitive loss</b> function, and it gives
+              SVR its robustness to small noise and even moderate outliers — if a noisy measurement
+              is within ε of the true line, it has no effect on the learned parameters at all.
+            </Lead>
+            <Lead>
+              Before we proceed, let's define every term. <b>ε (epsilon)</b> is the tube half-width
+              — the distance from the regression line to either tube edge. <b>Slack variables</b>
+              ξᵢ ≥ 0 (above) and ξᵢ* ≥ 0 (below) measure how far points outside the tube are from
+              the tube boundary. <b>Support vectors</b> in SVR are the points on or outside the tube
+              — only they have non-zero Lagrange multipliers and only they define the regression line.
+              The <b>C parameter</b> (regularisation) penalises tube violations; larger C → tighter fit.
             </Lead>
 
             <RegBase>
               <EpsilonTube w={REG.w} b={REG.b} eps={REG.epsilon} />
               <RegLine w={REG.w} b={REG.b} />
-              <DataPts allPreds={allPreds} isSV={isSV} showQuery={false} />
-              {/* tube label */}
-              <text x={sx(9)} y={sy(REG.w*9+REG.b+REG.epsilon)-6} fontSize="11"
+              <DataPts isSV={isSV} showQuery={false} />
+              <text x={sx(8.2)} y={sy(REG.w*8.5+REG.b+REG.epsilon)-7} fontSize="11"
                 fill="var(--accent,#2b5bff)" fontFamily="inherit">ε-tube (±{REG.epsilon})</text>
             </RegBase>
 
             <div className="tf-archwrap" style={{ marginTop: 16 }}>
               <div className="tf-arch">
-                <div className="tf-arch-io">
-                  Training data <b>(xᵢ, yᵢ)</b> — continuous target y
-                </div>
-                <div className="tf-arch-f"><b>Fit: ŷ = w·x + b</b> (linear SVR)</div>
-                <div className="tf-arch-row">
-                  Find w, b that minimizes ½‖w‖² while keeping |y − ŷ| ≤ ε
-                </div>
-                <div className="tf-arch-f"><b>ε-insensitive loss</b></div>
+                <div className="tf-arch-io">Training data <b>(xᵢ, yᵢ)</b> — continuous target y</div>
+                <div className="tf-arch-f"><b>Fit: ŷ = w·x + b</b> (linear SVR in 1D)</div>
+                <div className="tf-arch-row">Find w, b minimising ½‖w‖² while |y − ŷ| ≤ ε for most points</div>
+                <div className="tf-arch-f"><b>ε-insensitive loss: L = max(0, |y − ŷ| − ε)</b></div>
                 <div className="tf-arch-row">Points inside tube → 0 loss. Outside → linear penalty.</div>
-                <div className="tf-arch-io tf-arch-io--out">
-                  Prediction ŷ = w·x + b — smooth, robust to outliers
-                </div>
+                <div className="tf-arch-io tf-arch-io--out">Prediction ŷ = w·x + b — robust to noise within ε</div>
               </div>
             </div>
 
             <div className="tf-legend">
               {[
-                ["ε", "epsilon", "scalar", "Tube half-width. Points within ε of the prediction incur zero loss."],
-                ["ξ", "slack (above)", "scalar", "How far a point exceeds the upper tube boundary."],
-                ["ξ*", "slack (below)", "scalar", "How far a point falls below the lower tube boundary."],
-                ["C", "regularization", "scalar", "Penalty for points outside the tube. Larger C → tighter fit."],
-                ["SV", "support vector", "subset", "Points on or outside the tube. Only these define the regression fit."],
+                ["ε", "epsilon (tube half-width)", "scalar", "Points within ε of the prediction incur zero loss. The key hyperparameter that defines the insensitivity zone."],
+                ["ξ, ξ*", "slack variables", "scalars", "ξᵢ = how far point i exceeds the upper tube; ξᵢ* = how far it falls below. Both ≥ 0."],
+                ["C", "regularisation penalty", "scalar", "Penalty for points outside the tube. Large C → tight tube, precise fit. Small C → wide tube, smoother fit."],
+                ["SV", "support vector", "subset of data", "Points on or outside the tube (|residual| ≥ ε). Only these define the regression fit — others have zero weight."],
+                ["ŷ", "prediction", "scalar", "ŷ = w·x + b for linear SVR; ŷ = Σ(αᵢ−αᵢ*)K(xᵢ,x)+b for kernel SVR."],
               ].map(r => (
                 <div className="tf-leg" key={r[0]}>
                   <div className="tf-leg-top"><span className="tf-sym">{r[0]}</span><span className="tf-leg-shape">{r[2]}</span></div>
@@ -184,7 +191,8 @@
               ))}
             </div>
             <Note>
-              Use the <b>x slider</b> to move the query point ★ and see the predicted value and tube bounds update live.
+              Use the <b>x slider</b> to move the query point ★ and see the predicted value,
+              tube bounds, and support vector classification update live.
             </Note>
           </>
         );
@@ -195,14 +203,22 @@
     {
       id: "dataset", group: "Data", title: "The Training Dataset",
       map: "Dataset",
-      why: "Before fitting, we examine the data to understand its shape. SVR works well when the relationship is approximately linear and there are some outliers we want to be robust to.",
+      why: "Before fitting, we examine the data shape. SVR works well when the relationship is approximately linear with some noise — the ε-tube will absorb the noise and only fit the trend.",
       render: (trace) => {
         const { pred } = trace;
         return (
           <>
             <Lead>
-              Our dataset has <b>10 points</b> with a roughly linear trend (x goes 1 to 10).
-              The query point ★ is controlled by the x slider — the predicted y is computed from ŷ = {REG.w}x + {REG.b}.
+              Our dataset has <b>10 points</b> with x ranging from 1 to 10 and y showing a
+              roughly linear trend with noise. The fitted SVR model uses w = {REG.w}, b = {REG.b},
+              ε = {REG.epsilon} — giving the prediction ŷ = {REG.w}x + {REG.b}.
+            </Lead>
+            <Lead>
+              Notice that the data is not perfectly linear: there are several noisy measurements
+              that deviate from the trend. SVR will fit a line through the "majority" of the data
+              while ignoring points that fall within the ε-tube, and penalising only those that
+              exceed it. Compare this to ordinary least squares which penalises every single deviation,
+              however small.
             </Lead>
             <Row>
               <div style={{ flex: "1 1 460px" }}>
@@ -216,49 +232,56 @@
               </div>
               <div style={{ flex: "0 0 220px" }}>
                 <Matrix
-                  data={REG.xs.map((x, i) => [x, REG.ys[i]])}
-                  rowLabels={REG.xs.map((_, i) => `x⁽${i+1}⁾`)}
-                  colLabels={["x", "y"]}
-                  caption="Training set"
-                  sub="10 examples"
+                  data={REG.xs.map((x, i) => [x, REG.ys[i], fmt(REG.w * x + REG.b, 2)])}
+                  rowLabels={REG.xs.map((_, i) => `i=${i+1}`)}
+                  colLabels={["x", "y", "ŷ"]}
+                  caption="Dataset + SVR predictions"
+                  sub="10 examples, 1D → 1D"
                   heat={false}
                 />
               </div>
             </Row>
             <Note>
-              The data shows a noisy linear trend — SVR will fit a line through the "middle" of the tube,
-              robust to the noisy points. Red squares (in later stages) will mark the support vectors.
+              The prediction column ŷ = {REG.w}x + {REG.b} shows what the model would predict for
+              each training x. In later stages, red squares will mark support vectors — points whose
+              residual |y − ŷ| ≥ ε = {REG.epsilon}.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 3: Epsilon Tube ─────────────────────────────── */
+    /* ── Stage 3: The ε-Tube ───────────────────────────────── */
     {
       id: "epsilon-tube", group: "Core Concept", title: "The ε-Tube — Zero-Loss Zone",
       map: "ε-Tube",
-      why: "The epsilon tube is the defining feature of SVR. Unlike MSE which penalizes every small deviation, SVR completely ignores errors smaller than ε — making it robust to small noise.",
+      why: "The epsilon tube is the defining feature of SVR. Unlike MSE which penalises every small deviation, SVR completely ignores errors smaller than ε — making it robust to small measurement noise.",
       render: (trace) => {
         const { allPreds, isSV } = trace;
         const eps = REG.epsilon;
         return (
           <>
             <Lead>
-              The <b>ε-tube</b> (epsilon-tube) is a band of width 2ε around the fitted line.
-              Any point within this band incurs <b>zero penalty</b>.
-              Only points outside the tube contribute to the loss.
+              The <b>ε-tube</b> is the band of width 2ε centred on the fitted regression line.
+              Any training point whose residual |y − ŷ| ≤ ε falls <em>inside</em> the tube and
+              contributes <b>exactly zero</b> to the loss. This is the ε-insensitive loss function:
+              L(y, ŷ) = max(0, |y − ŷ| − ε).
+            </Lead>
+            <Lead>
+              For our model with ε = {eps}, any prediction error smaller than {eps} is completely
+              ignored. Points outside the tube (|residual| &gt; {eps}) are penalised proportionally
+              to how far they overshoot: the loss is |residual| − ε, not |residual|² as in MSE.
+              This linear penalty outside the tube is what gives SVR its outlier robustness.
             </Lead>
 
-            <Formula label="No-loss condition">
-              |y − ŷ| ≤ ε = {eps} &nbsp;→&nbsp; <b>loss = 0</b>
-            </Formula>
+            <Formula label="ε-insensitive loss">L(y, ŷ) = max(0, |y − ŷ| − ε) = max(0, |residual| − {eps})</Formula>
+            <Formula label="Tube bounds at x">ŷ − ε ≤ y ≤ ŷ + ε &nbsp;→&nbsp; loss = 0</Formula>
 
             <RegBase>
               <EpsilonTube w={REG.w} b={REG.b} eps={eps} />
               <RegLine w={REG.w} b={REG.b} />
-              <DataPts allPreds={allPreds} isSV={isSV} showQuery={false} />
-              {/* ε annotation */}
+              <DataPts isSV={isSV} showQuery={false} />
+              {/* ε annotation bracket at x=3 */}
               {(() => {
                 const xA = 3;
                 const yline = REG.w * xA + REG.b;
@@ -266,26 +289,31 @@
                   <g>
                     <line x1={sx(xA)} y1={sy(yline)} x2={sx(xA)} y2={sy(yline+eps)}
                       stroke="var(--accent)" strokeWidth="2" />
+                    <line x1={sx(xA)-4} y1={sy(yline+eps)} x2={sx(xA)+4} y2={sy(yline+eps)}
+                      stroke="var(--accent)" strokeWidth="1.5" />
                     <line x1={sx(xA)} y1={sy(yline)} x2={sx(xA)} y2={sy(yline-eps)}
                       stroke="var(--accent)" strokeWidth="2" />
-                    <text x={sx(xA)+5} y={sy(yline+eps/2)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit">ε={eps}</text>
-                    <text x={sx(xA)+5} y={sy(yline-eps/2)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit">ε={eps}</text>
+                    <line x1={sx(xA)-4} y1={sy(yline-eps)} x2={sx(xA)+4} y2={sy(yline-eps)}
+                      stroke="var(--accent)" strokeWidth="1.5" />
+                    <text x={sx(xA)+7} y={sy(yline+eps/2)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit">+ε={eps}</text>
+                    <text x={sx(xA)+7} y={sy(yline-eps/2)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit">−ε={eps}</text>
                   </g>
                 );
               })()}
-              <text x={sx(7)} y={sy(REG.w*7+REG.b)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit" textAnchor="middle">ŷ = {REG.w}x + {REG.b}</text>
+              <text x={sx(6.5)} y={sy(REG.w*6.5+REG.b)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit" textAnchor="middle">ŷ = {REG.w}x + {REG.b}</text>
             </RegBase>
 
             <Row>
               <div className="nn-calc" style={{ flex: "1 1 220px" }}>
-                <div className="nn-calc-h">ε-tube bounds at each x</div>
-                {REG.xs.slice(0,5).map((x, i) => {
+                <div className="nn-calc-h">ε-tube membership (first 5 points)</div>
+                {REG.xs.slice(0, 5).map((x, i) => {
                   const yp = REG.w * x + REG.b;
-                  const inside = Math.abs(REG.ys[i] - yp) <= eps;
+                  const res = Math.abs(REG.ys[i] - yp);
+                  const inside = res <= eps;
                   return (
                     <div className="nn-calc-row" key={i}>
-                      x={x}: ŷ={fmt(yp,2)}, tube=[{fmt(yp-eps,2)}, {fmt(yp+eps,2)}] →{" "}
-                      <b style={{ color: inside ? "var(--pos,green)" : "var(--neg,red)" }}>
+                      x={x}: |{fmt(REG.ys[i],1)}−{fmt(yp,2)}|={fmt(res,3)} →&nbsp;
+                      <b style={{ color: inside ? "var(--pos,green)" : COL_SV }}>
                         {inside ? "inside ✓" : "outside ✗"}
                       </b>
                     </div>
@@ -293,386 +321,284 @@
                 })}
               </div>
               <div className="nn-calc" style={{ flex: "1 1 220px" }}>
-                <div className="nn-calc-h">Effect of ε</div>
-                <div className="nn-calc-row">ε large → more points inside → fewer SVs</div>
-                <div className="nn-calc-row">ε large → smoother, less precise fit</div>
-                <div className="nn-calc-row">ε small → more SVs → tighter fit</div>
-                <div className="nn-calc-row">ε=0 → every point is an SV (like MSE)</div>
+                <div className="nn-calc-h">Effect of changing ε</div>
+                <div className="nn-calc-row">ε large → wider tube → fewer SVs → smoother fit</div>
+                <div className="nn-calc-row">ε small → narrow tube → more SVs → tighter fit</div>
+                <div className="nn-calc-row">ε = 0 → every point is an SV (like OLS)</div>
+                <div className="nn-calc-row">ε = ∞ → no SVs, flat line (mean prediction)</div>
               </div>
             </Row>
             <Note>
-              Blue circles = points inside the tube (zero loss). Red squares = support vectors (outside tube).
-              The <b>regression line only "feels" the support vectors</b> — all other points are irrelevant.
+              <b>Blue circles</b> = inside the tube (zero loss, ignored). <b>Red squares</b> = support
+              vectors (outside the tube, penalised). The regression line only "feels" the support vectors
+              — all blue-circle points can be removed without changing the fit.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 4: Epsilon-insensitive Loss ─────────────────── */
+    /* ── Stage 4: Support Vectors in SVR ───────────────────── */
     {
-      id: "eps-loss", group: "Core Concept", title: "ε-Insensitive Loss Function",
-      map: "ε-Loss",
-      why: "The ε-insensitive loss function is what gives SVR its robustness. Unlike squared loss which grows quadratically, this loss is zero in the tube and grows linearly outside — less sensitive to outliers.",
-      render: () => {
-        // SVG of loss function
-        const LW = 380, LH = 220;
-        const lPad = { l: 50, r: 20, t: 20, b: 40 };
-        const eps = REG.epsilon;
-        const xRng = 3, yRng = 3;
-        const lx = v => lPad.l + ((v + xRng) / (2 * xRng)) * (LW - lPad.l - lPad.r);
-        const ly = v => lPad.t + (1 - v / yRng) * (LH - lPad.t - lPad.b);
-
-        const epsLoss = (r) => Math.max(0, Math.abs(r) - eps);
-        const mseLoss = (r) => Math.min(r * r / 2, yRng - 0.1);
-
-        const ptsEps = [], ptsMse = [];
-        for (let r = -xRng; r <= xRng; r += 0.05) {
-          ptsEps.push(`${lx(r).toFixed(1)},${ly(epsLoss(r)).toFixed(1)}`);
-          ptsMse.push(`${lx(r).toFixed(1)},${ly(mseLoss(r)).toFixed(1)}`);
-        }
-
-        return (
-          <>
-            <Lead>
-              The <b>ε-insensitive loss</b> L(y, ŷ) is flat within the tube (zero penalty) and grows
-              linearly outside. Compare this to MSE which grows quadratically — SVR is much less sensitive
-              to large residuals (outliers).
-            </Lead>
-
-            <Formula label="ε-insensitive loss">
-              L(y, ŷ) = max(0, |y − ŷ| − ε)
-            </Formula>
-            <Formula label="ε = {REG.epsilon}">
-              L = max(0, |residual| − {REG.epsilon})
-            </Formula>
-
-            <svg viewBox={`0 0 ${LW} ${LH}`} style={{ width: "100%", maxWidth: LW, display: "block" }}>
-              {/* grid */}
-              {[-2,-1,0,1,2].map(v => (
-                <g key={v}>
-                  <line x1={lx(v)} y1={lPad.t} x2={lx(v)} y2={LH-lPad.b} stroke="var(--line)" strokeWidth="0.5" strokeDasharray="3 3" />
-                  <line x1={lPad.l-3} y1={lx(v)*(LH-lPad.t-lPad.b)/(LW-lPad.l-lPad.r)} x2={lPad.l} y2={lx(v)*(LH-lPad.t-lPad.b)/(LW-lPad.l-lPad.r)} />
-                </g>
-              ))}
-              <line x1={lPad.l} y1={LH-lPad.b} x2={LW-lPad.r} y2={LH-lPad.b} stroke="var(--ink)" strokeWidth="1.5" />
-              <line x1={lPad.l} y1={lPad.t} x2={lPad.l} y2={LH-lPad.b} stroke="var(--ink)" strokeWidth="1.5" />
-              {[-2,-1,0,1,2].map(v => (
-                <g key={v}>
-                  <line x1={lx(v)} y1={LH-lPad.b} x2={lx(v)} y2={LH-lPad.b+3} stroke="var(--ink)" strokeWidth="1" />
-                  <text x={lx(v)} y={LH-lPad.b+14} textAnchor="middle" fontSize="10" fill="var(--muted)" fontFamily="inherit">{v}</text>
-                </g>
-              ))}
-              {[0,1,2].map(v => (
-                <g key={v}>
-                  <line x1={lPad.l-3} y1={ly(v)} x2={lPad.l} y2={ly(v)} stroke="var(--ink)" strokeWidth="1" />
-                  <text x={lPad.l-5} y={ly(v)+4} textAnchor="end" fontSize="10" fill="var(--muted)" fontFamily="inherit">{v}</text>
-                </g>
-              ))}
-              {/* ε zone shading */}
-              <rect x={lx(-eps)} y={lPad.t} width={lx(eps)-lx(-eps)} height={LH-lPad.t-lPad.b}
-                fill="rgba(43,91,255,0.08)" />
-              <line x1={lx(-eps)} y1={lPad.t} x2={lx(-eps)} y2={LH-lPad.b} stroke="rgba(43,91,255,0.4)" strokeWidth="1.5" strokeDasharray="4 2" />
-              <line x1={lx(eps)} y1={lPad.t} x2={lx(eps)} y2={LH-lPad.b} stroke="rgba(43,91,255,0.4)" strokeWidth="1.5" strokeDasharray="4 2" />
-              <text x={lx(0)} y={lPad.t+12} textAnchor="middle" fontSize="10" fill="rgba(43,91,255,0.7)" fontFamily="inherit">ε-zone (0 loss)</text>
-              {/* MSE curve */}
-              <polyline points={ptsMse.join(" ")} fill="none" stroke="rgba(226,76,96,0.6)" strokeWidth="2" />
-              {/* ε-insensitive loss */}
-              <polyline points={ptsEps.join(" ")} fill="none" stroke="var(--accent,#2b5bff)" strokeWidth="2.5" />
-              {/* legend */}
-              <line x1={LW-110} y1={40} x2={LW-90} y2={40} stroke="var(--accent)" strokeWidth="2.5" />
-              <text x={LW-88} y={44} fontSize="11" fill="var(--accent)" fontFamily="inherit">ε-insensitive</text>
-              <line x1={LW-110} y1={58} x2={LW-90} y2={58} stroke="rgba(226,76,96,0.7)" strokeWidth="2" />
-              <text x={LW-88} y={62} fontSize="11" fill="rgba(226,76,96,0.9)" fontFamily="inherit">MSE (½r²)</text>
-              <text x={LW/2} y={LH-4} textAnchor="middle" fontSize="11" fill="var(--muted)" fontFamily="inherit">residual (y − ŷ)</text>
-              <text x={11} y={LH/2} textAnchor="middle" fontSize="11" fill="var(--muted)" fontFamily="inherit" transform={`rotate(-90,11,${LH/2})`}>loss</text>
-            </svg>
-
-            <Row>
-              <div className="nn-calc" style={{ flex: "1 1 220px" }}>
-                <div className="nn-calc-h">Loss comparison at r = 1.5 (ε = {eps})</div>
-                <div className="nn-calc-row">ε-loss: max(0, |1.5| − {eps}) = <b>{fmt(Math.max(0, 1.5 - eps), 3)}</b></div>
-                <div className="nn-calc-row">MSE:   ½ × 1.5² = <b>{fmt(0.5 * 1.5 * 1.5, 3)}</b></div>
-                <div className="nn-calc-row">At r = 0.3:</div>
-                <div className="nn-calc-row">ε-loss: max(0, 0.3 − {eps}) = <b>{fmt(Math.max(0, 0.3 - eps), 3)} (zero!)</b></div>
-                <div className="nn-calc-row">MSE:   ½ × 0.09 = <b>0.045</b></div>
-              </div>
-              <div className="nn-calc" style={{ flex: "1 1 220px" }}>
-                <div className="nn-calc-h">Key properties</div>
-                <div className="nn-calc-row">Flat zone [−ε, ε] → sparsity (fewer SVs)</div>
-                <div className="nn-calc-row">Linear growth outside → robust to outliers</div>
-                <div className="nn-calc-row">Differentiable everywhere except ±ε</div>
-                <div className="nn-calc-row">Hinge loss = max(0, 1 − margin) is analogous in SVM-CLS</div>
-              </div>
-            </Row>
-            <Note>
-              The flat region in ε-loss is why SVR is robust: an outlier at residual = 5 incurs
-              only loss = 5 − ε, whereas MSE would give loss = 12.5. This makes SVR
-              significantly less influenced by individual noisy measurements.
-            </Note>
-          </>
-        );
-      },
-    },
-
-    /* ── Stage 5: Support Vectors ──────────────────────────── */
-    {
-      id: "svr-support-vectors", group: "Core Concept", title: "SVR Support Vectors",
+      id: "svr-support-vectors", group: "Core Concept", title: "Support Vectors in SVR",
       map: "Support Vectors",
-      why: "Like classification SVMs, only a subset of training points — those on or outside the tube — determine the regression fit. This sparsity is a key advantage.",
+      why: "Like in classification SVM, only a sparse subset of training points define the regression fit. This sparsity makes SVR memory-efficient and its predictions interpretable in terms of the training data.",
       render: (trace) => {
         const { allPreds, isSV, residuals } = trace;
+        const svCount = isSV.filter(Boolean).length;
         return (
           <>
             <Lead>
-              SVR support vectors are points that lie <b>on or outside the ε-tube</b>.
-              They are the only points with non-zero Lagrange multipliers.
-              The fitted line is determined entirely by these points.
+              In SVR, <b>support vectors</b> are training points that lie <em>on or outside</em>
+              the ε-tube boundary — i.e., points where |yᵢ − ŷᵢ| ≥ ε. These are the only
+              points with non-zero Lagrange multipliers (αᵢ or αᵢ*); they are the only points
+              that influence the fitted line w and bias b.
+            </Lead>
+            <Lead>
+              All points <em>inside</em> the tube have Lagrange multipliers of exactly zero. This
+              means you could completely remove all inside-tube points from the training set and
+              the learned w and b would be identical. The regression fit is <b>defined entirely
+              by the support vectors</b> — this is the sparsity property of SVR.
+            </Lead>
+            <Lead>
+              For our dataset with ε = {REG.epsilon}, there are <b>{svCount} support vectors</b> out of
+              10 training points. The table below shows the residual for each point and whether it
+              qualifies as a support vector.
             </Lead>
 
             <RegBase>
               <EpsilonTube w={REG.w} b={REG.b} eps={REG.epsilon} />
               <RegLine w={REG.w} b={REG.b} />
-              {/* residual lines for SVs */}
+              {/* residual lines for SVs only */}
               {REG.xs.map((x, i) => {
                 if (!isSV[i]) return null;
                 return (
                   <line key={i}
                     x1={sx(x)} y1={sy(REG.ys[i])}
                     x2={sx(x)} y2={sy(allPreds[i])}
-                    stroke={COL_SV} strokeWidth="1.5" strokeDasharray="4 2" opacity="0.7"
+                    stroke={COL_SV} strokeWidth="1.8" strokeDasharray="4 2" opacity="0.8"
                   />
                 );
               })}
-              <DataPts allPreds={allPreds} isSV={isSV} showQuery={false} />
+              <DataPts isSV={isSV} showQuery={false} />
             </RegBase>
 
-            <div className="tf-subhead">Point classification</div>
+            <div className="tf-subhead">Support vector classification for all training points</div>
             <Matrix
-              data={REG.xs.map((x, i) => [x, REG.ys[i], fmt(allPreds[i], 2), fmt(residuals[i], 3), isSV[i] ? "SV ✗" : "inside ✓"])}
+              data={REG.xs.map((x, i) => [
+                x, REG.ys[i],
+                fmt(allPreds[i], 2),
+                fmt(residuals[i], 3),
+                fmt(Math.abs(residuals[i]), 3),
+                isSV[i] ? "SV ✗" : "inside ✓"
+              ])}
               rowLabels={REG.xs.map((_, i) => `i=${i+1}`)}
-              colLabels={["x", "y", "ŷ", "residual", "status"]}
-              caption="Support vector classification"
-              sub={`${isSV.filter(Boolean).length} SVs, ${isSV.filter(v=>!v).length} inside tube`}
+              colLabels={["x", "y", "ŷ", "resid", "|resid|", "status"]}
+              caption={`SVR support vectors (ε = ${REG.epsilon})`}
+              sub={`${svCount} SVs, ${10 - svCount} inside tube`}
               heat={false}
             />
-
             <Note>
-              Red squares mark support vectors — points where |residual| ≥ ε.
-              If you removed all blue-circle points, the fitted line would be identical.
-              This sparsity means SVR predictions are O(n_sv × d), not O(n × d).
+              Dashed red lines from each SV to the regression line show the residual. SVs are the
+              points "sticking out" of the tube. If you built a new training set containing only
+              the {svCount} SVs and re-fit SVR with the same parameters, you would get the same
+              regression line.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 6: Optimization ─────────────────────────────── */
+    /* ── Stage 5: Objective Function ───────────────────────── */
     {
-      id: "svr-optimization", group: "Math", title: "SVR Optimization Problem",
-      map: "Optimization",
-      why: "The SVR optimization problem mirrors the classification SVM — minimize ‖w‖² while constraining deviations. The C parameter balances tube width against fit quality.",
+      id: "svr-optimization", group: "Math", title: "SVR Objective Function",
+      map: "Objective",
+      why: "The SVR objective mirrors the classification SVM — minimise ‖w‖² while constraining deviations. The C parameter controls the trade-off between tube width and fit quality.",
       render: () => (
         <>
           <Lead>
-            SVR solves a quadratic program with <b>two slack variables per point</b> —
-            one for each side of the tube. C controls the trade-off between a flat (wide-tube)
-            and a tight-fit solution.
+            SVR solves a <b>convex quadratic program</b> with two slack variables per training
+            point: ξᵢ ≥ 0 for points above the upper tube, and ξᵢ* ≥ 0 for points below the
+            lower tube. The objective is to minimise ½‖w‖² (maximise smoothness) plus
+            C times the total slack (penalise violations). C controls the trade-off.
+          </Lead>
+          <Lead>
+            The constraints say: each yᵢ must be within ε + ξᵢ above or ε + ξᵢ* below the
+            prediction. If a point is within the tube, both slacks are zero and the constraint
+            is trivially satisfied. If a point is outside the tube, the corresponding slack equals
+            the overshoot: ξᵢ = |yᵢ − ŷᵢ| − ε.
+          </Lead>
+          <Lead>
+            Increasing C forces the model to work harder to keep all points within the tube →
+            tighter fit, more support vectors. Decreasing C tolerates more violations → wider
+            effective tube, fewer SVs, smoother prediction. The interaction between C and ε
+            is shown in Stage 6.
           </Lead>
 
           <div className="tf-subhead">Primal formulation</div>
-          <Formula label="Objective">
-            min<Sub>w,b,ξ,ξ*</Sub> &nbsp; ½‖w‖² + C · Σ(ξᵢ + ξᵢ*)
-          </Formula>
-          <Formula label="Constraints">
-            yᵢ − (w·xᵢ + b) ≤ ε + ξᵢ &nbsp;&nbsp;
-            (w·xᵢ + b) − yᵢ ≤ ε + ξᵢ* &nbsp;&nbsp;
-            ξᵢ, ξᵢ* ≥ 0
-          </Formula>
+          <Formula label="Objective">min<Sub>w,b,ξ,ξ*</Sub> &nbsp; ½‖w‖² + C · Σᵢ(ξᵢ + ξᵢ*)</Formula>
+          <Formula label="Constraints above">yᵢ − (w·xᵢ + b) ≤ ε + ξᵢ &nbsp;&nbsp; ξᵢ ≥ 0</Formula>
+          <Formula label="Constraints below">(w·xᵢ + b) − yᵢ ≤ ε + ξᵢ* &nbsp;&nbsp; ξᵢ* ≥ 0</Formula>
 
           <div className="tf-subhead">Dual (kernelized) form</div>
-          <Formula label="Dual">
+          <Formula label="Dual objective">
             max &nbsp; −½ ΣΣ (αᵢ − αᵢ*)(αⱼ − αⱼ*)(xᵢ·xⱼ) − ε Σ(αᵢ + αᵢ*) + Σyᵢ(αᵢ − αᵢ*)
           </Formula>
-          <Formula label="Prediction">
-            ŷ = Σ (αᵢ − αᵢ*) K(xᵢ, x) + b
-          </Formula>
+          <Formula label="Kernel prediction">ŷ = Σᵢ (αᵢ − αᵢ*) K(xᵢ, x) + b</Formula>
 
-          {/* Effect of C visualization */}
-          <div className="tf-subhead">Effect of C on the fit</div>
           <Row>
-            {[
-              { C: "small", w: 0.2, b: 4.5, eps: 1.5, label: "C small → wide tube, smooth" },
-              { C: "large", w: 0.42, b: 3.4, eps: 0.5, label: "C large → tight tube, precise" },
-            ].map((cfg) => {
-              const sw = 240, sh = 180;
-              const sPad = { l: 20, r: 10, t: 14, b: 24 };
-              const ssx = v => sPad.l + ((v - 0) / 11) * (sw - sPad.l - sPad.r);
-              const ssy = v => sPad.t + (1 - (v - 0) / 10) * (sh - sPad.t - sPad.b);
-              return (
-                <div key={cfg.C} style={{ flex: "1 1 240px" }}>
-                  <div className="tf-subhead" style={{ fontSize: 12 }}>{cfg.label}</div>
-                  <svg viewBox={`0 0 ${sw} ${sh}`} style={{ width: "100%", maxWidth: sw, display: "block" }}>
-                    <line x1={sPad.l} y1={sh-sPad.b} x2={sw-sPad.r} y2={sh-sPad.b} stroke="var(--ink)" strokeWidth="1" />
-                    <line x1={sPad.l} y1={sPad.t} x2={sPad.l} y2={sh-sPad.b} stroke="var(--ink)" strokeWidth="1" />
-                    {/* tube */}
-                    <polygon
-                      points={`${ssx(0)},${ssy(cfg.w*0+cfg.b+cfg.eps)} ${ssx(11)},${ssy(cfg.w*11+cfg.b+cfg.eps)} ${ssx(11)},${ssy(cfg.w*11+cfg.b-cfg.eps)} ${ssx(0)},${ssy(cfg.w*0+cfg.b-cfg.eps)}`}
-                      fill="rgba(43,91,255,0.10)"
-                    />
-                    {[cfg.b+cfg.eps, cfg.b-cfg.eps].map((off, k) => (
-                      <line key={k}
-                        x1={ssx(0)} y1={ssy(cfg.w*0+off)}
-                        x2={ssx(11)} y2={ssy(cfg.w*11+off)}
-                        stroke="rgba(43,91,255,0.4)" strokeWidth="1.5" strokeDasharray="4 2" />
-                    ))}
-                    <line x1={ssx(0)} y1={ssy(cfg.w*0+cfg.b)} x2={ssx(11)} y2={ssy(cfg.w*11+cfg.b)}
-                      stroke="var(--accent)" strokeWidth="2" />
-                    {REG.xs.map((x, i) => {
-                      const yp = cfg.w * x + cfg.b;
-                      const sv = Math.abs(REG.ys[i] - yp) >= cfg.eps * 0.9;
-                      return sv
-                        ? <rect key={i} x={ssx(x)-5} y={ssy(REG.ys[i])-5} width="10" height="10" fill={COL_SV} stroke="var(--bg)" strokeWidth="1" rx="2" />
-                        : <circle key={i} cx={ssx(x)} cy={ssy(REG.ys[i])} r="4" fill="rgba(43,91,255,0.5)" stroke="var(--bg)" strokeWidth="1" />;
-                    })}
-                    <text x={sw/2} y={sh-6} textAnchor="middle" fontSize="10" fill="var(--muted)" fontFamily="inherit">ε={cfg.eps}, w={cfg.w}</text>
-                  </svg>
-                </div>
-              );
-            })}
+            <div className="nn-calc" style={{ flex: "1 1 220px" }}>
+              <div className="nn-calc-h">Our fitted model</div>
+              <div className="nn-calc-row">w = {REG.w}, b = {REG.b}, ε = {REG.epsilon}</div>
+              <div className="nn-calc-row">‖w‖² = {fmt(REG.w * REG.w, 4)}</div>
+              <div className="nn-calc-row">½‖w‖² = {fmt(0.5 * REG.w * REG.w, 4)} (regularisation)</div>
+              <div className="nn-calc-row">Total slack Σ(ξᵢ+ξᵢ*) = {fmt(REG.xs.reduce((s,x,i) => {
+                const res = Math.abs(REG.ys[i] - (REG.w * x + REG.b));
+                return s + Math.max(0, res - REG.epsilon);
+              }, 0), 3)}</div>
+            </div>
+            <div className="nn-calc" style={{ flex: "1 1 220px" }}>
+              <div className="nn-calc-h">C and ε interaction summary</div>
+              <div className="nn-calc-row">C↑ + ε same → more SVs, tighter fit</div>
+              <div className="nn-calc-row">C↓ + ε same → fewer SVs, smoother</div>
+              <div className="nn-calc-row">ε↑ + C same → fewer SVs, more bias</div>
+              <div className="nn-calc-row">ε↓ + C same → more SVs, less bias</div>
+              <div className="nn-calc-row">Tune both jointly via cross-validation</div>
+            </div>
           </Row>
-
           <Note>
-            Large C penalizes tube violations heavily → narrow tube, more SVs, higher complexity.
-            Small C is lenient → wide tube, fewer SVs, smoother fit. Tune C and ε together
-            using cross-validation.
+            KKT conditions: αᵢ × (yᵢ − ŷᵢ − ε − ξᵢ) = 0 and αᵢ* × (ŷᵢ − yᵢ − ε − ξᵢ*) = 0.
+            Only points outside the tube (ξ &gt; 0 or ξ* &gt; 0) have non-zero multipliers —
+            confirming the sparse support vector property.
           </Note>
         </>
       ),
     },
 
-    /* ── Stage 7: Prediction Visualization ────────────────── */
+    /* ── Stage 6: Kernel SVR ───────────────────────────────── */
     {
-      id: "svr-prediction", group: "Prediction", title: "Prediction Walkthrough",
-      map: "Prediction",
-      why: "Seeing the complete prediction — from input x to predicted ŷ, with tube bounds and residual — ties together all SVR concepts and shows what the model actually outputs.",
-      render: (trace) => {
-        const { x, pred, tubeLo, tubeHi, allPreds, isSV, residuals } = trace;
-        const inside = pred - REG.epsilon <= trace.cfg.ys[Math.round(x) - 1] &&
-                       trace.cfg.ys[Math.round(x) - 1] <= pred + REG.epsilon;
+      id: "kernel-svr", group: "Extensions", title: "Kernel SVR — Non-Linear Regression",
+      map: "Kernel SVR",
+      why: "The kernel trick applies identically to SVR — swap the dot product for K(x,z) in the dual and you get non-linear regression without ever computing the high-dimensional mapping.",
+      render: () => {
+        // Generate non-linear data: sinusoidal + linear trend
+        const nlXs = [1,2,3,4,5,6,7,8,9,10];
+        const nlYs = [3.2, 4.8, 4.1, 6.3, 5.5, 7.1, 5.9, 7.8, 6.4, 8.2];
+
+        // Linear SVR approximation
+        const linW = 0.47, linB = 2.9;
+        // RBF SVR (simulated smooth curve)
+        function rbfPred(x) {
+          // Simulated smooth non-linear fit
+          return 4.2 + 0.3*x + 0.8*Math.sin(x * 0.9 - 0.5);
+        }
+
+        const miniW = 220, miniH = 175;
+        const mPad = { l: 18, r: 10, t: 14, b: 24 };
+        const mmx = v => mPad.l + ((v - 0) / 11) * (miniW - mPad.l - mPad.r);
+        const mmy = v => mPad.t + (1 - (v - 1) / 10) * (miniH - mPad.t - mPad.b);
+        const eps = 0.7;
+
         return (
           <>
             <Lead>
-              For the current query x = <b>{fmt(x)}</b>, SVR predicts ŷ = {REG.w}·{fmt(x)} + {REG.b} = <b>{fmt(pred, 3)}</b>.
-              The ε-tube spans [{fmt(tubeLo, 3)}, {fmt(tubeHi, 3)}].
+              The same <b>kernel trick</b> from classification SVM applies directly to SVR — simply
+              replace every dot product xᵢ·xⱼ in the dual with a kernel evaluation K(xᵢ, xⱼ).
+              The rest of the algorithm is identical. The prediction becomes
+              ŷ = Σ(αᵢ−αᵢ*)K(xᵢ, x) + b, which can fit smooth non-linear curves.
+            </Lead>
+            <Lead>
+              The <b>RBF kernel</b> K(x,z) = exp(−γ|x−z|²) is the most popular choice for SVR.
+              It places a Gaussian bump centred at each support vector; the prediction is a smooth
+              weighted sum of these bumps. The parameter γ controls the bandwidth: small γ → wide
+              bumps, smooth curve; large γ → narrow bumps, wiggly curve.
+            </Lead>
+            <Lead>
+              The comparison below shows linear SVR vs RBF SVR on a dataset with a non-linear trend.
+              Linear SVR fits a straight tube and misses the curvature. RBF SVR adapts its tube to
+              the non-linear shape of the data, fitting the trend much more closely.
             </Lead>
 
-            <RegBase>
-              <EpsilonTube w={REG.w} b={REG.b} eps={REG.epsilon} />
-              <RegLine w={REG.w} b={REG.b} />
-              <DataPts allPreds={allPreds} isSV={isSV} showQuery={true} qx={x} qy={pred} />
-              {/* vertical indicator line */}
-              <line x1={sx(x)} y1={sy(tubeLo)} x2={sx(x)} y2={sy(tubeHi)}
-                stroke="rgba(226,76,96,0.8)" strokeWidth="2" />
-              <circle cx={sx(x)} cy={sy(pred)} r="5" fill="var(--accent)" stroke="var(--bg)" strokeWidth="2" />
-              <text x={sx(x)+8} y={sy(pred)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit">ŷ={fmt(pred,2)}</text>
-              <text x={sx(x)+8} y={sy(tubeHi)-3} fontSize="10" fill="rgba(226,76,96,0.9)" fontFamily="inherit">+ε={fmt(tubeHi,2)}</text>
-              <text x={sx(x)+8} y={sy(tubeLo)+12} fontSize="10" fill="rgba(226,76,96,0.9)" fontFamily="inherit">−ε={fmt(tubeLo,2)}</text>
-            </RegBase>
-
-            <div className="nn-calc">
-              <div className="nn-calc-h">Step-by-step prediction for x = {fmt(x)}</div>
-              <div className="nn-calc-row">ŷ = w · x + b = {REG.w} × {fmt(x)} + {REG.b}</div>
-              <div className="nn-calc-row">= {fmt(REG.w * x, 3)} + {REG.b}</div>
-              <div className="nn-calc-row"><b>ŷ = {fmt(pred, 4)}</b></div>
-              <div className="nn-calc-row" style={{ borderTop: "1px solid var(--line)", paddingTop: 6 }}>
-                ε-tube: [{fmt(tubeLo, 3)}, {fmt(tubeHi, 3)}]
-              </div>
-              <div className="nn-calc-row">
-                Query x is at a predicted value of <b>{fmt(pred, 3)}</b>
-              </div>
-              <div className="nn-calc-row" style={{ color: "var(--accent)" }}>
-                Any y in [{fmt(tubeLo, 3)}, {fmt(tubeHi, 3)}] would incur <b>zero loss</b>
-              </div>
-            </div>
-            <Note>
-              Drag the x slider to see the prediction update. The query ★ always lands on the regression
-              line (ŷ = wx+b), and the red brackets show the ε-tube at that x value.
-            </Note>
-          </>
-        );
-      },
-    },
-
-    /* ── Stage 8: Effect of ε and C ────────────────────────── */
-    {
-      id: "effect-eps-c", group: "Hyperparameters", title: "Effect of ε and C",
-      map: "ε vs C",
-      why: "Both ε and C control the bias-variance trade-off in SVR. Understanding their combined effect lets you tune the model systematically without just guessing.",
-      render: () => {
-        const configs = [
-          { eps: 0.3, C: "large", w: 0.42, b: 3.4, label: "ε=0.3" },
-          { eps: 1.2, C: "large", w: 0.38, b: 3.6, label: "ε=1.2" },
-        ];
-        const cfgC = [
-          { eps: 0.8, C: "small", w: 0.25, b: 4.0, label: "C small" },
-          { eps: 0.8, C: "large", w: 0.42, b: 3.3, label: "C large" },
-        ];
-        const mkMini = (cfgs, titleRow) => {
-          return cfgs.map((cfg) => {
-            const ms = 220, msh = 170;
-            const mp = { l: 18, r: 10, t: 14, b: 22 };
-            const mmx = v => mp.l + v / 11 * (ms - mp.l - mp.r);
-            const mmy = v => mp.t + (1 - v / 10) * (msh - mp.t - mp.b);
-            const svCount = REG.xs.filter((x, i) => Math.abs(REG.ys[i] - (cfg.w * x + cfg.b)) >= cfg.eps * 0.9).length;
-            return (
-              <div key={cfg.label} style={{ flex: "1 1 220px" }}>
-                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4, color: "var(--accent)" }}>{cfg.label} — {svCount} SVs</div>
-                <svg viewBox={`0 0 ${ms} ${msh}`} style={{ width: "100%", maxWidth: ms, display: "block" }}>
-                  <line x1={mp.l} y1={msh-mp.b} x2={ms-mp.r} y2={msh-mp.b} stroke="var(--ink)" strokeWidth="1" />
-                  <line x1={mp.l} y1={mp.t} x2={mp.l} y2={msh-mp.b} stroke="var(--ink)" strokeWidth="1" />
+            <Row>
+              <div style={{ flex: "1 1 220px" }}>
+                <div className="tf-subhead" style={{ fontSize: 12 }}>Linear SVR — misses curvature</div>
+                <svg viewBox={`0 0 ${miniW} ${miniH}`} style={{ width: "100%", maxWidth: miniW, display: "block" }}>
+                  <line x1={mPad.l} y1={miniH-mPad.b} x2={miniW-mPad.r} y2={miniH-mPad.b} stroke="var(--ink)" strokeWidth="1" />
+                  <line x1={mPad.l} y1={mPad.t} x2={mPad.l} y2={miniH-mPad.b} stroke="var(--ink)" strokeWidth="1" />
+                  {/* linear tube */}
                   <polygon
-                    points={`${mmx(0)},${mmy(cfg.w*0+cfg.b+cfg.eps)} ${mmx(11)},${mmy(cfg.w*11+cfg.b+cfg.eps)} ${mmx(11)},${mmy(cfg.w*11+cfg.b-cfg.eps)} ${mmx(0)},${mmy(cfg.w*0+cfg.b-cfg.eps)}`}
+                    points={`${mmx(0)},${mmy(linW*0+linB+eps)} ${mmx(11)},${mmy(linW*11+linB+eps)} ${mmx(11)},${mmy(linW*11+linB-eps)} ${mmx(0)},${mmy(linW*0+linB-eps)}`}
                     fill="rgba(43,91,255,0.10)"
                   />
-                  {[cfg.b+cfg.eps, cfg.b-cfg.eps].map((off, k) => (
-                    <line key={k} x1={mmx(0)} y1={mmy(cfg.w*0+off)} x2={mmx(11)} y2={mmy(cfg.w*11+off)}
+                  {[linB+eps, linB-eps].map((off, k) => (
+                    <line key={k}
+                      x1={mmx(0)} y1={mmy(linW*0+off)}
+                      x2={mmx(11)} y2={mmy(linW*11+off)}
                       stroke="rgba(43,91,255,0.4)" strokeWidth="1.2" strokeDasharray="4 2" />
                   ))}
-                  <line x1={mmx(0)} y1={mmy(cfg.w*0+cfg.b)} x2={mmx(11)} y2={mmy(cfg.w*11+cfg.b)}
-                    stroke="var(--accent)" strokeWidth="1.8" />
-                  {REG.xs.map((x, i) => {
-                    const yp = cfg.w * x + cfg.b;
-                    const sv = Math.abs(REG.ys[i] - yp) >= cfg.eps * 0.9;
+                  <line x1={mmx(0)} y1={mmy(linW*0+linB)} x2={mmx(11)} y2={mmy(linW*11+linB)}
+                    stroke="var(--accent)" strokeWidth="2" />
+                  {nlXs.map((x, i) => {
+                    const yp = linW * x + linB;
+                    const sv = Math.abs(nlYs[i] - yp) >= eps * 0.9;
                     return sv
-                      ? <rect key={i} x={mmx(x)-4} y={mmy(REG.ys[i])-4} width="8" height="8" fill={COL_SV} stroke="var(--bg)" strokeWidth="1" rx="1" />
-                      : <circle key={i} cx={mmx(x)} cy={mmy(REG.ys[i])} r="3.5" fill="rgba(43,91,255,0.5)" stroke="var(--bg)" strokeWidth="1" />;
+                      ? <rect key={i} x={mmx(x)-4} y={mmy(nlYs[i])-4} width="8" height="8" fill={COL_SV} stroke="var(--bg)" strokeWidth="1" rx="1" />
+                      : <circle key={i} cx={mmx(x)} cy={mmy(nlYs[i])} r="4" fill={COL_IN} stroke="var(--bg)" strokeWidth="1" />;
                   })}
+                  <text x={miniW/2} y={miniH-6} textAnchor="middle" fontSize="10" fill="var(--muted)" fontFamily="inherit">Linear kernel, ε={eps}</text>
                 </svg>
               </div>
-            );
-          });
-        };
 
-        return (
-          <>
-            <Lead>
-              Two key hyperparameters control SVR: <b>ε</b> (tube width) and <b>C</b> (violation penalty).
-              Their interaction determines how many support vectors you get and how tight the fit is.
-            </Lead>
+              <div style={{ flex: "1 1 220px" }}>
+                <div className="tf-subhead" style={{ fontSize: 12 }}>RBF SVR — follows the curve</div>
+                <svg viewBox={`0 0 ${miniW} ${miniH}`} style={{ width: "100%", maxWidth: miniW, display: "block" }}>
+                  <line x1={mPad.l} y1={miniH-mPad.b} x2={miniW-mPad.r} y2={miniH-mPad.b} stroke="var(--ink)" strokeWidth="1" />
+                  <line x1={mPad.l} y1={mPad.t} x2={mPad.l} y2={miniH-mPad.b} stroke="var(--ink)" strokeWidth="1" />
+                  {/* RBF tube as polygon */}
+                  {(() => {
+                    const pts = [];
+                    for (let xv = 0; xv <= 11; xv += 0.5) {
+                      pts.push(`${mmx(xv)},${mmy(rbfPred(xv)+eps)}`);
+                    }
+                    for (let xv = 11; xv >= 0; xv -= 0.5) {
+                      pts.push(`${mmx(xv)},${mmy(rbfPred(xv)-eps)}`);
+                    }
+                    return <polygon points={pts.join(" ")} fill="rgba(43,91,255,0.10)" />;
+                  })()}
+                  {/* upper and lower tube lines */}
+                  {[eps, -eps].map((off, k) => {
+                    const pts = [];
+                    for (let xv = 0; xv <= 11; xv += 0.4) {
+                      pts.push(`${mmx(xv).toFixed(1)},${mmy(rbfPred(xv)+off).toFixed(1)}`);
+                    }
+                    return <polyline key={k} points={pts.join(" ")} fill="none" stroke="rgba(43,91,255,0.4)" strokeWidth="1.2" strokeDasharray="4 2" />;
+                  })}
+                  {/* RBF regression curve */}
+                  {(() => {
+                    const pts = [];
+                    for (let xv = 0; xv <= 11; xv += 0.3) {
+                      pts.push(`${mmx(xv).toFixed(1)},${mmy(rbfPred(xv)).toFixed(1)}`);
+                    }
+                    return <polyline points={pts.join(" ")} fill="none" stroke="var(--accent)" strokeWidth="2" />;
+                  })()}
+                  {nlXs.map((x, i) => {
+                    const yp = rbfPred(x);
+                    const sv = Math.abs(nlYs[i] - yp) >= eps * 0.9;
+                    return sv
+                      ? <rect key={i} x={mmx(x)-4} y={mmy(nlYs[i])-4} width="8" height="8" fill={COL_SV} stroke="var(--bg)" strokeWidth="1" rx="1" />
+                      : <circle key={i} cx={mmx(x)} cy={mmy(nlYs[i])} r="4" fill={COL_IN} stroke="var(--bg)" strokeWidth="1" />;
+                  })}
+                  <text x={miniW/2} y={miniH-6} textAnchor="middle" fontSize="10" fill="var(--muted)" fontFamily="inherit">RBF kernel (γ=0.5), ε={eps}</text>
+                </svg>
+              </div>
+            </Row>
 
-            <div className="tf-subhead">Effect of ε (with C fixed)</div>
-            <Row>{mkMini(configs, true)}</Row>
-
-            <div className="tf-subhead" style={{ marginTop: 16 }}>Effect of C (with ε fixed = {REG.epsilon})</div>
-            <Row>{mkMini(cfgC, true)}</Row>
-
-            <div className="tf-legend" style={{ marginTop: 16 }}>
+            <div className="tf-subhead" style={{ marginTop: 12 }}>Kernel choices for SVR</div>
+            <div className="tf-legend">
               {[
-                ["ε↑", "Larger tube", "smoother", "More points inside → fewer SVs → smoother, potentially underfitting."],
-                ["ε↓", "Tighter tube", "complex", "More SVs → tighter fit → potentially overfitting noisy data."],
-                ["C↑", "Large penalty", "precise", "Forces points outside tube to be few → narrow tube → complex boundary."],
-                ["C↓", "Small penalty", "robust", "Tolerates more violations → wider effective margin → smoother fit."],
+                ["Linear", "K(x,z) = x·z", "d-dim", "For data with a roughly linear trend. Fastest. Interpretable (w has direct meaning)."],
+                ["Polynomial", "K(x,z) = (γx·z+r)^d", "degree d", "Fits polynomial curves. Good when you expect smooth polynomial relationships."],
+                ["RBF", "K(x,z) = exp(−γ|x−z|²)", "∞-dim", "Most flexible and popular. Adapts to any smooth curve. Tune γ with cross-validation."],
               ].map(r => (
                 <div className="tf-leg" key={r[0]}>
                   <div className="tf-leg-top"><span className="tf-sym">{r[0]}</span><span className="tf-leg-shape">{r[2]}</span></div>
@@ -682,89 +608,312 @@
               ))}
             </div>
             <Note>
-              Typical practice: use a grid search over C ∈ [0.01, 1000] and ε ∈ [0.01, 1]
-              with 5-fold cross-validation. RMSE or MAE are better metrics than MSE for SVR.
+              With the RBF kernel, the prediction ŷ = Σ(αᵢ−αᵢ*)·exp(−γ|xᵢ−x|²) + b is a weighted
+              sum of Gaussian bumps centred at each support vector xᵢ. The weight (αᵢ−αᵢ*) can be
+              positive (above-tube SV) or negative (below-tube SV).
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 9: When to Use ──────────────────────────────── */
+    /* ── Stage 7: Predictions ──────────────────────────────── */
     {
-      id: "svr-when-to-use", group: "Evaluation", title: "When to Use SVR — Pros, Cons & Comparisons",
+      id: "svr-prediction", group: "Prediction", title: "Prediction Walkthrough",
+      map: "Prediction",
+      why: "Seeing the complete prediction — from input x to predicted ŷ with tube bounds — ties together all SVR concepts and shows what the model actually computes at inference time.",
+      render: (trace) => {
+        const { x, pred, tubeLo, tubeHi, allPreds, isSV, residuals } = trace;
+        const testXs = [2.0, 5.5, 9.0];
+        return (
+          <>
+            <Lead>
+              At inference, SVR computes ŷ = w·x + b (linear) or ŷ = Σ(αᵢ−αᵢ*)K(xᵢ,x)+b (kernel).
+              For the current slider value x = <b>{fmt(x)}</b>, the prediction is
+              ŷ = {REG.w}×{fmt(x)} + {REG.b} = <b>{fmt(pred, 3)}</b>.
+              The ε-tube at this x spans [{fmt(tubeLo, 3)}, {fmt(tubeHi, 3)}].
+            </Lead>
+            <Lead>
+              Unlike classification (which returns a class label), SVR returns a continuous real
+              number. The tube is used only during training to define the loss — at test time you
+              simply compute ŷ = w·x + b and return it. There is no "inside the tube" check
+              at inference; the tube was only relevant during fitting.
+            </Lead>
+
+            <RegBase>
+              <EpsilonTube w={REG.w} b={REG.b} eps={REG.epsilon} />
+              <RegLine w={REG.w} b={REG.b} />
+              <DataPts isSV={isSV} showQuery={true} qx={x} qy={pred} />
+              {/* vertical indicator at query x */}
+              <line x1={sx(x)} y1={sy(tubeLo)} x2={sx(x)} y2={sy(tubeHi)}
+                stroke="rgba(226,76,96,0.8)" strokeWidth="2" />
+              <circle cx={sx(x)} cy={sy(pred)} r="5" fill="var(--accent)" stroke="var(--bg)" strokeWidth="2" />
+              <text x={sx(x)+8} y={sy(pred)+4} fontSize="11" fill="var(--accent)" fontWeight="700" fontFamily="inherit">ŷ={fmt(pred,2)}</text>
+              <text x={sx(x)+8} y={sy(tubeHi)-4} fontSize="10" fill="rgba(226,76,96,0.9)" fontFamily="inherit">+ε→{fmt(tubeHi,2)}</text>
+              <text x={sx(x)+8} y={sy(tubeLo)+12} fontSize="10" fill="rgba(226,76,96,0.9)" fontFamily="inherit">−ε→{fmt(tubeLo,2)}</text>
+            </RegBase>
+
+            <div className="nn-calc">
+              <div className="nn-calc-h">Step-by-step prediction for x = {fmt(x)}</div>
+              <div className="nn-calc-row">ŷ = w × x + b = {REG.w} × {fmt(x)} + {REG.b}</div>
+              <div className="nn-calc-row">= {fmt(REG.w * x, 3)} + {REG.b}</div>
+              <div className="nn-calc-row"><b>ŷ = {fmt(pred, 4)}</b></div>
+              <div className="nn-calc-row" style={{ borderTop: "1px solid var(--line)", paddingTop: 6 }}>
+                ε-tube at this x: [{fmt(tubeLo, 3)}, {fmt(tubeHi, 3)}]
+              </div>
+              <div className="nn-calc-row" style={{ color: "var(--accent)" }}>
+                Any training y in [{fmt(tubeLo, 3)}, {fmt(tubeHi, 3)}] → zero training loss
+              </div>
+            </div>
+
+            <div className="tf-subhead" style={{ marginTop: 12 }}>Predictions for 3 fixed test points</div>
+            <Matrix
+              data={testXs.map(tx => {
+                const tp = REG.w * tx + REG.b;
+                return [tx, fmt(tp, 3), fmt(tp - REG.epsilon, 3), fmt(tp + REG.epsilon, 3)];
+              })}
+              rowLabels={["Test₁","Test₂","Test₃"]}
+              colLabels={["x", "ŷ", "tube lo", "tube hi"]}
+              caption="Fixed test predictions"
+              sub={`ŷ = ${REG.w}x + ${REG.b}, ε = ${REG.epsilon}`}
+              heat={false}
+            />
+            <Note>
+              Drag the x slider to see how the prediction, tube bounds, and query point ★ update.
+              The star always lands on the regression line (ŷ = wx+b); the red brackets show the
+              zero-loss zone at that x position.
+            </Note>
+          </>
+        );
+      },
+    },
+
+    /* ── Stage 8: Missing Values & Outliers ─────────────────── */
+    {
+      id: "missing-outliers", group: "Robustness", title: "Missing Values & Outliers — SVR's Robustness",
+      map: "Robustness",
+      why: "The ε-insensitive loss gives SVR natural robustness to outliers that fall within the tube. Understanding this — and when it helps versus doesn't — is key to deciding when to use SVR.",
+      render: () => {
+        // Show three SVR fits: normal, with outlier at (5, 12), with large epsilon
+        const outlierY = 10.5; // at x=5, y=10.5 is a big outlier
+        const normalW = REG.w, normalB = REG.b, normalEps = REG.epsilon;
+
+        const miniW = 210, miniH = 185;
+        const mPad = { l: 18, r: 10, t: 14, b: 24 };
+        const mmx = v => mPad.l + ((v - 0) / 11) * (miniW - mPad.l - mPad.r);
+        const mmy = v => mPad.t + (1 - (v - 0) / 11) * (miniH - mPad.t - mPad.b);
+
+        function miniSVRPlot(w, b, eps, outlier, title, col) {
+          const data = REG.xs.map((x, i) => ({ x, y: REG.ys[i] }));
+          if (outlier) data.push({ x: outlier[0], y: outlier[1], isOutlier: true });
+          return (
+            <div style={{ flex: "1 1 210px" }}>
+              <div className="tf-subhead" style={{ fontSize: 12 }}>{title}</div>
+              <svg viewBox={`0 0 ${miniW} ${miniH}`} style={{ width: "100%", maxWidth: miniW, display: "block" }}>
+                <line x1={mPad.l} y1={miniH-mPad.b} x2={miniW-mPad.r} y2={miniH-mPad.b} stroke="var(--ink)" strokeWidth="1" />
+                <line x1={mPad.l} y1={mPad.t} x2={mPad.l} y2={miniH-mPad.b} stroke="var(--ink)" strokeWidth="1" />
+                <polygon
+                  points={`${mmx(0)},${mmy(w*0+b+eps)} ${mmx(11)},${mmy(w*11+b+eps)} ${mmx(11)},${mmy(w*11+b-eps)} ${mmx(0)},${mmy(w*0+b-eps)}`}
+                  fill={`rgba(${col},0.10)`}
+                />
+                {[b+eps, b-eps].map((off, k) => (
+                  <line key={k} x1={mmx(0)} y1={mmy(w*0+off)} x2={mmx(11)} y2={mmy(w*11+off)}
+                    stroke={`rgba(${col},0.45)`} strokeWidth="1.2" strokeDasharray="4 2" />
+                ))}
+                <line x1={mmx(0)} y1={mmy(w*0+b)} x2={mmx(11)} y2={mmy(w*11+b)}
+                  stroke={`rgba(${col},1)`} strokeWidth="2" />
+                {data.map((pt, i) => {
+                  const yp = w * pt.x + b;
+                  const sv = Math.abs(pt.y - yp) >= eps * 0.9;
+                  return pt.isOutlier
+                    ? <circle key={i} cx={mmx(pt.x)} cy={mmy(pt.y)} r="6" fill="gold" stroke="var(--bg)" strokeWidth="2" />
+                    : sv
+                      ? <rect key={i} x={mmx(pt.x)-4} y={mmy(pt.y)-4} width="8" height="8" fill={COL_SV} stroke="var(--bg)" strokeWidth="1" rx="1" />
+                      : <circle key={i} cx={mmx(pt.x)} cy={mmy(pt.y)} r="4" fill={COL_IN} stroke="var(--bg)" strokeWidth="1" />;
+                })}
+                <text x={miniW/2} y={miniH-6} textAnchor="middle" fontSize="9" fill="var(--muted)" fontFamily="inherit">w={w}, b={b}, ε={eps}</text>
+              </svg>
+            </div>
+          );
+        }
+
+        return (
+          <>
+            <Lead>
+              SVR's <b>ε-insensitive loss</b> makes it more robust to outliers than ordinary least
+              squares (OLS). If an outlier falls <em>inside</em> the tube (|error| &lt; ε), it is
+              completely ignored — it contributes zero to the objective and has zero influence on
+              w and b. This is radically different from OLS, where a large outlier at error = k
+              contributes k² to the loss and can pull the regression line dramatically.
+            </Lead>
+            <Lead>
+              However, SVR is <b>not immune to outliers</b>. If an outlier is outside the tube,
+              it becomes a support vector and does influence the fit. With large C, an extreme outlier
+              can still dominate. The soft C parameter helps: a smaller C means the outlier's slack
+              penalty is lower, so the model tolerates the violation rather than shifting the tube.
+              Concretely: with ε = 1.0, any data point within 1 unit of the prediction is
+              completely ignored — that's why SVR is robust to <em>small-to-moderate</em> noise.
+            </Lead>
+            <Lead>
+              <b>Missing values</b> must be handled before SVR training — like all kernel methods,
+              SVR computes dot products between feature vectors and NaN propagates through these
+              operations. Use mean/median imputation (sklearn SimpleImputer) or model-based
+              imputation before fitting. Also remember: <b>always StandardScale</b> features
+              before SVR — the ε-tube and kernel are highly sensitive to feature scale.
+            </Lead>
+
+            <Row>
+              {miniSVRPlot(normalW, normalB, normalEps, null, "Normal data — standard fit", "43,91,255")}
+              {miniSVRPlot(normalW + 0.08, normalB + 0.3, normalEps, [5, outlierY], "Outlier outside tube — influences fit", "226,76,96")}
+              {miniSVRPlot(normalW, normalB, 1.5, null, "Large ε=1.5 — more points ignored", "43,150,100")}
+            </Row>
+
+            <div className="tf-legend" style={{ marginTop: 12 }}>
+              {[
+                ["Inside tube", "Zero influence", "immune", `Points with |error| < ε = ${REG.epsilon} are completely ignored. SVR acts as if they don't exist.`],
+                ["Outside tube", "SV — some influence", "partial", "Points outside the tube become SVs. With small C, their influence is limited. With large C, they dominate."],
+                ["Missing values", "Must impute first", "required", "NaN in features causes NaN in kernel computations. Use SimpleImputer(strategy='mean') before SVR."],
+                ["Feature scaling", "Critical — always scale", "required", "Without StandardScaler, features with large range dominate the kernel. Always scale X (and optionally y) before fitting."],
+              ].map(r => (
+                <div className="tf-leg" key={r[0]}>
+                  <div className="tf-leg-top"><span className="tf-sym">{r[0]}</span><span className="tf-leg-shape">{r[2]}</span></div>
+                  <div className="tf-leg-name">{r[1]}</div>
+                  <div className="tf-leg-desc">{r[3]}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="nn-calc" style={{ marginTop: 8 }}>
+              <div className="nn-calc-h">Outlier at x=5, y=10.5: loss comparison</div>
+              {(() => {
+                const yp = REG.w * 5 + REG.b;
+                const res = Math.abs(10.5 - yp);
+                const epsLoss = Math.max(0, res - REG.epsilon);
+                const mseLoss = res * res;
+                return (
+                  <>
+                    <div className="nn-calc-row">ŷ at x=5: {REG.w}×5 + {REG.b} = {fmt(yp, 2)}</div>
+                    <div className="nn-calc-row">residual = |10.5 − {fmt(yp,2)}| = {fmt(res, 3)}</div>
+                    <div className="nn-calc-row">SVR loss: max(0, {fmt(res,3)} − {REG.epsilon}) = <b>{fmt(epsLoss, 3)}</b></div>
+                    <div className="nn-calc-row">OLS loss: {fmt(res,3)}² = <b>{fmt(mseLoss, 3)}</b></div>
+                    <div className="nn-calc-row">SVR penalises this outlier <b>{fmt(mseLoss/epsLoss, 1)}× less</b> than OLS</div>
+                  </>
+                );
+              })()}
+            </div>
+            <Note>
+              The gold point in the middle panel shows the outlier outside the tube — it becomes an
+              SV and shifts the regression line slightly. With a smaller C, the model would tolerate
+              larger slack and be less influenced. With ε = 1.5 (right panel), more points fall inside
+              the wider tube, yielding a smoother, more robust fit at the cost of precision.
+            </Note>
+          </>
+        );
+      },
+    },
+
+    /* ── Stage 9: Evaluation & When to Use ─────────────────── */
+    {
+      id: "svr-when-to-use", group: "Evaluation", title: "Evaluation, When to Use SVR & Comparisons",
       map: "When to Use",
-      why: "SVR is a powerful but niche tool. Understanding where it excels versus alternatives prevents over- or under-using it in practice.",
-      render: () => (
-        <>
-          <Lead>
-            SVR excels when you need <b>robust regression on small-to-medium datasets</b> with
-            potential outliers and you want a sparse model. For large datasets or complex non-linear
-            patterns, other approaches may be preferred.
-          </Lead>
+      why: "SVR is a powerful but niche regression tool. Understanding its evaluation metrics and when it outperforms simpler alternatives prevents misuse and helps you select the right model.",
+      render: (trace) => {
+        const { allPreds, residuals } = trace;
+        const mse = residuals.reduce((s, r) => s + r*r, 0) / residuals.length;
+        const mae = residuals.reduce((s, r) => s + Math.abs(r), 0) / residuals.length;
+        const yMean = REG.ys.reduce((s, v) => s + v, 0) / REG.ys.length;
+        const ssTot = REG.ys.reduce((s, v) => s + (v - yMean)**2, 0);
+        const ssRes = residuals.reduce((s, r) => s + r*r, 0);
+        const r2 = 1 - ssRes / ssTot;
+        return (
+          <>
+            <Lead>
+              SVR's primary evaluation metrics are <b>MSE</b> (mean squared error),
+              <b> MAE</b> (mean absolute error), and <b>R²</b> (coefficient of determination).
+              MAE is often preferred for SVR because the ε-insensitive loss is related to MAE
+              rather than MSE — SVR minimises an approximate MAE within the tube.
+            </Lead>
+            <Lead>
+              SVR is best when: your dataset has <b>outliers or noisy measurements</b> within a
+              predictable range; your data is <b>small-to-medium</b> (n &lt; 10 000); you expect
+              a <b>non-linear relationship</b> and want to use the kernel trick; or you want a
+              <b> sparse model</b> that stores only a fraction of the training data.
+            </Lead>
 
-          <div className="opt-pc">
-            <div className="opt-pc-col is-pro">
-              <div className="opt-pc-h">SVR Strengths</div>
-              <ul className="opt-pc-ul">
-                <li className="opt-pc-li">Robust to outliers (ε-insensitive loss)</li>
-                <li className="opt-pc-li">Sparse model — only SVs stored</li>
-                <li className="opt-pc-li">Kernel trick → non-linear regression</li>
-                <li className="opt-pc-li">Works well in high-dimensional spaces</li>
-                <li className="opt-pc-li">Convex optimization — unique global optimum</li>
-                <li className="opt-pc-li">No distributional assumptions on residuals</li>
-              </ul>
+            <div className="nn-calc" style={{ marginBottom: 12 }}>
+              <div className="nn-calc-h">SVR fit metrics on training data (linear kernel)</div>
+              <div className="nn-calc-row">MSE = (1/n) Σ(yᵢ − ŷᵢ)² = <b>{fmt(mse, 4)}</b></div>
+              <div className="nn-calc-row">MAE = (1/n) Σ|yᵢ − ŷᵢ| = <b>{fmt(mae, 4)}</b></div>
+              <div className="nn-calc-row">RMSE = √MSE = <b>{fmt(Math.sqrt(mse), 4)}</b></div>
+              <div className="nn-calc-row">R² = 1 − SS_res/SS_tot = <b>{fmt(r2, 4)}</b></div>
+              <div className="nn-calc-row">Note: these are training metrics — evaluate on held-out test set in practice.</div>
             </div>
-            <div className="opt-pc-col is-con">
-              <div className="opt-pc-h">SVR Limitations</div>
-              <ul className="opt-pc-ul">
-                <li className="opt-pc-li">O(n² to n³) training — slow on large datasets</li>
-                <li className="opt-pc-li">Three hyperparameters (C, ε, γ) to tune</li>
-                <li className="opt-pc-li">Feature scaling required (critical)</li>
-                <li className="opt-pc-li">Hard to interpret (especially with kernels)</li>
-                <li className="opt-pc-li">No confidence intervals without extra work</li>
-              </ul>
+
+            <div className="opt-pc">
+              <div className="opt-pc-col is-pro">
+                <div className="opt-pc-h">SVR Strengths</div>
+                <ul className="opt-pc-ul">
+                  <li className="opt-pc-li">Robust to outliers (ε-insensitive loss)</li>
+                  <li className="opt-pc-li">Sparse model — only SVs stored at inference</li>
+                  <li className="opt-pc-li">Kernel trick → non-linear regression without explicit features</li>
+                  <li className="opt-pc-li">Works well in high-dimensional spaces</li>
+                  <li className="opt-pc-li">Convex optimisation — unique global optimum, no random init</li>
+                  <li className="opt-pc-li">No distributional assumptions on residuals</li>
+                </ul>
+              </div>
+              <div className="opt-pc-col is-con">
+                <div className="opt-pc-h">SVR Limitations</div>
+                <ul className="opt-pc-ul">
+                  <li className="opt-pc-li">O(n² to n³) training — slow for n &gt; 10 000</li>
+                  <li className="opt-pc-li">Three hyperparameters (C, ε, γ for RBF) to tune jointly</li>
+                  <li className="opt-pc-li">Feature scaling required — critical</li>
+                  <li className="opt-pc-li">Hard to interpret with non-linear kernels</li>
+                  <li className="opt-pc-li">No confidence intervals without extra (e.g. conformal) methods</li>
+                  <li className="opt-pc-li">ε is often harder to set than C — domain knowledge helps</li>
+                </ul>
+              </div>
             </div>
-          </div>
 
-          <div className="tf-subhead">SVR vs alternatives for regression</div>
-          <div className="tf-legend">
-            {[
-              ["SVR", "Support Vector Regression", "your choice", "Best for small datasets with outliers. Kernel trick for non-linearity. Sparse predictions."],
-              ["LR", "Linear Regression", "baseline", "Fastest. Best when relationship is truly linear and data is clean. OLS gives confidence intervals."],
-              ["RF", "Random Forest Regression", "ensemble", "Handles non-linearity natively. Robust without tuning. Better for large n or tabular data."],
-              ["GPR", "Gaussian Process Regression", "probabilistic", "Provides uncertainty estimates. Computationally similar to SVR. Better for small datasets needing uncertainty."],
-              ["NN", "Neural Network Regression", "deep", "Best for very large datasets or complex patterns (images, sequences). Needs more data than SVR."],
-            ].map(r => (
-              <div className="tf-leg" key={r[0]}>
-                <div className="tf-leg-top"><span className="tf-sym">{r[0]}</span><span className="tf-leg-shape">{r[2]}</span></div>
-                <div className="tf-leg-name">{r[1]}</div>
-                <div className="tf-leg-desc">{r[3]}</div>
-              </div>
-            ))}
-          </div>
+            <div className="tf-subhead">SVR vs alternatives for regression</div>
+            <div className="tf-legend">
+              {[
+                ["SVR", "Support Vector Regression", "your choice", "Best for: small datasets with noisy measurements, outlier-robust fit needed, non-linear data with kernel trick."],
+                ["OLS", "Linear Regression (OLS)", "baseline", "Fastest. Gives confidence intervals. Best when data is truly linear, no outliers, large n. Always try first."],
+                ["RF", "Random Forest Regression", "ensemble", "Handles non-linearity natively. No scaling needed. Robust without tuning. Preferred for large tabular datasets."],
+                ["GPR", "Gaussian Process Regression", "probabilistic", "Provides full uncertainty estimates. Computationally similar to SVR. Better when you need prediction intervals."],
+                ["NN", "Neural Network Regression", "deep", "Best for huge datasets or very complex patterns (images, sequences). SVR wins on small n."],
+              ].map(r => (
+                <div className="tf-leg" key={r[0]}>
+                  <div className="tf-leg-top"><span className="tf-sym">{r[0]}</span><span className="tf-leg-shape">{r[2]}</span></div>
+                  <div className="tf-leg-name">{r[1]}</div>
+                  <div className="tf-leg-desc">{r[3]}</div>
+                </div>
+              ))}
+            </div>
 
-          <div className="tf-lifecycle">
-            {[
-              ["Scale", "train", "StandardScaler on X and y. SVR is highly sensitive to feature scale."],
-              ["Choose kernel", "train", "RBF for non-linear, linear for high-dim. Start simple."],
-              ["Tune C, ε, γ", "train", "Grid/random search. C∈[0.1,1000], ε∈[0.01,1], γ∈[auto,scale,custom]."],
-              ["Train SVR", "train", "Solve QP. Store only support vectors (sparse model)."],
-              ["Predict", "infer", "ŷ = Σ(αᵢ−αᵢ*)K(xᵢ,x)+b. Inverse-transform if y was scaled."],
-            ].map(([label, phase, desc]) => (
-              <div key={label} className={`tf-life tf-life--${phase}`}>
-                <span className="tf-life-label">{label}</span>
-                <span className="tf-life-desc">{desc}</span>
-              </div>
-            ))}
-          </div>
+            <div className="tf-lifecycle">
+              {[
+                ["Scale", "train", "StandardScaler on X and optionally y. SVR is highly sensitive to feature scale — skip this and results are unreliable."],
+                ["Choose kernel", "train", "Try linear first (fast). Switch to RBF if linear fit is poor. Start with γ='scale' (sklearn default)."],
+                ["Tune C, ε, γ", "train", "Grid/random search with 5-fold CV. C∈[0.1,1000], ε∈[0.01,1], γ∈[auto,scale,0.001,0.1,1]."],
+                ["Train SVR", "train", "Solve QP (libsvm). Log n_support_vectors — should be a small fraction of n."],
+                ["Evaluate", "train", "Use MAE or RMSE. Check R². If R² < 0, model is worse than predicting the mean — increase C or try RBF."],
+                ["Predict", "infer", "ŷ = Σ(αᵢ−αᵢ*)K(xᵢ,x)+b. Inverse-transform y if you scaled the target."],
+              ].map(([label, phase, desc]) => (
+                <div key={label} className={`tf-life tf-life--${phase}`}>
+                  <span className="tf-life-label">{label}</span>
+                  <span className="tf-life-desc">{desc}</span>
+                </div>
+              ))}
+            </div>
 
-          <Note icon="★">
-            You've completed the SVR walkthrough. Switch to <b>SVM (Classification)</b> above
-            to see how the same max-margin principle creates a decision boundary between two classes.
-          </Note>
-        </>
-      ),
+            <Note icon="★">
+              You've completed the SVR walkthrough. Switch to <b>SVM (Classification)</b> above
+              to see how the same max-margin principle creates a decision boundary between two classes.
+            </Note>
+          </>
+        );
+      },
     },
   ];
 
@@ -779,7 +928,7 @@
     renderInput,
     modeLinks: [
       { label: "Classification", href: "SVM (Classification).html", active: false },
-      { label: "Regression (SVR)", href: "SVM (Regression).html", active: true },
+      { label: "Regression", href: "SVM (Regression).html", active: true },
     ],
   };
 })();

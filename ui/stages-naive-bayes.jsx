@@ -2,7 +2,7 @@
    Naive Bayes (Classification) — all 11 explainer stages
    Requires: window.ML_NB (from model/ml-naive-bayes.js)
              window.{ Matrix, V, Sub, Sup, Formula, Lead, Note,
-                      Row, Arrow, Tag, fmt, TipLayer, DiagramBar }
+                      Row, Arrow, Tag, fmt, TipLayer }
    ============================================================ */
 (function () {
   const { Matrix, V, Sub, Sup, Formula, Lead, Note, Row, Arrow, Tag, fmt } = window;
@@ -29,39 +29,6 @@
         </button>
       </label>
     ));
-  }
-
-  /* ── Gaussian bell curve SVG ─────────────────────────────── */
-  function GaussianCurve({ mu, sigma, color, label, xMin, xMax, svgWidth, svgHeight, padL, padR, padT, padB, yScale }) {
-    const plotW = svgWidth - padL - padR;
-    const plotH = svgHeight - padT - padB;
-    const toSvgX = x => padL + ((x - xMin) / (xMax - xMin)) * plotW;
-    const toSvgY = y => padT + plotH - (y / yScale) * plotH;
-
-    const pts = [];
-    const steps = 80;
-    for (let i = 0; i <= steps; i++) {
-      const x = xMin + (i / steps) * (xMax - xMin);
-      const y = Math.exp(-(x - mu) ** 2 / (2 * sigma ** 2)) / (sigma * Math.sqrt(2 * Math.PI));
-      pts.push(`${toSvgX(x).toFixed(2)},${toSvgY(y).toFixed(2)}`);
-    }
-
-    // mean line
-    const mx = toSvgX(mu);
-
-    return (
-      <g>
-        <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-        <line x1={mx} y1={padT} x2={mx} y2={padT + plotH} stroke={color} strokeWidth="1" strokeDasharray="4 3" opacity="0.6" />
-        <text x={mx} y={padT - 5} textAnchor="middle" fontSize="11" fill={color} fontFamily="inherit">
-          μ={fmt(mu, 1)}
-        </text>
-        {label && (
-          <text x={toSvgX(mu + sigma * 1.3)} y={toSvgY(Math.exp(-0.5) / (sigma * Math.sqrt(2 * Math.PI))) - 6}
-            fontSize="11" fill={color} fontFamily="inherit">{label}</text>
-        )}
-      </g>
-    );
   }
 
   /* ── Bar chart for class distribution ───────────────────── */
@@ -104,8 +71,41 @@
     );
   }
 
+  /* ── Probability bar chart (horizontal) ──────────────────── */
+  function ProbBars({ values, labels, colors, title, maxVal }) {
+    const max = maxVal || Math.max(...values, 0.01);
+    const W = 320, H = labels.length * 34 + 20;
+    const padL = 110, padR = 60, padT = 10;
+    const barH = 18, rowH = 34;
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, display: 'block' }}>
+        {title && (
+          <text x={W / 2} y={padT - 2} textAnchor="middle" fontSize="11"
+            fill="var(--ink-2)" fontFamily="inherit" fontWeight="600">{title}</text>
+        )}
+        {labels.map((lbl, i) => {
+          const y = padT + i * rowH;
+          const barW = ((values[i] / max) * (W - padL - padR));
+          return (
+            <g key={lbl}>
+              <text x={padL - 6} y={y + barH / 2 + 4} textAnchor="end"
+                fontSize="11" fill="var(--ink-2)" fontFamily="inherit">{lbl}</text>
+              <rect x={padL} y={y} width={Math.max(barW, 2)} height={barH}
+                fill={colors[i % colors.length]} rx="3" opacity="0.85" />
+              <text x={padL + barW + 5} y={y + barH / 2 + 4}
+                fontSize="11" fontWeight="700" fill={colors[i % colors.length]} fontFamily="inherit">
+                {(values[i] * 100).toFixed(1)}%
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+
   /* ── Bayesian network SVG ─────────────────────────────────── */
-  function BayesianNetwork({ showFeatureEdges = false }) {
+  function BayesianNetwork({ showFeatureEdges }) {
     const W = 340, H = 180;
     const classX = W / 2, classY = 40, r = 24;
     const featureXs = [50, 130, 210, 290];
@@ -114,11 +114,8 @@
 
     return (
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, display: 'block' }}>
-        {/* Class node */}
         <circle cx={classX} cy={classY} r={r} fill="var(--accent)" opacity="0.15" stroke="var(--accent)" strokeWidth="2" />
         <text x={classX} y={classY + 5} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--accent)" fontFamily="inherit">Class</text>
-
-        {/* Feature nodes and edges from Class */}
         {features.map((f, i) => {
           const fx = featureXs[i], fy = featureY;
           const dx = fx - classX, dy = fy - classY;
@@ -133,19 +130,15 @@
                 markerEnd="url(#arrowNB)" opacity="0.7"
               />
               <circle cx={fx} cy={fy} r={20} fill="var(--panel-solid)" stroke="var(--line)" strokeWidth="1.5" />
-              <text x={fx} y={fy - 4} textAnchor="middle" fontSize="8" fill="var(--ink-2)" fontFamily="inherit">
-                x{i + 1}
-              </text>
+              <text x={fx} y={fy - 4} textAnchor="middle" fontSize="8" fill="var(--ink-2)" fontFamily="inherit">x{i + 1}</text>
               <text x={fx} y={fy + 7} textAnchor="middle" fontSize="7" fill="var(--ink-2)" fontFamily="inherit">
                 {f.split('_').slice(0, 2).join(' ')}
               </text>
             </g>
           );
         })}
-
-        {/* No edges between features (naive assumption) */}
         {showFeatureEdges && (
-          <g opacity="0.3">
+          <g opacity="0.35">
             {[0, 1, 2].map(i => (
               <line key={i}
                 x1={featureXs[i] + 20} y1={featureY}
@@ -154,15 +147,13 @@
             ))}
           </g>
         )}
-
         <defs>
           <marker id="arrowNB" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
             <path d="M0,0 L0,8 L8,4 Z" fill="var(--accent)" opacity="0.7" />
           </marker>
         </defs>
-
         <text x={W / 2} y={H - 4} textAnchor="middle" fontSize="10" fill="var(--ink-2)" fontFamily="inherit">
-          {showFeatureEdges ? "real correlations (ignored by Naive Bayes)" : "no edges between features (independence assumption)"}
+          {showFeatureEdges ? 'real correlations (ignored by Naive Bayes)' : 'no edges between features = independence assumption'}
         </text>
       </svg>
     );
@@ -184,6 +175,46 @@
     );
   }
 
+  /* ── Log-scale illustration SVG ──────────────────────────── */
+  function LogScaleViz() {
+    const W = 420, H = 130;
+    const products = [0.5, 0.71, 0.29, 0.14]; // illustrative P values
+    const logSum = products.reduce((s, p) => s + Math.log(p), 0);
+    const rawProduct = products.reduce((p, v) => p * v, 1);
+    const padL = 20, padR = 20, padT = 20, padB = 30;
+
+    // show bar of raw product (tiny) vs log sum
+    const barMaxW = W - padL - padR;
+    const rawFrac = rawProduct / 1.0;
+    const logFrac = (logSum + 10) / 10; // normalize log sum for display
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, display: 'block' }}>
+        <text x={padL} y={padT} fontSize="11" fill="var(--ink-2)" fontFamily="inherit" fontWeight="600">
+          Raw product: {products.join(' × ')}
+        </text>
+        <text x={padL} y={padT + 14} fontSize="10" fill="var(--ink-2)" fontFamily="inherit">
+          = {rawProduct.toFixed(6)} ← very small, underflow risk
+        </text>
+        <rect x={padL} y={padT + 20} width={Math.max(barMaxW * rawFrac * 200, 3)} height={16}
+          fill="#e0518f" rx="3" opacity="0.8" />
+
+        <text x={padL} y={padT + 55} fontSize="11" fill="var(--ink-2)" fontFamily="inherit" fontWeight="600">
+          Log sum: log({products.join(') + log(')})
+        </text>
+        <text x={padL} y={padT + 69} fontSize="10" fill="var(--ink-2)" fontFamily="inherit">
+          = {products.map(p => Math.log(p).toFixed(3)).join(' + ')} = {logSum.toFixed(4)} ← numerically stable
+        </text>
+        <rect x={padL} y={padT + 75} width={barMaxW * 0.65} height={16}
+          fill="#1f9e6b" rx="3" opacity="0.8" />
+
+        <text x={padL} y={H - 6} fontSize="10" fill="var(--ink-2)" fontFamily="inherit">
+          Both encode the same relative ranking — log-space is safe from floating-point underflow
+        </text>
+      </svg>
+    );
+  }
+
   /* ── STAGES ──────────────────────────────────────────────── */
   const STAGES = [
 
@@ -197,10 +228,18 @@
       render: (trace) => (
         <>
           <Lead>
-            <b>Naive Bayes</b> is a probabilistic classifier based on <b>Bayes' theorem</b>. It predicts
-            the most likely class by computing <V>P(class | features)</V>, combining
-            <V> P(features | class)</V> × <V>P(class)</V>. It's called "naive" because it assumes
-            all features are <b>conditionally independent</b> given the class.
+            <b>Naive Bayes</b> is a probabilistic classifier based on <b>Bayes' theorem</b>. Given
+            an email described by features like "has_link" or "has_money", it computes
+            <V> P(spam | features)</V> and <V>P(ham | features)</V> and picks the higher one.
+            It's called "naive" because it assumes all features are <b>conditionally independent</b> given
+            the class — a simplification that rarely holds exactly, yet works remarkably well in practice.
+          </Lead>
+
+          <Lead>
+            Think of it like a doctor diagnosing a disease based on independent test results.
+            The doctor looks at each test (fever? cough? fatigue?) separately and combines the
+            evidence — not worrying about correlations between symptoms. Despite this simplification,
+            experienced diagnosticians (and Naive Bayes) get the right answer most of the time.
           </Lead>
 
           <div className="tf-archwrap">
@@ -209,15 +248,18 @@
                 Input <b>x</b> = [has_link, has_money, is_short, known_sender]
                 <span>binary feature vector — one email to classify</span>
               </div>
-              <div className="tf-arch-f"><b>Compute P(class | x) via Bayes' theorem</b></div>
+              <div className="tf-arch-f"><b>Step 1 — Priors: P(ham) and P(spam) from training counts</b></div>
               <div className="tf-arch-row">
-                <span className="tf-sym">prior</span> — P(ham), P(spam) from training counts
+                <span className="tf-sym">prior P(C)</span> — class frequency in training data
               </div>
-              <div className="tf-arch-f"><b>P(x | C) = Π P(xⱼ | C)</b></div>
+              <div className="tf-arch-f"><b>Step 2 — Likelihoods: P(feature | class) per feature</b></div>
               <div className="tf-arch-row">
-                <span className="tf-sym">likelihood</span> — product of per-feature probabilities
+                <span className="tf-sym">likelihood P(x|C)</span> — product of per-feature probabilities (naive assumption)
               </div>
-              <div className="tf-arch-f"><b>posterior ∝ prior × likelihood</b></div>
+              <div className="tf-arch-f"><b>Step 3 — Log-posterior: log P(C) + Σ log P(xⱼ|C)</b></div>
+              <div className="tf-arch-row">
+                <span className="tf-sym">log-space</span> — avoids numerical underflow from small products
+              </div>
               <div className="tf-arch-io tf-arch-io--out">
                 Predicted class — argmax P(C | x)
                 <span>the class with the highest posterior probability</span>
@@ -228,12 +270,12 @@
           <div className="tf-subhead">Symbol key</div>
           <div className="tf-legend">
             {[
-              ["x", "feature vector", "[binary]", "the input email's 4 binary features"],
-              ["C", "class variable", "ham/spam", "the target label we're predicting"],
-              ["P(C)", "prior", "scalar", "baseline probability of each class from training data"],
-              ["P(x|C)", "likelihood", "scalar", "probability of seeing these features given the class"],
-              ["P(C|x)", "posterior", "scalar", "the probability we ultimately want — P(class | this email)"],
-              ["α", "Laplace smoothing", "=1", "pseudocount added to avoid zero probabilities"],
+              ["x", "feature vector", "[binary]", "the input email's 4 binary features (0 or 1 each)"],
+              ["C", "class variable", "ham/spam", "the target label we are predicting"],
+              ["P(C)", "prior", "scalar", "baseline probability of each class from training data — before seeing any features"],
+              ["P(x|C)", "likelihood", "scalar", "probability of observing these features given the class — estimated from training counts"],
+              ["P(C|x)", "posterior", "scalar", "the probability we want: P(class | this email's features) — Bayes' theorem inverts the likelihood"],
+              ["α", "Laplace smoothing", "=1", "pseudocount added to every count to prevent zero probabilities"],
             ].map(r => (
               <div className="tf-leg" key={r[0]}>
                 <div className="tf-leg-top">
@@ -249,19 +291,29 @@
           <div className="tf-subhead">Training vs Inference</div>
           <div className="tf-lifecycle">
             <div className="tf-life tf-life--train">
-              <div className="tf-life-head">Training</div>
-              <div className="tf-life-body">Count class frequencies → compute priors<br />Count feature-class co-occurrences → likelihoods<br />Apply Laplace smoothing<br /><b>O(n·d)</b> — extremely fast</div>
+              <div className="tf-life-head">Training — O(n·d)</div>
+              <div className="tf-life-body">
+                Count class frequencies → priors P(C)<br />
+                Count feature-class co-occurrences → likelihoods P(xⱼ|C)<br />
+                Apply Laplace smoothing (α=1)<br />
+                <b>Store: 2 priors + 4×2 likelihood table = 10 numbers</b>
+              </div>
             </div>
             <div className="tf-life tf-life--infer">
-              <div className="tf-life-head">Inference</div>
-              <div className="tf-life-body">For each class: compute log-posterior<br />log P(C) + Σ log P(xⱼ|C)<br />Normalize → probabilities<br /><b>Predict: argmax P(C|x)</b></div>
+              <div className="tf-life-head">Inference — O(d·K)</div>
+              <div className="tf-life-body">
+                For each class C: log P(C) + Σⱼ log P(xⱼ|C)<br />
+                Compare log-posteriors → pick highest<br />
+                Normalize → calibrated probabilities<br />
+                <b>Predict: argmax P(C|x)</b>
+              </div>
             </div>
           </div>
 
           <Note>
             Toggle the <b>feature buttons</b> above to change the email being classified.
             Every number on every step recomputes live. Press <b>Next →</b> to walk through
-            the full algorithm.
+            the full algorithm step by step.
           </Note>
         </>
       ),
@@ -271,9 +323,9 @@
     {
       id: "dataset",
       group: "Data",
-      title: "The Training Dataset",
+      title: "The Training Dataset — 10 Labeled Emails",
       map: "Dataset",
-      why: "We need labeled examples to estimate the prior and likelihood probabilities. Understanding the data helps us know what the model can learn and where it might fail.",
+      why: "We need labeled examples to estimate prior and likelihood probabilities. Understanding the data helps us see what the model can learn and where it might fail.",
       render: (trace) => {
         const { cfg } = trace;
         const hamRows = cfg.data.filter(r => r[4] === 0);
@@ -283,8 +335,16 @@
           <>
             <Lead>
               Our dataset contains <b>10 emails</b>, each described by 4 binary features.
-              5 are <b>ham</b> (legitimate) and 5 are <b>spam</b>. We'll train the classifier
-              by counting how often each feature appears in each class.
+              Exactly 5 are <b>ham</b> (legitimate) and 5 are <b>spam</b>. Each feature is
+              either 0 (absent) or 1 (present). These counts are all the model needs —
+              no gradient descent, no matrix factorizations, just counting.
+            </Lead>
+
+            <Lead>
+              Imagine you receive 100 emails per day. You want to learn which word patterns,
+              links, or sender cues predict spam. Naive Bayes formalizes that intuition:
+              count how often each clue appears in spam vs ham, and use those frequencies
+              as probabilities at prediction time.
             </Lead>
 
             <Row>
@@ -295,7 +355,7 @@
                   rowLabels={cfg.data.map((_, i) => `email ${i + 1}`)}
                   colLabels={[...cfg.features.map(fLabel), 'label']}
                   caption="Training data"
-                  sub="10 emails × 4 features + label"
+                  sub="10 emails × 4 binary features + class label (0=ham, 1=spam)"
                   heat={false}
                   cellTip={(i, j, v) => {
                     if (j === 4) return (
@@ -307,7 +367,7 @@
                     return (
                       <div>
                         <div className="tf-tip-title">{fLabel(cfg.features[j])}</div>
-                        <div className="tf-tip-sum">{v === 1 ? 'yes (present)' : 'no (absent)'}</div>
+                        <div className="tf-tip-sum">{v === 1 ? 'yes — feature present' : 'no — feature absent'}</div>
                       </div>
                     );
                   }}
@@ -324,52 +384,91 @@
                   <div className="nn-calc-h">Class counts</div>
                   <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>Ham: 5 / 10 = 50%</div>
                   <div className="nn-calc-row" style={{ color: '#e0518f' }}>Spam: 5 / 10 = 50%</div>
-                  <div className="nn-calc-row">Balanced dataset</div>
+                  <div className="nn-calc-row">Perfectly balanced dataset</div>
                 </div>
               </div>
             </Row>
 
-            <div className="tf-subhead">Feature presence per class</div>
+            <div className="tf-subhead">What each feature means</div>
+            <div className="tf-legend">
+              {[
+                ["has_link", "Contains a URL or hyperlink", "binary", "Spam often includes links to phishing or ad sites. But ham can have links too (e.g., newsletters)."],
+                ["has_money", "Contains money-related words ($, free, win, etc.)", "binary", "Strong spam indicator — many phishing emails promise financial gain."],
+                ["is_short", "Email body is very short (< 30 words)", "binary", "Spam often uses short punchy messages. Legitimate business email is usually longer."],
+                ["known_sender", "Sender is in your contacts list", "binary", "Very strong ham indicator — spam rarely comes from known contacts."],
+              ].map(r => (
+                <div className="tf-leg" key={r[0]}>
+                  <div className="tf-leg-top">
+                    <span className="tf-sym">{r[0]}</span>
+                    <span className="tf-leg-shape">{r[2]}</span>
+                  </div>
+                  <div className="tf-leg-name">{r[1]}</div>
+                  <div className="tf-leg-desc">{r[3]}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="tf-subhead">Feature presence per class — raw counts</div>
             <Row>
               {cfg.features.map((f, fi) => {
                 const hamCount = hamRows.filter(r => r[fi] === 1).length;
                 const spamCount = spamRows.filter(r => r[fi] === 1).length;
+                const signal = Math.abs(spamCount - hamCount) >= 3 ? 'strong signal' : Math.abs(spamCount - hamCount) >= 2 ? 'moderate signal' : 'weak signal';
                 return (
                   <div key={f} className="nn-calc" style={{ flex: '1 1 130px' }}>
                     <div className="nn-calc-h">{fLabel(f)}</div>
-                    <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>ham: {hamCount}/5</div>
-                    <div className="nn-calc-row" style={{ color: '#e0518f' }}>spam: {spamCount}/5</div>
+                    <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>ham: {hamCount}/5 = {(hamCount/5*100).toFixed(0)}%</div>
+                    <div className="nn-calc-row" style={{ color: '#e0518f' }}>spam: {spamCount}/5 = {(spamCount/5*100).toFixed(0)}%</div>
+                    <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11 }}>{signal}</div>
                   </div>
                 );
               })}
             </Row>
 
             <Note>
-              Notice that <b>known_sender</b> is always 1 in ham and always 0 in spam —
-              it's a very discriminative feature. <b>has_link</b> appears in both classes
-              (once in ham), so it's less decisive. Laplace smoothing (next stages) handles
-              features with zero counts.
+              Notice that <b>known_sender</b> is 1 in every ham email and 0 in every spam email —
+              it is a perfectly discriminative feature in this toy dataset. <b>has_link</b> appears
+              once in ham and four times in spam — strong but not perfect. Laplace smoothing
+              (Stage 7) handles any zero-count edge cases safely.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 3: Bayes' Theorem ───────────────────────────── */
+    /* ── Stage 3: Bayes' Theorem from Scratch ──────────────── */
     {
       id: "bayes-theorem",
       group: "Theory",
-      title: "Bayes' Theorem — The Core Formula",
+      title: "Bayes' Theorem from Scratch — All Terms Defined",
       map: "Bayes' Theorem",
-      why: "Bayes' theorem is the mathematical backbone of this classifier. It lets us invert conditional probabilities: turn P(features | class) into P(class | features).",
+      why: "Bayes' theorem is the mathematical backbone of this classifier. Understanding all four terms — prior, likelihood, evidence, posterior — is essential before using the formula.",
       render: (trace) => (
         <>
           <Lead>
-            Bayes' theorem relates the <b>posterior</b> P(C|x) to the
-            <b> likelihood</b> P(x|C) and <b>prior</b> P(C). We can't directly observe
-            P(class | email), but we can estimate P(email | class) from training data and
-            invert it using Bayes' theorem.
+            Before stating Bayes' theorem, let's define every term precisely.
+            These four concepts appear throughout statistics and machine learning —
+            understanding them here unlocks Bayesian reasoning everywhere.
           </Lead>
+
+          <div className="tf-subhead">The four key terms — defined first</div>
+          <div className="tf-legend">
+            {[
+              ["P(C)", "Prior", "before data", "Our belief about the class BEFORE seeing any features. P(spam) = how often emails are spam in general. In our dataset: P(spam)=0.5."],
+              ["P(x|C)", "Likelihood", "from training", "The probability of seeing these features GIVEN a class. P(fever|flu) = how often flu patients have fever. We estimate this from labeled training data."],
+              ["P(C|x)", "Posterior", "what we want", "Our UPDATED belief about the class AFTER seeing the features. P(flu|fever) = probability you have flu given you have a fever. This is what we predict."],
+              ["P(x)", "Evidence", "normalizer", "The total probability of seeing these features regardless of class. P(fever) = P(fever|flu)P(flu) + P(fever|healthy)P(healthy). Same for all classes, so we can ignore it when comparing."],
+            ].map(r => (
+              <div className="tf-leg" key={r[0]}>
+                <div className="tf-leg-top">
+                  <span className="tf-sym">{r[0]}</span>
+                  <span className="tf-leg-shape">{r[2]}</span>
+                </div>
+                <div className="tf-leg-name">{r[1]}</div>
+                <div className="tf-leg-desc">{r[3]}</div>
+              </div>
+            ))}
+          </div>
 
           <Formula label="Bayes' Theorem">
             <span style={{ fontSize: '1.15em' }}>
@@ -380,69 +479,95 @@
                 </span>
                 <span style={{ paddingTop: 4 }}><V>P</V>(<V>x</V>)</span>
               </span>
+              &nbsp;&nbsp;=&nbsp;&nbsp;
+              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
+                <span style={{ borderBottom: '2px solid var(--accent)', paddingBottom: 2, color: 'var(--accent)' }}>
+                  likelihood × prior
+                </span>
+                <span style={{ paddingTop: 4, color: 'var(--muted)' }}>evidence</span>
+              </span>
             </span>
           </Formula>
 
-          <Row>
-            <div className="nn-calc" style={{ flex: '1 1 180px' }}>
-              <div className="nn-calc-h" style={{ color: 'var(--accent)' }}>P(C | x) — Posterior</div>
-              <div className="nn-calc-row">What we WANT to compute</div>
-              <div className="nn-calc-row">P(email is spam | its features)</div>
-              <div className="nn-calc-row" style={{ color: 'var(--accent)', fontWeight: 700 }}>The output of classification</div>
-            </div>
-            <div className="nn-calc" style={{ flex: '1 1 180px' }}>
-              <div className="nn-calc-h" style={{ color: '#2b5bff' }}>P(x | C) — Likelihood</div>
-              <div className="nn-calc-row">Estimated from training data</div>
-              <div className="nn-calc-row">P(has_link=1 | spam) = 0.71</div>
-              <div className="nn-calc-row" style={{ color: '#2b5bff', fontWeight: 700 }}>Product of per-feature probs</div>
-            </div>
-            <div className="nn-calc" style={{ flex: '1 1 180px' }}>
-              <div className="nn-calc-h" style={{ color: '#1f9e6b' }}>P(C) — Prior</div>
-              <div className="nn-calc-row">Baseline class probability</div>
-              <div className="nn-calc-row">P(spam) = 5/10 = 0.5</div>
-              <div className="nn-calc-row" style={{ color: '#1f9e6b', fontWeight: 700 }}>Computed from class counts</div>
-            </div>
-            <div className="nn-calc" style={{ flex: '1 1 180px' }}>
-              <div className="nn-calc-h" style={{ color: 'var(--muted)' }}>P(x) — Evidence</div>
-              <div className="nn-calc-row">Same for all classes</div>
-              <div className="nn-calc-row">We can ignore it!</div>
-              <div className="nn-calc-row" style={{ color: 'var(--muted)', fontWeight: 700 }}>Cancels in argmax</div>
-            </div>
-          </Row>
+          <div className="tf-subhead">Medical analogy first — P(flu | fever)</div>
+          <Lead>
+            Let's walk through Bayes' theorem with a concrete medical example before applying
+            it to spam. This makes the "inversion" of conditional probability concrete and
+            memorable.
+          </Lead>
 
-          <div className="tf-subhead">Bayesian network — conditional independence</div>
           <Row>
-            <div style={{ flex: '1 1 340px' }}>
-              <BayesianNetwork showFeatureEdges={false} />
+            <div className="nn-calc" style={{ flex: '1 1 220px' }}>
+              <div className="nn-calc-h">Known facts (from population data)</div>
+              <div className="nn-calc-row">P(flu) = 0.05 — 5% of people have flu</div>
+              <div className="nn-calc-row">P(fever | flu) = 0.90 — 90% of flu patients have fever</div>
+              <div className="nn-calc-row">P(fever | no flu) = 0.15 — 15% of others also have fever</div>
             </div>
-            <div style={{ flex: '1 1 240px' }}>
-              <div className="nn-calc">
-                <div className="nn-calc-h">Why ignore P(x)?</div>
-                <div className="nn-calc-row">We want: argmax<sub>C</sub> P(C|x)</div>
-                <div className="nn-calc-row">P(x) is the same for all C</div>
-                <div className="nn-calc-row">So we compute:</div>
-                <div className="nn-calc-row"><b>P(C|x) ∝ P(x|C) · P(C)</b></div>
-                <div className="nn-calc-row" style={{ marginTop: 8, color: 'var(--ink-2)' }}>
-                  Then normalize to get true probabilities
-                </div>
+            <div className="nn-calc" style={{ flex: '1 1 220px' }}>
+              <div className="nn-calc-h">Step 1 — compute P(fever) (evidence)</div>
+              <div className="nn-calc-row">P(fever) = P(fever|flu)×P(flu) + P(fever|¬flu)×P(¬flu)</div>
+              <div className="nn-calc-row">= 0.90 × 0.05 + 0.15 × 0.95</div>
+              <div className="nn-calc-row">= 0.045 + 0.1425 = <b>0.1875</b></div>
+            </div>
+            <div className="nn-calc" style={{ flex: '1 1 220px' }}>
+              <div className="nn-calc-h">Step 2 — apply Bayes' theorem</div>
+              <div className="nn-calc-row">P(flu | fever) = P(fever|flu) × P(flu) / P(fever)</div>
+              <div className="nn-calc-row">= 0.90 × 0.05 / 0.1875</div>
+              <div className="nn-calc-row">= 0.045 / 0.1875 = <b>0.24</b></div>
+              <div className="nn-calc-row" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                Despite 90% sensitivity, only 24% chance you have flu if you have fever!
               </div>
             </div>
           </Row>
 
+          <div className="tf-subhead">Why P(flu|fever) = 24%, not 90%?</div>
+          <div className="nn-calc">
+            <div className="nn-calc-h">The base rate (prior) matters enormously</div>
+            <div className="nn-calc-row">P(fever|flu) = 0.90 tells you: "if you have flu, you're likely to have fever"</div>
+            <div className="nn-calc-row">P(flu|fever) = 0.24 tells you: "if you have fever, it's probably not flu" — because flu is rare (5%)</div>
+            <div className="nn-calc-row">Imagine 1000 people: 50 have flu (50×0.90=45 get fever) + 950 healthy (950×0.15=143 get fever)</div>
+            <div className="nn-calc-row">Of 188 people with fever: only 45 have flu → 45/188 ≈ <b>24%</b>. Bayes gives the same answer.</div>
+          </div>
+
+          <div className="tf-subhead">Now applying to spam classification</div>
+          <Row>
+            <div className="nn-calc" style={{ flex: '1 1 220px' }}>
+              <div className="nn-calc-h" style={{ color: '#e0518f' }}>P(spam | has_link=1)</div>
+              <div className="nn-calc-row">= P(has_link=1|spam) × P(spam) / P(has_link=1)</div>
+              <div className="nn-calc-row">Numerator: 0.71 × 0.50 = 0.357</div>
+              <div className="nn-calc-row">P(has_link=1) = 0.71×0.5 + 0.29×0.5 = 0.50</div>
+              <div className="nn-calc-row"><b>= 0.357 / 0.50 = 0.714</b></div>
+            </div>
+            <div className="nn-calc" style={{ flex: '1 1 220px' }}>
+              <div className="nn-calc-h" style={{ color: 'var(--muted)' }}>Why skip P(x) in practice?</div>
+              <div className="nn-calc-row">We want: argmax_C P(C|x)</div>
+              <div className="nn-calc-row">P(x) is identical for all classes C</div>
+              <div className="nn-calc-row">So we just compare numerators:</div>
+              <div className="nn-calc-row"><b>P(C|x) ∝ P(x|C) · P(C)</b></div>
+              <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11 }}>
+                Then normalize to get true probabilities
+              </div>
+            </div>
+            <div style={{ flex: '1 1 340px' }}>
+              <div className="tf-subhead">Bayesian network</div>
+              <BayesianNetwork showFeatureEdges={false} />
+            </div>
+          </Row>
+
           <Note>
-            The Bayesian network diagram shows each feature depending only on the class node —
-            no direct edges between features. This is exactly the "naive" independence
-            assumption that makes computation tractable.
+            The key insight: Bayes' theorem <b>inverts</b> conditional probability.
+            We can measure P(features|class) from training data (easy), but we want
+            P(class|features) at test time. Bayes' theorem flips it — that's its superpower.
           </Note>
         </>
       ),
     },
 
-    /* ── Stage 4: Class Priors P(C) ────────────────────────── */
+    /* ── Stage 4: Prior Probability ────────────────────────── */
     {
       id: "priors",
       group: "Theory",
-      title: "Class Priors P(C) — Before Seeing Any Features",
+      title: "Prior Probability P(C) — Before Seeing Any Features",
       map: "Priors P(C)",
       why: "The prior captures our baseline belief about each class before observing any features. In spam filtering, if 90% of emails are ham, that prior heavily influences predictions.",
       render: (trace) => {
@@ -451,16 +576,23 @@
         return (
           <>
             <Lead>
-              The <b>prior probability</b> P(C) is the fraction of training examples belonging
-              to each class. It represents our belief about class frequency <em>before</em> seeing
-              any features. With a balanced dataset, both classes start equally likely.
+              The <b>prior probability</b> P(C) is the simplest thing: just the fraction of
+              training examples belonging to each class. It answers "even before reading a
+              single word, how likely is this email to be spam?" If your inbox is 90% ham,
+              that's your prior — a strong starting assumption before looking at any features.
             </Lead>
 
-            <Formula label="Prior probability">
+            <Lead>
+              Imagine you receive 100 emails. Before opening any of them, you already know
+              from past experience that about 50 are spam and 50 are ham. That 50% estimate is
+              your <b>prior</b>. It will get updated (via Bayes' theorem) once you look at features.
+            </Lead>
+
+            <Formula label="Prior probability — from counts">
               <V>P</V>(<V>C</V>) ={' '}
               <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
-                <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>count of class C in training</span>
-                <span style={{ paddingTop: 4 }}>total training examples</span>
+                <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>count of class C in training set</span>
+                <span style={{ paddingTop: 4 }}>total number of training examples</span>
               </span>
             </Formula>
 
@@ -475,65 +607,75 @@
               </div>
               <div style={{ flex: '1 1 280px' }}>
                 <div className="nn-calc">
-                  <div className="nn-calc-h">Prior computation</div>
-                  <div className="nn-calc-row">Total emails n = {cfg.data.length}</div>
+                  <div className="nn-calc-h">Step-by-step prior computation</div>
+                  <div className="nn-calc-row">Total training emails n = {cfg.data.length}</div>
                   <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>
-                    P(ham) = {classCounts[0]} / {cfg.data.length} = <b>{fmt(priors[0], 2)}</b>
+                    Ham count = {classCounts[0]} emails
                   </div>
                   <div className="nn-calc-row" style={{ color: '#e0518f' }}>
-                    P(spam) = {classCounts[1]} / {cfg.data.length} = <b>{fmt(priors[1], 2)}</b>
+                    Spam count = {classCounts[1]} emails
                   </div>
                   <div className="nn-calc-row" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-                    log P(ham) = <b>{fmt(Math.log(priors[0]), 3)}</b>
                   </div>
-                  <div className="nn-calc-row">
-                    log P(spam) = <b>{fmt(Math.log(priors[1]), 3)}</b>
+                  <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>
+                    P(ham) = {classCounts[0]} / {cfg.data.length} = <b>{fmt(priors[0], 4)}</b>
+                  </div>
+                  <div className="nn-calc-row" style={{ color: '#e0518f' }}>
+                    P(spam) = {classCounts[1]} / {cfg.data.length} = <b>{fmt(priors[1], 4)}</b>
+                  </div>
+                  <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11 }}>
+                    Check: {fmt(priors[0],2)} + {fmt(priors[1],2)} = 1.00 ✓
                   </div>
                 </div>
               </div>
               <div style={{ flex: '1 1 220px' }}>
-                <div className="tf-subhead">Imbalanced dataset example</div>
+                <div className="tf-subhead">Log-space priors</div>
                 <div className="nn-calc">
-                  <div className="nn-calc-h">If 9 ham, 1 spam:</div>
-                  <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>P(ham) = 9/10 = <b>0.90</b></div>
-                  <div className="nn-calc-row" style={{ color: '#e0518f' }}>P(spam) = 1/10 = <b>0.10</b></div>
-                  <div className="nn-calc-row" style={{ marginTop: 8, color: 'var(--ink-2)' }}>
-                    Strong prior → model biased toward ham even with spam-like features
+                  <div className="nn-calc-h">Convert to log for inference</div>
+                  <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>
+                    log P(ham) = log({fmt(priors[0],2)}) = <b>{fmt(Math.log(priors[0]), 4)}</b>
                   </div>
-                  <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>
-                    Fix: use class weights or oversample minority class
+                  <div className="nn-calc-row" style={{ color: '#e0518f' }}>
+                    log P(spam) = log({fmt(priors[1],2)}) = <b>{fmt(Math.log(priors[1]), 4)}</b>
+                  </div>
+                  <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11 }}>
+                    Equal priors → equal log-priors → prior doesn't tip the scales here
                   </div>
                 </div>
               </div>
             </Row>
 
-            <div className="tf-subhead">Using log-probabilities</div>
-            <div className="nn-calc">
-              <div className="nn-calc-h">Why use logarithms?</div>
-              <div className="nn-calc-row">
-                Multiplying many small probabilities → numerical underflow (0.001 × 0.001 × ... ≈ 0)
+            <div className="tf-subhead">What if the dataset were imbalanced?</div>
+            <Row>
+              <div className="nn-calc" style={{ flex: '1 1 200px' }}>
+                <div className="nn-calc-h">Scenario: 9 ham, 1 spam out of 10</div>
+                <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>P(ham) = 9/10 = <b>0.900</b></div>
+                <div className="nn-calc-row" style={{ color: '#e0518f' }}>P(spam) = 1/10 = <b>0.100</b></div>
+                <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>
+                  Strong prior → model biased toward ham even with spam-like features. The prior "anchors" the prediction.
+                </div>
               </div>
-              <div className="nn-calc-row">
-                log(a × b) = log(a) + log(b) — additions are numerically stable
+              <div className="nn-calc" style={{ flex: '1 1 200px' }}>
+                <div className="nn-calc-h">Scenario: 1 ham, 9 spam out of 10</div>
+                <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>P(ham) = 1/10 = <b>0.100</b></div>
+                <div className="nn-calc-row" style={{ color: '#e0518f' }}>P(spam) = 9/10 = <b>0.900</b></div>
+                <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>
+                  Almost everything predicted spam. Good for high-recall spam filter, bad for precision. Fix: class weights or threshold tuning.
+                </div>
               </div>
-              <div className="nn-calc-row">
-                argmax P(C|x) = argmax log P(C|x) — maximizing log preserves the argmax
-              </div>
-              <div className="nn-calc-row">
-                <b>We always work in log-space and convert back at the end</b>
-              </div>
-            </div>
+            </Row>
 
             <Note>
-              In our balanced dataset P(ham) = P(spam) = 0.5, so the prior doesn't tip the
-              scales. The <b>likelihood</b> (next step) is what distinguishes the two classes.
+              In our balanced dataset P(ham) = P(spam) = {fmt(priors[0], 2)}, so the prior contributes
+              equally to both classes — it does not tip the scales. The <b>likelihood</b> (next stage)
+              is what distinguishes ham from spam here.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 5: Likelihood P(xⱼ | C) ──────────────────────── */
+    /* ── Stage 5: Likelihood ────────────────────────────────── */
     {
       id: "likelihood",
       group: "Theory",
@@ -546,12 +688,20 @@
         return (
           <>
             <Lead>
-              For each feature <V>xⱼ</V> and each class <V>C</V>, we estimate
-              <V> P(xⱼ=1 | C)</V> — the probability the feature is present given the class.
-              <b> Laplace smoothing</b> (α=1) prevents zero probabilities.
+              The <b>likelihood</b> P(xⱼ=1 | C) answers: "among all emails in class C,
+              what fraction have feature j present?" For binary features (0 or 1), there are
+              two values per feature per class. We use <b>Laplace smoothing</b> (α=1) to
+              prevent any probability from being exactly zero.
             </Lead>
 
-            <Formula label="Laplace-smoothed likelihood">
+            <Lead>
+              Think of it as building a frequency table from your training emails.
+              For spam: "how often did spam emails contain a link? A money word? A short body?"
+              Each answer becomes a probability in the likelihood table — the model's learned
+              knowledge about what spam looks like.
+            </Lead>
+
+            <Formula label="Laplace-smoothed likelihood (binary features)">
               <V>P</V>(<V>x</V><Sub>j</Sub>=1 | <V>C</V>) ={' '}
               <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
                 <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>
@@ -559,18 +709,20 @@
                 </span>
                 <span style={{ paddingTop: 4 }}>count(<V>C</V>) + 2α</span>
               </span>
+              &nbsp; where α = 1 (Laplace)
             </Formula>
 
-            <div className="tf-subhead">Example: P(has_link=1 | spam)</div>
+            <div className="tf-subhead">Step-by-step: P(has_link=1 | spam)</div>
             <div className="nn-calc">
-              <div className="nn-calc-h">Step-by-step with Laplace smoothing (α=1)</div>
-              <div className="nn-calc-row">Spam emails with has_link=1: count = {likelihoodCounts[1][0]}</div>
-              <div className="nn-calc-row">Total spam emails: {classCounts[1]}</div>
-              <div className="nn-calc-row">= ({likelihoodCounts[1][0]} + 1) / ({classCounts[1]} + 2) = {likelihoodCounts[1][0] + 1} / {classCounts[1] + 2}</div>
-              <div className="nn-calc-row"><b>= {fmt(likelihoods[1][0], 3)} ({((likelihoods[1][0]) * 100).toFixed(0)}%)</b></div>
+              <div className="nn-calc-h">Full worked example with α=1</div>
+              <div className="nn-calc-row">Step 1: Count spam emails with has_link=1 → <b>{likelihoodCounts[1][0]}</b> out of {classCounts[1]} spam emails</div>
+              <div className="nn-calc-row">Step 2: Apply Laplace → numerator = {likelihoodCounts[1][0]} + 1 = <b>{likelihoodCounts[1][0]+1}</b></div>
+              <div className="nn-calc-row">Step 3: Denominator = {classCounts[1]} + 2×1 = <b>{classCounts[1]+2}</b></div>
+              <div className="nn-calc-row">Step 4: P(has_link=1 | spam) = {likelihoodCounts[1][0]+1} / {classCounts[1]+2} = <b>{fmt(likelihoods[1][0], 4)}</b></div>
+              <div className="nn-calc-row">Meaning: A spam email has a <b>{(likelihoods[1][0]*100).toFixed(0)}%</b> chance of containing a link</div>
             </div>
 
-            <div className="tf-subhead">Full likelihood table P(xⱼ=1 | C)</div>
+            <div className="tf-subhead">Full 4×2 likelihood table P(xⱼ=1 | C)</div>
             <Matrix
               data={cfg.features.map((_, fi) => [
                 likelihoods[0][fi],
@@ -580,8 +732,8 @@
               ])}
               rowLabels={cfg.features.map(fLabel)}
               colLabels={['P(·|ham)', 'P(·|spam)', 'ham count', 'spam count']}
-              caption="Likelihood table"
-              sub="with Laplace smoothing α=1"
+              caption="Likelihood table (Laplace α=1)"
+              sub="all 4 features × 2 classes — hover cells for full computation"
               heat={true}
               cellTip={(i, j, v) => {
                 if (j < 2) {
@@ -592,93 +744,115 @@
                     <div>
                       <div className="tf-tip-title">P({fLabel(cfg.features[i])}=1 | {cls})</div>
                       <div className="tf-tip-calc">({cnt} + 1) / ({total} + 2)</div>
-                      <div className="tf-tip-sum">= <b>{fmt(v, 3)}</b></div>
+                      <div className="tf-tip-sum">= <b>{fmt(v, 4)}</b></div>
                     </div>
                   );
                 }
                 return (
                   <div>
                     <div className="tf-tip-title">Raw count</div>
-                    <div className="tf-tip-sum">{v} emails with this feature</div>
+                    <div className="tf-tip-sum">{v} emails with this feature in {j === 2 ? 'ham' : 'spam'}</div>
                   </div>
                 );
               }}
             />
 
-            <div className="tf-subhead">Reading the table</div>
+            <div className="tf-subhead">Interpreting the likelihood table</div>
             <Row>
               {cfg.features.map((f, fi) => {
                 const hamP = likelihoods[0][fi];
                 const spamP = likelihoods[1][fi];
-                const diff = spamP - hamP;
-                const signal = Math.abs(diff) > 0.3 ? 'strong' : Math.abs(diff) > 0.1 ? 'moderate' : 'weak';
-                const favors = diff > 0 ? 'spam' : 'ham';
+                const ratio = spamP / hamP;
+                const favors = ratio > 1.3 ? 'spam' : ratio < 0.7 ? 'ham' : 'neither strongly';
                 return (
                   <div key={f} className="nn-calc" style={{ flex: '1 1 140px' }}>
                     <div className="nn-calc-h">{fLabel(f)}</div>
-                    <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>ham: {fmt(hamP, 2)}</div>
-                    <div className="nn-calc-row" style={{ color: '#e0518f' }}>spam: {fmt(spamP, 2)}</div>
-                    <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11 }}>
-                      {signal} signal → {favors}
-                    </div>
+                    <div className="nn-calc-row" style={{ color: '#1f9e6b' }}>P(·|ham) = {fmt(hamP, 2)}</div>
+                    <div className="nn-calc-row" style={{ color: '#e0518f' }}>P(·|spam) = {fmt(spamP, 2)}</div>
+                    <div className="nn-calc-row">ratio: {fmt(ratio, 2)}×</div>
+                    <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11 }}>favors {favors}</div>
                   </div>
                 );
               })}
             </Row>
 
             <Note>
-              Without Laplace smoothing, <b>known_sender=1 for spam</b> would be 0/5 = 0.
-              One zero multiplied through the likelihood product → posterior = 0, killing
-              all evidence. α=1 gives every feature a minimum probability floor.
+              Without Laplace smoothing, <b>P(known_sender=1 | spam)</b> would be 0/5 = 0 —
+              and one zero in the product sends the posterior to zero regardless of all other
+              evidence. α=1 gives every outcome a minimum floor of probability.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 6: Naive Independence Assumption ─────────────── */
+    /* ── Stage 6: Independence Assumption ──────────────────── */
     {
       id: "independence",
       group: "Theory",
       title: 'The "Naive" Assumption — Conditional Independence',
       map: "Independence",
-      why: "This is the most important conceptual insight in Naive Bayes: despite being mathematically incorrect for most real data, assuming independence usually works surprisingly well in practice.",
+      why: "This is the most important conceptual insight in Naive Bayes: despite being mathematically wrong for most real data, assuming independence usually works surprisingly well in practice.",
       render: (trace) => (
         <>
           <Lead>
-            The "naive" in Naive Bayes means we assume all features are <b>conditionally
-            independent</b> given the class. This simplifies the joint likelihood into
-            a product of individual likelihoods, making computation tractable.
+            The "naive" in Naive Bayes refers to the <b>conditional independence assumption</b>:
+            given the class, each feature is assumed to be independent of every other feature.
+            This means the joint probability of all features factors into a product of individual
+            feature probabilities. Without this assumption, computing the joint distribution
+            over all feature combinations would require exponential storage.
           </Lead>
 
-          <Formula label="Joint likelihood (exact)">
-            <V>P</V>(<V>x</V><Sub>1</Sub>, <V>x</V><Sub>2</Sub>, … <V>x</V><Sub>d</Sub> | <V>C</V>) = (complex joint distribution with correlations)
+          <Lead>
+            In our email example: given that an email is spam, does knowing it has a link
+            tell us anything new about whether it has money words? Naive Bayes says "no" —
+            each feature is separately conditioned on the class only. In reality, spam emails
+            often have both links and money words together (correlation), but ignoring this
+            often doesn't hurt the final prediction.
+          </Lead>
+
+          <Formula label="Exact joint likelihood (exponential complexity)">
+            <V>P</V>(<V>x</V><Sub>1</Sub>, <V>x</V><Sub>2</Sub>, …, <V>x</V><Sub>d</Sub> | <V>C</V>) = requires 2<Sup>d</Sup> parameters per class
           </Formula>
 
-          <Formula label="Naive Bayes assumption">
+          <Formula label="Naive Bayes independence assumption (linear complexity)">
             <V>P</V>(<V>x</V><Sub>1</Sub>, …, <V>x</V><Sub>d</Sub> | <V>C</V>) ≈{' '}
-            <span style={{ fontSize: '1.2em' }}>∏</span>
-            <Sub>j=1</Sub><Sup>d</Sup> <V>P</V>(<V>x</V><Sub>j</Sub> | <V>C</V>)
+            <span style={{ fontSize: '1.15em' }}>∏</span>
+            <Sub>j=1</Sub><Sup>d</Sup>&nbsp;
+            <V>P</V>(<V>x</V><Sub>j</Sub> | <V>C</V>)
+            &nbsp;&nbsp; — only d parameters per class needed
           </Formula>
 
           <Row>
             <div style={{ flex: '1 1 340px' }}>
-              <div className="tf-subhead">Bayesian network: naive model</div>
+              <div className="tf-subhead">Naive Bayes model — no feature edges</div>
               <BayesianNetwork showFeatureEdges={false} />
             </div>
             <div style={{ flex: '1 1 340px' }}>
-              <div className="tf-subhead">Real correlations (ignored)</div>
+              <div className="tf-subhead">Reality — features correlated (ignored)</div>
               <BayesianNetwork showFeatureEdges={true} />
             </div>
           </Row>
 
-          <div className="tf-subhead">Why does it still work?</div>
+          <div className="tf-subhead">Concrete example: checking independence violation</div>
+          <div className="nn-calc">
+            <div className="nn-calc-h">has_link AND has_money joint probability in spam</div>
+            <div className="nn-calc-row">From data: spam emails with BOTH has_link=1 AND has_money=1: <b>3</b> out of 5</div>
+            <div className="nn-calc-row">True joint: P(has_link=1, has_money=1 | spam) = 3/5 = <b>0.600</b></div>
+            <div className="nn-calc-row">Naive assumption: P(has_link|spam) × P(has_money|spam)</div>
+            <div className="nn-calc-row">= {fmt(trace.likelihoods[1][0], 3)} × {fmt(trace.likelihoods[1][1], 3)} = <b>{fmt(trace.likelihoods[1][0] * trace.likelihoods[1][1], 3)}</b></div>
+            <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>
+              {fmt(trace.likelihoods[1][0] * trace.likelihoods[1][1], 3)} ≠ 0.600 — the assumption is violated, but the prediction often correct anyway
+            </div>
+          </div>
+
+          <div className="tf-subhead">Why it often doesn't matter</div>
           <div className="tf-legend">
             {[
-              ["1", "Decision boundary", "practical", "Even with wrong probabilities, the argmax (predicted class) is often correct. The model just needs to rank classes correctly, not estimate calibrated probabilities."],
-              ["2", "Many features cancel", "empirical", "Feature correlations often affect both classes equally. When correlations are symmetric, the naive assumption errors cancel out in the posterior ratio."],
-              ["3", "Regularization effect", "theoretical", "Strong independence assumption acts like implicit regularization — it reduces variance at the cost of some bias, helping on small datasets."],
-              ["4", "Text/spam domains", "domain", "In email spam, features like has_link and has_money are genuinely semi-independent given spam — the model's assumptions are not wildly off."],
+              ["1", "Decision boundary still correct", "practical", "Naive Bayes needs to rank classes correctly, not estimate perfect probabilities. Even with wrong joint probabilities, argmax P(C|x) is often the right class."],
+              ["2", "Symmetric correlations cancel", "empirical", "If feature correlations affect both classes equally, the errors cancel out in the posterior ratio. The bias is often harmless."],
+              ["3", "Implicit regularization", "theoretical", "The independence prior reduces model variance, which helps on small datasets where a more expressive model would overfit."],
+              ["4", "Text classification wins", "domain", "In spam/text, features like word frequencies are genuinely semi-independent given the topic class, making the assumption less wrong."],
             ].map(r => (
               <div className="tf-leg" key={r[0]}>
                 <div className="tf-leg-top">
@@ -691,75 +865,215 @@
             ))}
           </div>
 
-          <div className="tf-subhead">Example of violated independence</div>
-          <div className="nn-calc">
-            <div className="nn-calc-h">has_link and has_money are correlated in spam</div>
-            <div className="nn-calc-row">In our data: spam emails often have both (3 out of 5)</div>
-            <div className="nn-calc-row">P(has_link=1 AND has_money=1 | spam) = 3/5 = 0.60</div>
-            <div className="nn-calc-row">Naive assumption: P(has_link|spam) × P(has_money|spam) = {fmt(trace.likelihoods[1][0], 2)} × {fmt(trace.likelihoods[1][1], 2)} = {fmt(trace.likelihoods[1][0] * trace.likelihoods[1][1], 3)}</div>
-            <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>
-              {fmt(trace.likelihoods[1][0] * trace.likelihoods[1][1], 3)} ≠ 0.60 — correlation is ignored, but prediction often correct anyway
-            </div>
-          </div>
-
           <Note>
-            The independence assumption makes Naive Bayes a <b>O(n·d)</b> algorithm
-            — training complexity is just counting. Without it, the full joint
-            distribution would require exponential storage.
+            Expanding the joint likelihood into a product of 4 terms reduces the number of
+            parameters from 2<Sup>4</Sup>−1=15 per class to just 4 per class.
+            With d=100,000 word features, this savings is absolutely critical.
           </Note>
         </>
       ),
     },
 
-    /* ── Stage 7: Computing the Posterior ──────────────────── */
+    /* ── Stage 7: Laplace Smoothing ─────────────────────────── */
     {
-      id: "posterior",
-      group: "Inference",
-      title: "Computing the Posterior — Log-Sum",
-      map: "Log-Posterior",
-      why: "This is the core inference step: combine the prior and all feature likelihoods into a single score per class. Using logs turns multiplications into additions, preventing numerical underflow.",
+      id: "laplace",
+      group: "Theory",
+      title: "Laplace Smoothing — Solving the Zero-Frequency Problem",
+      map: "Laplace Smoothing",
+      why: "A single unseen feature combination can zero out the entire posterior. Laplace smoothing is the simplest fix — it prevents catastrophic failure without requiring complex approximations.",
       render: (trace) => {
-        const { priors, likelihoods, logPosts, logLikTerms, x, cfg } = trace;
+        const { likelihoodCounts, classCounts, likelihoods, cfg } = trace;
 
         return (
           <>
             <Lead>
-              For each class <V>C</V>, compute the <b>log-posterior</b> by summing
-              log(prior) + all log-likelihood terms. The class with the higher log-posterior wins.
-              Current input: {cfg.features.map((f, i) => `${fLabel(f)}=${x[i]}`).join(', ')}.
+              Here's a critical failure mode: if a feature-class combination <b>never appears</b>
+              in the training data, its estimated probability is 0. One zero in the product of
+              likelihoods sends the entire posterior to zero — no matter how strong all the other
+              evidence is. This is the <b>zero-frequency problem</b>, and it can make the classifier
+              completely useless on new data.
             </Lead>
 
-            <Formula label="Log-posterior">
-              log <V>P</V>(<V>C</V> | <V>x</V>) ∝ log <V>P</V>(<V>C</V>) +{' '}
-              <span style={{ fontSize: '1.1em' }}>∑</span><Sub>j</Sub> log <V>P</V>(<V>x</V><Sub>j</Sub> | <V>C</V>)
+            <Lead>
+              The fix is elegant: add a small pseudocount α (usually 1) to every count before
+              dividing. This is <b>Laplace smoothing</b>. Intuition: before collecting any data,
+              pretend you saw one extra example of every outcome. This gives a minimum probability
+              floor to everything, while barely affecting features with large counts.
+            </Lead>
+
+            <div className="tf-subhead">The zero-frequency catastrophe — without smoothing</div>
+            <div className="nn-calc">
+              <div className="nn-calc-h" style={{ color: 'var(--neg)' }}>Danger: known_sender appears 0 times in spam</div>
+              <div className="nn-calc-row">Spam emails with known_sender=1: <b>0</b> out of {classCounts[1]}</div>
+              <div className="nn-calc-row">Raw P(known_sender=1 | spam) = 0 / {classCounts[1]} = <b style={{ color: 'var(--neg)' }}>0.000</b></div>
+              <div className="nn-calc-row">log P(known_sender=1 | spam) = log(0) = <b style={{ color: 'var(--neg)' }}>−∞</b></div>
+              <div className="nn-calc-row">log P(spam|x) = log P(spam) + ... + (−∞) = <b style={{ color: 'var(--neg)' }}>−∞</b></div>
+              <div className="nn-calc-row" style={{ color: 'var(--neg)', fontWeight: 700 }}>
+                Result: model ALWAYS predicts ham if known_sender=1, ignoring all other features. Useless!
+              </div>
+            </div>
+
+            <Formula label="Without Laplace (broken for zero counts)">
+              <V>P</V>(<V>x</V><Sub>j</Sub>=1 | <V>C</V>) ={' '}
+              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
+                <span style={{ borderBottom: '1px solid var(--neg)', paddingBottom: 2, color: 'var(--neg)' }}>count(<V>x</V><Sub>j</Sub>=1, <V>C</V>)</span>
+                <span style={{ paddingTop: 4 }}>count(<V>C</V>)</span>
+              </span>
+              &nbsp;&nbsp;→&nbsp;&nbsp; can be <b style={{ color: 'var(--neg)' }}>0</b>
             </Formula>
 
-            <Row>
-              {cfg.labels.map((lbl, c) => {
-                const color = c === 0 ? '#1f9e6b' : '#e0518f';
+            <Formula label="With Laplace smoothing α=1 (fixed)">
+              <V>P</V>(<V>x</V><Sub>j</Sub>=1 | <V>C</V>) ={' '}
+              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
+                <span style={{ borderBottom: '1px solid var(--accent)', paddingBottom: 2 }}>
+                  count(<V>x</V><Sub>j</Sub>=1, <V>C</V>) + <b>α</b>
+                </span>
+                <span style={{ paddingTop: 4 }}>count(<V>C</V>) + <b>|V|·α</b></span>
+              </span>
+              &nbsp; (|V|=2 for binary: present/absent)
+            </Formula>
+
+            <div className="tf-subhead">Effect of different α values on P(known_sender=1 | spam)</div>
+            <div className="nn-calc">
+              <div className="nn-calc-h">Raw spam count for known_sender=1: {likelihoodCounts[1][3]} out of {classCounts[1]}</div>
+              {[0, 0.5, 1, 2, 5, 10].map(alpha => {
+                const cnt = likelihoodCounts[1][3];
+                const total = classCounts[1];
+                const p = alpha === 0 ? cnt / total : (cnt + alpha) / (total + 2 * alpha);
                 return (
-                  <div key={lbl} className="nn-calc" style={{ flex: '1 1 260px' }}>
-                    <div className="nn-calc-h" style={{ color }}>log P({lbl} | x) step by step</div>
-                    <div className="nn-calc-row">log P({lbl}) = log({fmt(priors[c], 2)}) = <b>{fmt(Math.log(priors[c]), 3)}</b></div>
-                    {cfg.features.map((f, fi) => {
-                      const xi = x[fi];
-                      const p = likelihoods[c][fi];
-                      const logp = xi === 1 ? Math.log(p) : Math.log(1 - p);
-                      return (
-                        <div key={f} className="nn-calc-row">
-                          log P({fLabel(f)}={xi} | {lbl}) = log({fmt(xi === 1 ? p : 1 - p, 3)}) = <b>{fmt(logp, 3)}</b>
-                        </div>
-                      );
-                    })}
-                    <div className="nn-calc-row" style={{ borderTop: '2px solid ' + color, paddingTop: 6, color, fontWeight: 700 }}>
-                      Sum = <b>{fmt(logPosts[c], 4)}</b>
+                  <div key={alpha} className="nn-calc-row"
+                    style={{ color: alpha === 0 ? 'var(--neg)' : alpha === 1 ? 'var(--accent)' : 'inherit' }}>
+                    α={alpha}: ({cnt}+{alpha}) / ({total}+{2*alpha}) = <b>{fmt(p, 4)}</b>
+                    {alpha === 0 ? '  ← ZERO — breaks the model' : ''}
+                    {alpha === 1 ? '  ← standard Laplace' : ''}
+                    {alpha === 10 ? '  ← heavy smoothing, pulls toward 0.5' : ''}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="tf-subhead">Smoothed vs raw likelihoods — comparison</div>
+            <Row>
+              {cfg.features.map((f, fi) => {
+                const hamRaw = likelihoodCounts[0][fi] / classCounts[0];
+                const spamRaw = likelihoodCounts[1][fi] / classCounts[1];
+                const hamSmooth = likelihoods[0][fi];
+                const spamSmooth = likelihoods[1][fi];
+                return (
+                  <div key={f} className="nn-calc" style={{ flex: '1 1 130px' }}>
+                    <div className="nn-calc-h">{fLabel(f)}</div>
+                    <div className="nn-calc-row" style={{ fontSize: 11, color: 'var(--ink-2)' }}>ham raw: {fmt(hamRaw, 2)} → smooth: {fmt(hamSmooth, 2)}</div>
+                    <div className="nn-calc-row" style={{ fontSize: 11, color: hamRaw === 0 || spamRaw === 0 ? 'var(--neg)' : 'var(--ink-2)' }}>
+                      spam raw: {fmt(spamRaw, 2)} → smooth: {fmt(spamSmooth, 2)}
+                      {spamRaw === 0 ? ' ←ZERO' : ''}
                     </div>
                   </div>
                 );
               })}
             </Row>
 
-            <div className="tf-subhead">All log-likelihood terms as a matrix</div>
+            <Note>
+              Larger α values push all probabilities toward 0.5 (uniform prior), adding more
+              regularization but potentially washing out strong signals. α=1 is the standard
+              default — it corresponds to a Dirichlet(1,1) prior, or "add one fake example per outcome."
+            </Note>
+          </>
+        );
+      },
+    },
+
+    /* ── Stage 8: Log Probabilities ─────────────────────────── */
+    {
+      id: "log-probs",
+      group: "Theory",
+      title: "Log Probabilities — Numerical Stability",
+      map: "Log Probs",
+      why: "Products of small probabilities underflow to zero on computers. Working in log-space turns multiplications into additions, preventing this failure on any sized dataset.",
+      render: (trace) => {
+        const { priors, likelihoods, logPosts, x, cfg } = trace;
+
+        // Build illustrative product chain
+        const exampleProbs = [priors[1], likelihoods[1][0], likelihoods[1][1], likelihoods[1][2], likelihoods[1][3]];
+        const exampleLabels = ['P(spam)', 'P(link|spam)', 'P(money|spam)', 'P(short|spam)', 'P(¬known|spam)'];
+        const rawProduct = exampleProbs.reduce((p, v) => p * v, 1);
+        const logSum = exampleProbs.reduce((s, v) => s + Math.log(v), 0);
+
+        return (
+          <>
+            <Lead>
+              When computing P(C|x) ∝ P(C) × P(x₁|C) × P(x₂|C) × ... × P(xd|C), we multiply
+              together many small probabilities. With real text data (thousands of words), each
+              factor might be 0.001 or smaller. Multiplying 1000 such numbers together gives
+              10<Sup>−3000</Sup> — which is exactly <b>0.0 in floating-point arithmetic</b>.
+              This is <b>numerical underflow</b>.
+            </Lead>
+
+            <Lead>
+              The solution: take the logarithm of everything. Since log is a monotone function,
+              maximizing log P(C|x) gives the same argmax as maximizing P(C|x) directly.
+              And log turns products into sums: log(a × b × c) = log(a) + log(b) + log(c).
+              Sums of log-probabilities never underflow — they are just moderately negative numbers.
+            </Lead>
+
+            <Formula label="From product to log-sum">
+              log <V>P</V>(<V>C</V> | <V>x</V>) ∝ log <V>P</V>(<V>C</V>) +{' '}
+              <span style={{ fontSize: '1.15em' }}>∑</span><Sub>j=1</Sub><Sup>d</Sup>&nbsp;
+              log <V>P</V>(<V>x</V><Sub>j</Sub> | <V>C</V>)
+            </Formula>
+
+            <div className="tf-subhead">Why the product underflows — illustrated</div>
+            <LogScaleViz />
+
+            <div className="tf-subhead">Step-by-step: current email in raw vs log space</div>
+            <Row>
+              <div className="nn-calc" style={{ flex: '1 1 260px' }}>
+                <div className="nn-calc-h" style={{ color: '#e0518f' }}>Raw product for P(spam) path</div>
+                {exampleProbs.map((p, i) => (
+                  <div key={i} className="nn-calc-row">{exampleLabels[i]} = <b>{fmt(p, 4)}</b></div>
+                ))}
+                <div className="nn-calc-row" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+                  Product = {exampleProbs.map(p => fmt(p, 3)).join(' × ')}
+                </div>
+                <div className="nn-calc-row" style={{ color: rawProduct < 1e-6 ? 'var(--neg)' : 'inherit', fontWeight: 700 }}>
+                  = <b>{rawProduct.toFixed(8)}</b>
+                  {rawProduct < 1e-6 ? ' ← tiny!' : ''}
+                </div>
+              </div>
+              <div className="nn-calc" style={{ flex: '1 1 260px' }}>
+                <div className="nn-calc-h" style={{ color: '#1f9e6b' }}>Log-sum for P(spam) path</div>
+                {exampleProbs.map((p, i) => (
+                  <div key={i} className="nn-calc-row">log {exampleLabels[i]} = <b>{fmt(Math.log(p), 4)}</b></div>
+                ))}
+                <div className="nn-calc-row" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+                  Sum of logs:
+                </div>
+                <div className="nn-calc-row" style={{ fontWeight: 700, color: '#1f9e6b' }}>
+                  = <b>{fmt(logSum, 4)}</b> ← safe, just negative
+                </div>
+              </div>
+            </Row>
+
+            <div className="tf-subhead">Comparing log-posteriors for current email</div>
+            <div className="nn-calc">
+              <div className="nn-calc-h">Full log-posterior for each class</div>
+              {cfg.labels.map((lbl, c) => (
+                <div key={lbl} className="nn-calc-row" style={{ color: c === 0 ? '#1f9e6b' : '#e0518f' }}>
+                  log P({lbl}|x) = {fmt(Math.log(priors[c]), 4)} + {
+                    cfg.features.map((f, fi) => {
+                      const xi = x[fi];
+                      const p = likelihoods[c][fi];
+                      return fmt(xi === 1 ? Math.log(p) : Math.log(1-p), 3);
+                    }).join(' + ')
+                  } = <b>{fmt(logPosts[c], 4)}</b>
+                </div>
+              ))}
+              <div className="nn-calc-row" style={{ fontWeight: 700, borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+                Higher log-posterior: <b>{cfg.labels[logPosts.indexOf(Math.max(...logPosts))]}</b>
+                &nbsp;({fmt(Math.max(...logPosts), 4)} &gt; {fmt(Math.min(...logPosts), 4)})
+              </div>
+            </div>
+
+            <div className="tf-subhead">Log-likelihood terms as matrix</div>
             <Matrix
               data={cfg.features.map((f, fi) => {
                 return cfg.labels.map((_, c) => {
@@ -771,7 +1085,7 @@
               rowLabels={cfg.features.map((f, fi) => `${fLabel(f)}=${x[fi]}`)}
               colLabels={cfg.labels.map(l => `log P(·|${l})`)}
               caption="Log-likelihood terms"
-              sub="each cell: log P(xⱼ=value | class)"
+              sub="each cell: log P(xⱼ=value | class) — hover for details"
               heat={true}
               cellTip={(fi, c, v) => {
                 const xi = x[fi];
@@ -787,86 +1101,100 @@
               }}
             />
 
-            <div className="tf-subhead">Log-posterior summary</div>
-            <div className="nn-calc">
-              <div className="nn-calc-h">Winner comparison</div>
-              {cfg.labels.map((lbl, c) => (
-                <div key={lbl} className="nn-calc-row" style={{ color: c === 0 ? '#1f9e6b' : '#e0518f' }}>
-                  log P({lbl} | x) = {fmt(logPosts[c], 4)}
-                </div>
-              ))}
-              <div className="nn-calc-row" style={{ fontWeight: 700, marginTop: 6 }}>
-                Higher: <b>{cfg.labels[logPosts.indexOf(Math.max(...logPosts))]}</b> →
-                predicted class before normalization
-              </div>
-            </div>
-
             <Note>
-              Hover any cell in the matrix to see the exact log-probability calculation.
-              Larger (less negative) log-posterior = more likely class. Toggle features above
-              to see all terms update live.
+              More negative log-posterior = less likely. Less negative = more likely.
+              The class with the <b>least negative</b> (highest) log-posterior wins.
+              Larger (less negative) log-posterior maps to higher posterior probability.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 8: Final Prediction ─────────────────────────── */
+    /* ── Stage 9: Making Predictions ────────────────────────── */
     {
       id: "prediction",
       group: "Inference",
-      title: "Final Prediction — Normalizing to Probabilities",
+      title: "Making Predictions — Full Step-by-Step Walkthrough",
       map: "Prediction",
-      why: "The raw log-posteriors tell us which class wins, but converting them to probabilities gives calibrated confidence values that are more useful in practice.",
+      why: "This is the inference step: combine prior and all feature likelihoods into a log-posterior score per class, then normalize. The class with higher log-posterior is the prediction.",
       render: (trace) => {
-        const { posteriors, label, logPosts, cfg } = trace;
+        const { posteriors, label, logPosts, priors, likelihoods, x, cfg } = trace;
         const predLabel = cfg.labels[label];
         const isSpam = label === 1;
+        const maxLog = Math.max(...logPosts);
+        const expShifted = logPosts.map(l => Math.exp(l - maxLog));
+        const sumExp = expShifted.reduce((a, b) => a + b, 0);
 
         return (
           <>
             <Lead>
-              Convert log-posteriors to probabilities using the <b>softmax / log-sum-exp</b>
-              trick — subtract the maximum log-value for numerical stability, exponentiate,
-              then normalize. The class with P &gt; 0.5 is the prediction.
+              Given a new email with features x = [{x.join(', ')}], we compute the log-posterior
+              for each class by summing log(prior) + all log-likelihood terms, then normalize
+              using the log-sum-exp trick to get calibrated probabilities. The class with the
+              higher log-posterior (equivalently, higher posterior probability) is the prediction.
             </Lead>
 
-            <Formula label="Softmax normalization">
-              <V>P</V>(<V>C</V><Sub>i</Sub> | <V>x</V>) ={' '}
-              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
-                <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>
-                  exp(log P(<V>C</V><Sub>i</Sub> | <V>x</V>) − max)
-                </span>
-                <span style={{ paddingTop: 4 }}>
-                  Σ<Sub>k</Sub> exp(log P(<V>C</V><Sub>k</Sub> | <V>x</V>) − max)
-                </span>
-              </span>
-            </Formula>
-
+            <div className="tf-subhead">Step 1 — Write down the features of the new email</div>
             <div className="nn-calc">
-              <div className="nn-calc-h">Step-by-step normalization</div>
-              <div className="nn-calc-row">log P(ham|x) = {fmt(logPosts[0], 4)}</div>
-              <div className="nn-calc-row">log P(spam|x) = {fmt(logPosts[1], 4)}</div>
-              <div className="nn-calc-row">max = {fmt(Math.max(...logPosts), 4)}</div>
+              <div className="nn-calc-h">Current email (toggle feature buttons above to change)</div>
+              {cfg.features.map((f, fi) => (
+                <div key={f} className="nn-calc-row">
+                  {fLabel(f)} = <b>{x[fi]}</b> ({x[fi] === 1 ? 'present' : 'absent'})
+                </div>
+              ))}
+            </div>
+
+            <div className="tf-subhead">Step 2 — Compute log-posteriors for each class</div>
+            <Row>
               {cfg.labels.map((lbl, c) => {
-                const shifted = logPosts[c] - Math.max(...logPosts);
+                const color = c === 0 ? '#1f9e6b' : '#e0518f';
+                let runningSum = Math.log(priors[c]);
                 return (
-                  <div key={lbl} className="nn-calc-row">
-                    exp({fmt(logPosts[c], 4)} − {fmt(Math.max(...logPosts), 4)}) = exp({fmt(shifted, 4)}) = {fmt(Math.exp(shifted), 4)}
+                  <div key={lbl} className="nn-calc" style={{ flex: '1 1 260px' }}>
+                    <div className="nn-calc-h" style={{ color }}>log P({lbl} | x)</div>
+                    <div className="nn-calc-row">+ log P({lbl}) = log({fmt(priors[c], 2)}) = <b>{fmt(Math.log(priors[c]), 4)}</b></div>
+                    {cfg.features.map((f, fi) => {
+                      const xi = x[fi];
+                      const p = likelihoods[c][fi];
+                      const logp = xi === 1 ? Math.log(p) : Math.log(1 - p);
+                      return (
+                        <div key={f} className="nn-calc-row">
+                          + log P({fLabel(f)}={xi}|{lbl}) = log({fmt(xi === 1 ? p : 1-p, 3)}) = <b>{fmt(logp, 3)}</b>
+                        </div>
+                      );
+                    })}
+                    <div className="nn-calc-row" style={{ borderTop: '2px solid ' + color, paddingTop: 6, color, fontWeight: 700 }}>
+                      Total = <b>{fmt(logPosts[c], 4)}</b>
+                    </div>
                   </div>
                 );
               })}
-              <div className="nn-calc-row" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-                sum of exp values = {fmt(cfg.labels.reduce((s, _, c) => s + Math.exp(logPosts[c] - Math.max(...logPosts)), 0), 4)}
-              </div>
+            </Row>
+
+            <div className="tf-subhead">Step 3 — Normalize using log-sum-exp</div>
+            <div className="nn-calc">
+              <div className="nn-calc-h">Convert log-posteriors to probabilities (softmax)</div>
+              <div className="nn-calc-row">max log-posterior = max({fmt(logPosts[0],4)}, {fmt(logPosts[1],4)}) = <b>{fmt(maxLog, 4)}</b></div>
+              {cfg.labels.map((lbl, c) => (
+                <div key={lbl} className="nn-calc-row">
+                  exp({fmt(logPosts[c],4)} − {fmt(maxLog,4)}) = exp({fmt(logPosts[c]-maxLog,4)}) = <b>{fmt(expShifted[c], 6)}</b>
+                </div>
+              ))}
+              <div className="nn-calc-row">sum = {fmt(expShifted[0],6)} + {fmt(expShifted[1],6)} = <b>{fmt(sumExp,6)}</b></div>
+              {cfg.labels.map((lbl, c) => (
+                <div key={lbl} className="nn-calc-row" style={{ color: c === 0 ? '#1f9e6b' : '#e0518f' }}>
+                  P({lbl}|x) = {fmt(expShifted[c],6)} / {fmt(sumExp,6)} = <b>{fmt(posteriors[c], 4)}</b> = {(posteriors[c]*100).toFixed(1)}%
+                </div>
+              ))}
             </div>
 
-            <div className="tf-subhead">Posterior probabilities</div>
+            <div className="tf-subhead">Step 4 — Final posterior probabilities</div>
             <PosteriorBars posteriors={posteriors} labels={cfg.labels} />
 
             <div style={{
               marginTop: 16, padding: '14px 20px', borderRadius: 10,
-              background: isSpam ? 'rgba(var(--neg-rgb), 0.1)' : 'rgba(var(--pos-rgb), 0.1)',
+              background: isSpam ? 'rgba(var(--neg-rgb), 0.08)' : 'rgba(var(--pos-rgb), 0.08)',
               border: `2px solid ${isSpam ? 'var(--neg)' : 'var(--pos)'}`,
               textAlign: 'center'
             }}>
@@ -875,294 +1203,175 @@
                 {predLabel.toUpperCase()}
               </div>
               <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 4 }}>
-                confidence: {(Math.max(...posteriors) * 100).toFixed(1)}%
+                confidence: {(Math.max(...posteriors) * 100).toFixed(1)}% — log-odds: {fmt(logPosts[1] - logPosts[0], 3)}
               </div>
             </div>
 
             <div className="tf-subhead">Decision boundary intuition</div>
             <div className="nn-calc">
-              <div className="nn-calc-h">When does the prediction flip?</div>
-              <div className="nn-calc-row">
-                Predicts spam when: log P(spam|x) {'>'} log P(ham|x)
-              </div>
-              <div className="nn-calc-row">
-                i.e., log P(spam) + Σ log P(xⱼ|spam) {'>'} log P(ham) + Σ log P(xⱼ|ham)
-              </div>
+              <div className="nn-calc-h">The model predicts spam when:</div>
+              <div className="nn-calc-row">log P(spam|x) &gt; log P(ham|x)</div>
+              <div className="nn-calc-row">i.e., log P(spam) + Σⱼ log P(xⱼ|spam) &gt; log P(ham) + Σⱼ log P(xⱼ|ham)</div>
+              <div className="nn-calc-row">i.e., log-odds = log P(spam|x) − log P(ham|x) = {fmt(logPosts[1]-logPosts[0], 4)} &gt; 0?  <b>{logPosts[1] > logPosts[0] ? 'YES → spam' : 'NO → ham'}</b></div>
               <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>
-                Toggle features above to see the prediction change in real time
+                Toggle features above to see the prediction and log-odds change in real time
               </div>
             </div>
 
             <Note icon="★">
-              Try setting <b>known_sender=yes</b> — it's a very strong ham indicator and
-              often flips the prediction regardless of other features. This is because
-              P(known_sender=1 | ham) ≈ 0.86 vs P(known_sender=1 | spam) ≈ 0.14.
+              Try setting <b>known_sender=yes</b> — it's a very strong ham indicator and often
+              flips the prediction regardless of other features. P(known_sender=1|ham)={fmt(likelihoods[0][3],3)} vs
+              P(known_sender=1|spam)={fmt(likelihoods[1][3],3)}: log-likelihood ratio = {fmt(Math.log(likelihoods[0][3]/likelihoods[1][3]),3)} — overwhelmingly favors ham.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 9: Gaussian Naive Bayes ──────────────────────── */
+    /* ── Stage 10: Missing Values & Outliers ────────────────── */
     {
-      id: "gaussian",
+      id: "missing-outliers",
       group: "Extensions",
-      title: "Gaussian Naive Bayes — Continuous Features",
-      map: "Gaussian NB",
-      why: "Real-world features are often continuous (age, income, temperature). Gaussian NB assumes each feature follows a normal distribution per class, estimated from training data means and variances.",
+      title: "Missing Values & Outliers — Graceful Handling",
+      map: "Missing & Outliers",
+      why: "Real-world data is messy. Naive Bayes has a beautiful property: missing features can be simply skipped, which is not true for most other classifiers.",
       render: (trace) => {
-        // Illustrative Gaussian parameters for a hypothetical continuous feature
-        const gaussians = [
-          { label: 'ham', mu: 2.1, sigma: 0.8, color: '#1f9e6b' },
-          { label: 'spam', mu: 4.5, sigma: 1.1, color: '#e0518f' },
-        ];
-        const W = 420, H = 200;
-        const padL = 40, padR = 20, padT = 30, padB = 36;
-        const xMin = -1, xMax = 8;
-        const yScale = 0.55; // max y-axis value
+        const { likelihoods, priors, logPosts, x, cfg } = trace;
+
+        // Show what happens if we skip feature 0 (has_link)
+        const missingFeatureIdx = 0;
+        const computeLogPostMissing = (c) => {
+          let lp = Math.log(priors[c]);
+          cfg.features.forEach((f, fi) => {
+            if (fi === missingFeatureIdx) return; // skip missing feature
+            const xi = x[fi];
+            const p = likelihoods[c][fi];
+            lp += xi === 1 ? Math.log(p) : Math.log(1 - p);
+          });
+          return lp;
+        };
+        const logPostsMissing = cfg.labels.map((_, c) => computeLogPostMissing(c));
+        const maxM = Math.max(...logPostsMissing);
+        const expM = logPostsMissing.map(l => Math.exp(l - maxM));
+        const sumM = expM.reduce((a, b) => a + b, 0);
+        const postMissing = expM.map(e => e / sumM);
 
         return (
           <>
             <Lead>
-              When features are <b>continuous</b> (e.g., email length in words, number of
-              exclamation marks), we model each P(xⱼ | C) as a <b>Gaussian distribution</b>
-              with class-specific mean μⱼc and variance σ²ⱼc estimated from training data.
+              What if an email is missing a feature — for example, the spam filter can't
+              determine whether the email has a link because the content is encrypted?
+              In Naive Bayes, the solution is beautiful: simply <b>skip that feature's term</b>
+              in the log-sum. The model marginalizes it out automatically, using only
+              the available evidence. This is a feature no gradient-based classifier can match easily.
             </Lead>
 
-            <Formula label="Gaussian likelihood">
-              <V>P</V>(<V>x</V><Sub>j</Sub> | <V>C</V>) ={' '}
-              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
-                <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>
-                  1
-                </span>
-                <span style={{ paddingTop: 4 }}>
-                  σ<Sub>jc</Sub> √(2π)
-                </span>
-              </span>
-              &nbsp;exp&nbsp;
-              <span style={{ fontSize: '1.1em' }}>(−</span>
-              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
-                <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>
-                  (<V>x</V><Sub>j</Sub> − μ<Sub>jc</Sub>)<Sup>2</Sup>
-                </span>
-                <span style={{ paddingTop: 4 }}>2σ²<Sub>jc</Sub></span>
-              </span>
-              <span style={{ fontSize: '1.1em' }}>)</span>
-            </Formula>
+            <Lead>
+              For <b>outliers</b> in continuous-feature variants (Gaussian NB), extreme values
+              can distort the mean and variance estimates used in the Gaussian likelihood.
+              A single outlier email with 10,000 words inflates the mean and especially the
+              variance for that class, spreading the Gaussian and reducing discriminability.
+            </Lead>
 
-            <div className="tf-subhead">Example: "email length" feature</div>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, display: 'block' }}>
-              {/* Grid */}
-              {[0, 0.1, 0.2, 0.3, 0.4, 0.5].map(v => {
-                const y = padT + (H - padB - padT) - ((v / yScale) * (H - padB - padT));
-                return (
-                  <line key={v} x1={padL} y1={y} x2={W - padR} y2={y}
-                    stroke="var(--line)" strokeWidth="0.6" strokeDasharray="3 3" />
-                );
-              })}
-              {/* Axes */}
-              <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="var(--ink)" strokeWidth="1.5" />
-              <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="var(--ink)" strokeWidth="1.5" />
-              {/* X labels */}
-              {[-1, 0, 1, 2, 3, 4, 5, 6, 7, 8].map(xv => {
-                const svgX = padL + ((xv - xMin) / (xMax - xMin)) * (W - padL - padR);
-                return (
-                  <g key={xv}>
-                    <line x1={svgX} y1={H - padB} x2={svgX} y2={H - padB + 4} stroke="var(--ink)" strokeWidth="1" />
-                    <text x={svgX} y={H - padB + 14} textAnchor="middle" fontSize="10" fill="var(--ink-2)" fontFamily="inherit">{xv}</text>
-                  </g>
-                );
-              })}
-              <text x={W / 2} y={H - 4} textAnchor="middle" fontSize="11" fill="var(--ink-2)" fontFamily="inherit">email length (hundreds of words)</text>
-              <text x={8} y={H / 2} textAnchor="middle" fontSize="11" fill="var(--ink-2)" fontFamily="inherit" transform={`rotate(-90,11,${H / 2})`}>P(length | C)</text>
-              {/* Gaussian curves */}
-              {gaussians.map(g => (
-                <GaussianCurve key={g.label}
-                  mu={g.mu} sigma={g.sigma} color={g.color} label={g.label}
-                  xMin={xMin} xMax={xMax} svgWidth={W} svgHeight={H}
-                  padL={padL} padR={padR} padT={padT} padB={padB} yScale={yScale}
-                />
-              ))}
-            </svg>
-
+            <div className="tf-subhead">Missing value: what happens when has_link is unknown?</div>
             <Row>
-              {gaussians.map(g => (
-                <div key={g.label} className="nn-calc" style={{ flex: '1 1 180px' }}>
-                  <div className="nn-calc-h" style={{ color: g.color }}>{g.label} distribution</div>
-                  <div className="nn-calc-row">μ = {g.mu} (mean length)</div>
-                  <div className="nn-calc-row">σ = {g.sigma} (std deviation)</div>
-                  <div className="nn-calc-row">Peak P = {fmt(1 / (g.sigma * Math.sqrt(2 * Math.PI)), 3)}</div>
-                  <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11 }}>
-                    {g.label === 'ham' ? 'Ham emails tend to be shorter' : 'Spam emails tend to be longer with wider variance'}
+              <div className="nn-calc" style={{ flex: '1 1 240px' }}>
+                <div className="nn-calc-h">Full prediction (all 4 features)</div>
+                {cfg.labels.map((lbl, c) => (
+                  <div key={lbl} className="nn-calc-row" style={{ color: c === 0 ? '#1f9e6b' : '#e0518f' }}>
+                    log P({lbl}|x) = {fmt(logPosts[c], 4)}
                   </div>
+                ))}
+              </div>
+              <div className="nn-calc" style={{ flex: '1 1 240px' }}>
+                <div className="nn-calc-h">Missing has_link — skip that term</div>
+                {cfg.labels.map((lbl, c) => (
+                  <div key={lbl} className="nn-calc-row" style={{ color: c === 0 ? '#1f9e6b' : '#e0518f' }}>
+                    log P({lbl}|x\₁) = {fmt(logPostsMissing[c], 4)}
+                  </div>
+                ))}
+                <div className="nn-calc-row" style={{ color: 'var(--ink-2)', fontSize: 11, marginTop: 4 }}>
+                  Prediction changes? {logPosts.indexOf(Math.max(...logPosts)) !== logPostsMissing.indexOf(Math.max(...logPostsMissing)) ? 'YES — marginal feature' : 'NO — other features dominate'}
                 </div>
-              ))}
+              </div>
+              <div className="nn-calc" style={{ flex: '1 1 200px' }}>
+                <div className="nn-calc-h">Posteriors with missing has_link</div>
+                {cfg.labels.map((lbl, c) => (
+                  <div key={lbl} className="nn-calc-row" style={{ color: c === 0 ? '#1f9e6b' : '#e0518f' }}>
+                    P({lbl}|x\₁) = {(postMissing[c]*100).toFixed(1)}%
+                  </div>
+                ))}
+              </div>
             </Row>
 
-            <div className="tf-subhead">Training Gaussian NB</div>
-            <div className="nn-calc">
-              <div className="nn-calc-h">Parameter estimation</div>
-              <div className="nn-calc-row">For each class C and each feature j:</div>
-              <div className="nn-calc-row">μⱼc = (1/nC) Σᵢ xⱼ⁽ⁱ⁾ where y⁽ⁱ⁾=C</div>
-              <div className="nn-calc-row">σ²ⱼc = (1/nC) Σᵢ (xⱼ⁽ⁱ⁾ − μⱼc)² where y⁽ⁱ⁾=C</div>
-              <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>
-                One mean and variance per (feature, class) pair — that's 2 × d × K parameters
-              </div>
+            <div className="tf-subhead">Why missing values are graceful in Naive Bayes</div>
+            <div className="tf-legend">
+              {[
+                ["✓", "Marginalization", "probabilistic", "Skipping a feature term is equivalent to marginalizing it: Σ_{x_j} P(C|x) P(x_j) = P(C | rest of x). This is mathematically rigorous."],
+                ["✓", "No imputation needed", "practical", "Most models (SVM, logistic regression) require imputing missing values before inference. Naive Bayes handles them natively."],
+                ["✓", "Graceful degradation", "robustness", "With fewer features, the posterior confidence decreases (moves toward prior) but the prediction direction is often still correct."],
+                ["✓", "Works per-example", "flexible", "Each test example can have a different set of missing features. The model adapts per prediction with no retraining."],
+              ].map(r => (
+                <div className="tf-leg" key={r[0]}>
+                  <div className="tf-leg-top">
+                    <span className="tf-sym">{r[0]}</span>
+                    <span className="tf-leg-shape">{r[2]}</span>
+                  </div>
+                  <div className="tf-leg-name">{r[1]}</div>
+                  <div className="tf-leg-desc">{r[3]}</div>
+                </div>
+              ))}
             </div>
 
+            <div className="tf-subhead">Outliers in Gaussian NB — impact on estimates</div>
+            <Row>
+              <div className="nn-calc" style={{ flex: '1 1 240px' }}>
+                <div className="nn-calc-h">Normal data: email lengths (words)</div>
+                <div className="nn-calc-row">Ham: [50, 120, 80, 95, 60]</div>
+                <div className="nn-calc-row">Mean μ = 81, Std σ = 26</div>
+                <div className="nn-calc-row">Gaussian N(81, 26) — tight, discriminative</div>
+              </div>
+              <div className="nn-calc" style={{ flex: '1 1 240px' }}>
+                <div className="nn-calc-h" style={{ color: 'var(--neg)' }}>With outlier added: [50, 120, 80, 95, 60, <b>5000</b>]</div>
+                <div className="nn-calc-row" style={{ color: 'var(--neg)' }}>Mean μ = 901, Std σ = 1835</div>
+                <div className="nn-calc-row" style={{ color: 'var(--neg)' }}>N(901, 1835) — extremely wide, not useful</div>
+                <div className="nn-calc-row" style={{ color: 'var(--ink-2)' }}>Fix: winsorize outliers or use robust estimates (median/IQR)</div>
+              </div>
+            </Row>
+
             <Note>
-              At the decision boundary, P(ham|x) = P(spam|x). The boundary is a
-              <b> quadratic surface</b> in feature space when classes have different variances,
-              or a <b>linear surface</b> when variances are equal (Linear Discriminant Analysis).
+              Missing values are Naive Bayes's superpower. In contrast, tree-based models and
+              neural networks need explicit handling (imputation, masking) to deal with missing
+              inputs at inference time. Simply dropping a term from a sum is uniquely clean.
             </Note>
           </>
         );
       },
     },
 
-    /* ── Stage 10: Laplace Smoothing ───────────────────────── */
+    /* ── Stage 11: Variants & When to Use ──────────────────── */
     {
-      id: "laplace",
-      group: "Extensions",
-      title: "Laplace Smoothing — Handling Zero Counts",
-      map: "Laplace Smoothing",
-      why: "A single unseen feature combination can zero out the entire posterior. Laplace smoothing is a simple fix that prevents this catastrophic failure without requiring complex approximations.",
-      render: (trace) => {
-        const { likelihoodCounts, classCounts, likelihoods, cfg } = trace;
-
-        return (
-          <>
-            <Lead>
-              If a feature-class combination never appears in training data, its estimated
-              probability is 0. One zero in the product kills the entire posterior —
-              log(0) = −∞. <b>Laplace smoothing</b> adds a pseudocount α (usually 1)
-              to every count before dividing.
-            </Lead>
-
-            <div className="tf-subhead">The zero-probability problem</div>
-            <div className="nn-calc">
-              <div className="nn-calc-h">Without smoothing (dangerous!)</div>
-              <div className="nn-calc-row">Training: known_sender never =1 in spam emails (count = 0)</div>
-              <div className="nn-calc-row">P(known_sender=1 | spam) = 0/5 = <b style={{ color: 'var(--neg)' }}>0.000</b></div>
-              <div className="nn-calc-row">log(0) = <b style={{ color: 'var(--neg)' }}>−∞</b></div>
-              <div className="nn-calc-row">log P(spam|x) = log P(spam) + ... + (−∞) = <b style={{ color: 'var(--neg)' }}>−∞</b></div>
-              <div className="nn-calc-row" style={{ color: 'var(--neg)' }}>
-                Result: ALWAYS predicts ham regardless of all other features!
-              </div>
-            </div>
-
-            <Formula label="Without Laplace (broken)">
-              <V>P</V>(<V>x</V><Sub>j</Sub>=1 | <V>C</V>) ={' '}
-              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
-                <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>count(<V>x</V><Sub>j</Sub>=1, <V>C</V>)</span>
-                <span style={{ paddingTop: 4 }}>count(<V>C</V>)</span>
-              </span>
-            </Formula>
-
-            <Formula label="With Laplace smoothing (fixed)">
-              <V>P</V>(<V>x</V><Sub>j</Sub>=1 | <V>C</V>) ={' '}
-              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
-                <span style={{ borderBottom: '1px solid var(--ink)', paddingBottom: 2 }}>
-                  count(<V>x</V><Sub>j</Sub>=1, <V>C</V>) + <b>α</b>
-                </span>
-                <span style={{ paddingTop: 4 }}>count(<V>C</V>) + <b>2α</b></span>
-              </span>
-              &nbsp; (α=1)
-            </Formula>
-
-            <div className="tf-subhead">Before vs after smoothing</div>
-            <Matrix
-              data={cfg.features.map((_, fi) => {
-                return cfg.labels.map((_, c) => {
-                  const cnt = likelihoodCounts[c][fi];
-                  const rawP = cnt / classCounts[c];
-                  const smoothedP = likelihoods[c][fi];
-                  return smoothedP;
-                });
-              }).concat(cfg.features.map((_, fi) => {
-                return cfg.labels.map((_, c) => {
-                  const cnt = likelihoodCounts[c][fi];
-                  return cnt / classCounts[c];
-                });
-              }))}
-              rowLabels={[
-                ...cfg.features.map(f => `[smooth] ${fLabel(f)}`),
-                ...cfg.features.map(f => `[raw] ${fLabel(f)}`),
-              ]}
-              colLabels={cfg.labels.map(l => `P(·|${l})`)}
-              caption="Smoothed vs raw likelihoods"
-              sub="top: with α=1, bottom: without"
-              heat={true}
-              cellTip={(i, j, v) => {
-                const isSmoothed = i < cfg.features.length;
-                const fi = i % cfg.features.length;
-                const cnt = likelihoodCounts[j][fi];
-                return (
-                  <div>
-                    <div className="tf-tip-title">
-                      {isSmoothed ? 'Smoothed' : 'Raw'} P({fLabel(cfg.features[fi])}=1 | {cfg.labels[j]})
-                    </div>
-                    {isSmoothed
-                      ? <div className="tf-tip-calc">({cnt} + 1) / ({classCounts[j]} + 2)</div>
-                      : <div className="tf-tip-calc">{cnt} / {classCounts[j]}</div>
-                    }
-                    <div className="tf-tip-sum">= <b>{fmt(v, 3)}</b></div>
-                  </div>
-                );
-              }}
-            />
-
-            <div className="tf-subhead">Effect of different α values</div>
-            <div className="nn-calc">
-              <div className="nn-calc-h">P(known_sender=1 | spam) for various α</div>
-              {[0, 0.5, 1, 2, 5].map(alpha => {
-                const cnt = likelihoodCounts[1][3]; // known_sender for spam
-                const total = classCounts[1];
-                const p = (cnt + alpha) / (total + 2 * alpha);
-                return (
-                  <div key={alpha} className="nn-calc-row"
-                    style={{ color: alpha === 0 ? 'var(--neg)' : alpha === 1 ? 'var(--accent)' : 'inherit' }}>
-                    α={alpha}: ({cnt}+{alpha})/({total}+{2 * alpha}) = {fmt(p, 4)}
-                    {alpha === 0 && ' ← zero! '}
-                    {alpha === 1 && ' ← standard Laplace'}
-                  </div>
-                );
-              })}
-            </div>
-
-            <Note>
-              Larger α values push all probabilities toward 0.5 (uniform), adding
-              more regularization but potentially washing out strong signals. α=1
-              (Laplace) is the standard default — it corresponds to assuming you
-              saw one extra example of each outcome before collecting data.
-            </Note>
-          </>
-        );
-      },
-    },
-
-    /* ── Stage 11: Assumptions & When to Use ───────────────── */
-    {
-      id: "assumptions",
+      id: "variants",
       group: "Evaluation",
-      title: "Assumptions, Pros & Cons — When to Use Naive Bayes",
-      map: "Assumptions",
-      why: "Every model has assumptions. Knowing when Naive Bayes is the right tool — and when to reach for something more complex — is core ML practitioner knowledge.",
+      title: "Variants & When to Use Naive Bayes",
+      map: "Variants",
+      why: "Knowing the three main variants and when each excels helps you pick the right tool. Naive Bayes is often the perfect first model — fast, interpretable, hard to beat on text.",
       render: (trace) => (
         <>
           <Lead>
-            Naive Bayes makes strong independence assumptions that are usually violated
-            in practice, yet it remains remarkably effective for many classification tasks,
-            especially text. Knowing its strengths and failure modes is essential.
+            Naive Bayes is not one algorithm but a family, differing in how they model
+            P(xⱼ | C). <b>Bernoulli NB</b> uses binary presence/absence (our spam example).
+            <b> Multinomial NB</b> uses word counts and is the gold standard for text classification.
+            <b> Gaussian NB</b> models continuous features with Gaussian distributions per class.
+            Knowing which to use and when is core ML practitioner knowledge.
           </Lead>
 
-          <div className="tf-subhead">Core assumptions</div>
+          <div className="tf-subhead">Three variants — comparison table</div>
           <div className="tf-legend">
             {[
-              ["1", "Conditional independence", "key assumption", "Features are independent given the class. P(x₁,...,xd|C) = Π P(xⱼ|C). Almost never true in real data, but often good enough."],
-              ["2", "Correct distribution family", "model assumption", "Binary/categorical NB assumes Bernoulli features; Gaussian NB assumes normally distributed features. Mismatch reduces accuracy."],
-              ["3", "Training distribution = test distribution", "i.i.d.", "Naive Bayes assumes train and test come from the same distribution. Concept drift (e.g., evolving spam) degrades performance."],
-              ["4", "Features are informative", "signal", "Works best when features carry real signal for the class. Irrelevant features add noise but are less harmful than in many other classifiers."],
+              ["Bernoulli NB", "Binary features: feature present (1) or absent (0). P(xⱼ|C) estimated with Laplace smoothing as we built in this tutorial.", "binary features", "Email spam (word present/absent), document classification, medical diagnosis with binary symptoms."],
+              ["Multinomial NB", "Integer count features: xⱼ = how many times word j appears. P(wⱼ|C) = (count(wⱼ,C)+α) / (Σ count(w,C) + α|V|). Best for text.", "word counts", "Text classification, document categorization, sentiment analysis, topic modeling. DOMINANT in NLP."],
+              ["Gaussian NB", "Continuous features. P(xⱼ|C) = Gaussian(μⱼc, σⱼc) with parameters estimated from training data mean and variance per class.", "continuous features", "Medical data (height, weight, blood pressure), sensor readings, financial features, any real-valued measurement."],
             ].map(r => (
               <div className="tf-leg" key={r[0]}>
                 <div className="tf-leg-top">
@@ -1175,45 +1384,17 @@
             ))}
           </div>
 
-          <div className="tf-subhead">Pros and cons</div>
-          <div className="opt-pc">
-            <div className="opt-pc-col is-pro">
-              <div className="opt-pc-h">Strengths</div>
-              <ul className="opt-pc-ul">
-                <li className="opt-pc-li">Extremely fast training — O(n·d), just counting</li>
-                <li className="opt-pc-li">Fast inference — O(d·K) per example</li>
-                <li className="opt-pc-li">Works well with small training data</li>
-                <li className="opt-pc-li">Naturally handles multiple classes</li>
-                <li className="opt-pc-li">Outputs calibrated probabilities</li>
-                <li className="opt-pc-li">Interpretable — inspect likelihood table directly</li>
-                <li className="opt-pc-li">Robust to irrelevant features</li>
-                <li className="opt-pc-li">State-of-the-art for spam and text classification</li>
-              </ul>
-            </div>
-            <div className="opt-pc-col is-con">
-              <div className="opt-pc-h">Weaknesses</div>
-              <ul className="opt-pc-ul">
-                <li className="opt-pc-li">Independence assumption rarely holds in practice</li>
-                <li className="opt-pc-li">Can't model feature interactions (e.g., XOR patterns)</li>
-                <li className="opt-pc-li">Posterior probabilities may be poorly calibrated</li>
-                <li className="opt-pc-li">Gaussian NB sensitive to outliers in continuous features</li>
-                <li className="opt-pc-li">Feature counts — Bernoulli NB ignores term frequency</li>
-                <li className="opt-pc-li">Strong features dominate; correlated features double-counted</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="tf-subhead">When to use Naive Bayes</div>
+          <div className="tf-subhead">When Naive Bayes wins</div>
           <div className="tf-legend">
             {[
-              ["✓", "Text / spam classification", "recommended", "Multinomial or Bernoulli NB with TF-IDF is a strong baseline — fast, interpretable, competitive with complex models."],
-              ["✓", "Real-time classification", "recommended", "O(d·K) inference makes NB one of the fastest classifiers at prediction time — ideal for streaming pipelines."],
-              ["✓", "Small labeled datasets", "recommended", "With few examples, strong independence prior helps prevent overfitting better than discriminative models like logistic regression."],
-              ["✓", "Multi-class problems", "recommended", "NB scales naturally to many classes — just add more priors and likelihood columns."],
-              ["✗", "Strong feature correlations", "avoid", "Highly correlated features (e.g., word 'free' and 'discount' in spam) are double-counted, biasing probabilities."],
-              ["✗", "Precise probability estimates needed", "avoid", "NB posteriors are often overconfident (very close to 0 or 1). Use Platt scaling or isotonic regression to recalibrate."],
+              ["✓", "Text / spam classification", "recommended", "Multinomial NB with TF-IDF is a strong baseline — interpretable, fast, often matches or beats complex models on short text."],
+              ["✓", "Very small datasets", "recommended", "With few labeled examples, the strong independence prior helps more than it hurts — it regularizes aggressively where discriminative models overfit."],
+              ["✓", "Real-time, high-throughput", "recommended", "Inference is O(d·K) — compute d multiplications and K comparisons. Orders of magnitude faster than neural networks at prediction time."],
+              ["✓", "Multi-class classification", "recommended", "Naturally extends to K classes with no architectural changes — just add more priors and likelihood columns."],
+              ["✓", "Interpretability required", "recommended", "You can directly inspect the likelihood table to understand why the model predicted spam: 'because has_link=1 has P=0.71 for spam vs 0.29 for ham'."],
+              ["✓", "Missing data common", "recommended", "Simply skip missing feature terms in the log-sum — no imputation pipeline needed, no retraining required."],
             ].map(r => (
-              <div className={"tf-leg" + (r[0] === "✗" ? "" : " is-learned")} key={r[1]}>
+              <div className="tf-leg" key={r[1]}>
                 <div className="tf-leg-top">
                   <span className="tf-sym">{r[0]}</span>
                   <span className="tf-leg-shape">{r[2]}</span>
@@ -1224,12 +1405,54 @@
             ))}
           </div>
 
+          <div className="tf-subhead">When Naive Bayes fails</div>
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div className="opt-pc-h">Strengths</div>
+              <ul className="opt-pc-ul">
+                <li className="opt-pc-li">O(n·d) training — just counting, no optimization</li>
+                <li className="opt-pc-li">O(d·K) inference — extremely fast predictions</li>
+                <li className="opt-pc-li">Works well with tiny datasets (few hundred examples)</li>
+                <li className="opt-pc-li">Naturally handles K&gt;2 classes</li>
+                <li className="opt-pc-li">Interpretable: inspect P(feature|class) directly</li>
+                <li className="opt-pc-li">Graceful missing value handling — skip the term</li>
+                <li className="opt-pc-li">State-of-the-art for spam and text baselines</li>
+                <li className="opt-pc-li">Robust to irrelevant features (they add ≈0 signal)</li>
+              </ul>
+            </div>
+            <div className="opt-pc-col is-con">
+              <div className="opt-pc-h">Weaknesses</div>
+              <ul className="opt-pc-ul">
+                <li className="opt-pc-li">Independence assumption almost never holds exactly</li>
+                <li className="opt-pc-li">Cannot model feature interactions (e.g., XOR patterns)</li>
+                <li className="opt-pc-li">Correlated features are double-counted → overconfident posteriors</li>
+                <li className="opt-pc-li">Gaussian NB sensitive to outliers in continuous features</li>
+                <li className="opt-pc-li">Bernoulli NB ignores term frequency (Multinomial is better for text)</li>
+                <li className="opt-pc-li">Poorly calibrated probabilities — use Platt scaling to fix</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="tf-subhead">Quick decision guide</div>
+          <div className="nn-calc">
+            <div className="nn-calc-h">Choose Naive Bayes when…</div>
+            <div className="nn-calc-row">Features are binary → Bernoulli NB (this tutorial)</div>
+            <div className="nn-calc-row">Features are word counts → Multinomial NB</div>
+            <div className="nn-calc-row">Features are continuous → Gaussian NB</div>
+            <div className="nn-calc-row">Dataset is tiny or medium → NB often beats logistic regression</div>
+            <div className="nn-calc-row">You need a fast, interpretable baseline → always try NB first</div>
+            <div className="nn-calc-h" style={{ marginTop: 10 }}>Upgrade to a stronger model when…</div>
+            <div className="nn-calc-row">Features are strongly correlated → logistic regression or tree ensemble</div>
+            <div className="nn-calc-row">You need calibrated probabilities → logistic regression + regularization</div>
+            <div className="nn-calc-row">Complex feature interactions matter → gradient boosting or deep learning</div>
+          </div>
+
           <Note icon="★">
-            You've completed the Naive Bayes walkthrough. The key insight:
-            <b> probabilistic classifiers separate "what we count from data" (priors &amp; likelihoods)
-            from "how we combine evidence" (Bayes' rule)</b>. Despite naive assumptions,
-            this simple framework outperforms complex models on text tasks where training
-            data is scarce and speed matters.
+            You've completed the Naive Bayes walkthrough. The core insight:
+            <b> separate "what we count from data" (priors and likelihoods) from "how we combine evidence"
+            (Bayes' rule)</b>. Despite the naive assumption, this framework outperforms complex models on
+            text tasks where training data is scarce and speed matters — that is why it still powers
+            spam filters in production systems today.
           </Note>
         </>
       ),

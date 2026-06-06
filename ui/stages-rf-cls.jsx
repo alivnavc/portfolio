@@ -1,137 +1,132 @@
 /* ============================================================
-   Random Forest — Classification stages (10 stages)
+   Random Forest — Classification stages (11 stages)
    ============================================================ */
 (function () {
-  const { Lead, Note, Row, fmt, Tag } = window;
+  const { Matrix, V, Sub, Sup, Formula, Lead, Note, Row, Arrow, Tag, fmt } = window;
   const RF = window.ML_RF.RF_CLS;
 
-  // ── colour helpers ──
   const CLS_COLORS = ["#4caf50", "#2196f3", "#ff9800"];
-  const CLS_NAMES = RF.labels;
+  const CLS_NAMES = RF.labels; // ["setosa", "versicolor", "virginica"]
 
+  /* ── tiny colour dot ── */
   function Dot({ cls, size = 8 }) {
     return (
       <span style={{
         display: "inline-block", width: size, height: size, borderRadius: "50%",
         background: CLS_COLORS[cls], marginRight: 4, verticalAlign: "middle",
+        flexShrink: 0,
       }} />
     );
   }
 
-  // ── scatter SVG ──
-  function ScatterPlot({ data, query, w = 380, h = 260, highlight = null }) {
-    const pad = { l: 48, r: 16, t: 16, b: 40 };
-    const xMin = 1.0, xMax = 6.5, yMin = 0.0, yMax = 2.6;
+  /* ── scatter SVG ── */
+  function ScatterPlot({ data, query, w = 380, h = 260, highlight = null, boundary = null }) {
+    const pad = { l: 50, r: 18, t: 18, b: 44 };
+    const xMin = 1.0, xMax = 6.8, yMin = 0.0, yMax = 2.7;
     const sx = v => pad.l + ((v - xMin) / (xMax - xMin)) * (w - pad.l - pad.r);
     const sy = v => h - pad.b - ((v - yMin) / (yMax - yMin)) * (h - pad.t - pad.b);
 
     return (
       <svg width={w} height={h} style={{ overflow: "visible" }}>
-        {/* axes */}
-        <line x1={pad.l} y1={h - pad.b} x2={w - pad.r} y2={h - pad.b} stroke="#aaa" strokeWidth={1} />
-        <line x1={pad.l} y1={pad.t} x2={pad.l} y2={h - pad.b} stroke="#aaa" strokeWidth={1} />
-        {/* x ticks */}
+        <line x1={pad.l} y1={h - pad.b} x2={w - pad.r} y2={h - pad.b} stroke="#ccc" strokeWidth={1} />
+        <line x1={pad.l} y1={pad.t} x2={pad.l} y2={h - pad.b} stroke="#ccc" strokeWidth={1} />
         {[1, 2, 3, 4, 5, 6].map(v => (
           <g key={v}>
-            <line x1={sx(v)} y1={h - pad.b} x2={sx(v)} y2={h - pad.b + 4} stroke="#aaa" strokeWidth={1} />
-            <text x={sx(v)} y={h - pad.b + 14} textAnchor="middle" fontSize={10} fill="#888">{v}</text>
+            <line x1={sx(v)} y1={h - pad.b} x2={sx(v)} y2={h - pad.b + 4} stroke="#ccc" strokeWidth={1} />
+            <text x={sx(v)} y={h - pad.b + 15} textAnchor="middle" fontSize={10} fill="#888">{v}</text>
           </g>
         ))}
-        {/* y ticks */}
-        {[0, 0.5, 1, 1.5, 2, 2.5].map(v => (
+        {[0, 0.5, 1.0, 1.5, 2.0, 2.5].map(v => (
           <g key={v}>
-            <line x1={pad.l - 4} y1={sy(v)} x2={pad.l} y2={sy(v)} stroke="#aaa" strokeWidth={1} />
-            <text x={pad.l - 6} y={sy(v) + 4} textAnchor="end" fontSize={10} fill="#888">{v}</text>
+            <line x1={pad.l - 4} y1={sy(v)} x2={pad.l} y2={sy(v)} stroke="#ccc" strokeWidth={1} />
+            <text x={pad.l - 7} y={sy(v) + 4} textAnchor="end" fontSize={10} fill="#888">{v}</text>
           </g>
         ))}
-        {/* axis labels */}
-        <text x={(pad.l + w - pad.r) / 2} y={h - 2} textAnchor="middle" fontSize={11} fill="#666">petal length (cm)</text>
-        <text x={12} y={(pad.t + h - pad.b) / 2} textAnchor="middle" fontSize={11} fill="#666" transform={`rotate(-90,12,${(pad.t + h - pad.b) / 2})`}>petal width (cm)</text>
-        {/* data points */}
-        {data.map((pt, i) => (
-          <circle
-            key={i}
-            cx={sx(pt[0])} cy={sy(pt[1])}
-            r={highlight && highlight.has(i) ? 7 : 5}
-            fill={CLS_COLORS[pt[2]]}
-            opacity={highlight ? (highlight.has(i) ? 1 : 0.25) : 0.85}
-            stroke={highlight && highlight.has(i) ? "#333" : "none"}
-            strokeWidth={1.5}
-          />
+        <text x={(pad.l + w - pad.r) / 2} y={h - 4} textAnchor="middle" fontSize={11} fill="#666">petal length (cm)</text>
+        <text x={13} y={(pad.t + h - pad.b) / 2} textAnchor="middle" fontSize={11} fill="#666"
+          transform={`rotate(-90,13,${(pad.t + h - pad.b) / 2})`}>petal width (cm)</text>
+        {/* optional decision boundary lines */}
+        {boundary && boundary.map((b, bi) => (
+          <line key={bi} x1={b.x1 !== undefined ? sx(b.x1) : pad.l}
+            y1={b.y1 !== undefined ? sy(b.y1) : pad.t}
+            x2={b.x2 !== undefined ? sx(b.x2) : w - pad.r}
+            y2={b.y2 !== undefined ? sy(b.y2) : h - pad.b}
+            stroke={b.color || "#888"} strokeWidth={b.width || 1.5}
+            strokeDasharray={b.dash || "none"} opacity={b.opacity || 0.8} />
         ))}
-        {/* query point */}
+        {data.map((pt, i) => (
+          <circle key={i} cx={sx(pt[0])} cy={sy(pt[1])} r={highlight ? (highlight.has(i) ? 7 : 5) : 5}
+            fill={CLS_COLORS[pt[2]]}
+            opacity={highlight ? (highlight.has(i) ? 1 : 0.2) : 0.85}
+            stroke={highlight && highlight.has(i) ? "#222" : "none"} strokeWidth={1.5} />
+        ))}
         {query && (
           <g>
-            <circle cx={sx(query[0])} cy={sy(query[1])} r={8} fill="none" stroke="#e91e63" strokeWidth={2.5} strokeDasharray="3 2" />
+            <circle cx={sx(query[0])} cy={sy(query[1])} r={9} fill="none" stroke="#e91e63" strokeWidth={2.5} strokeDasharray="3 2" />
             <circle cx={sx(query[0])} cy={sy(query[1])} r={3} fill="#e91e63" />
-            <text x={sx(query[0]) + 11} y={sy(query[1]) - 6} fontSize={11} fill="#e91e63" fontWeight="600">query</text>
+            <text x={sx(query[0]) + 12} y={sy(query[1]) - 7} fontSize={11} fill="#e91e63" fontWeight="600">query</text>
           </g>
         )}
       </svg>
     );
   }
 
-  // ── small SVG tree ──
-  function TreeSvg({ tree, x, votes, queryLabel, compact = false }) {
-    const W = compact ? 170 : 220, H = compact ? 130 : 160;
+  /* ── mini SVG decision tree ── */
+  function TreeSvg({ tree, queryLabel, compact = false }) {
+    const W = compact ? 175 : 228, H = compact ? 136 : 168;
     const midX = W / 2;
-    const r = compact ? 28 : 36;
-    const r2 = compact ? 22 : 28;
-    // root
-    const rootY = compact ? 28 : 34;
-    // children
-    const midY = compact ? 80 : 96;
-    const leftX = compact ? 42 : 54, rightX = compact ? W - 42 : W - 54;
-    const leafY = compact ? H - 20 : H - 24;
-    const leafLX = compact ? 30 : 38, leafRX = compact ? W - 30 : W - 38;
-
-    const labelNames = ["setosa", "versic.", "virgin."];
-    const labelColors = CLS_COLORS;
-
-    const rootLabel = `${tree.featureName} ≤ ${tree.threshold}`;
+    const r = compact ? 30 : 38, r2 = compact ? 24 : 30;
+    const rootY = compact ? 30 : 36;
+    const midY = compact ? 84 : 102;
+    const leftX = compact ? 44 : 56, rightX = compact ? W - 44 : W - 56;
+    const leafY = compact ? H - 22 : H - 26;
+    const leafLX = compact ? 32 : 40, leafRX = compact ? W - 32 : W - 40;
     const rightNode = tree.right;
     const hasSecondSplit = rightNode && rightNode.feature !== undefined;
 
     return (
       <svg width={W} height={H} style={{ overflow: "visible" }}>
-        {/* edges root → children */}
-        <line x1={midX} y1={rootY + (compact ? 16 : 20)} x2={leftX} y2={midY - (compact ? 12 : 14)} stroke="#bbb" strokeWidth={1.5} />
-        <line x1={midX} y1={rootY + (compact ? 16 : 20)} x2={rightX} y2={midY - (compact ? 12 : 14)} stroke="#bbb" strokeWidth={1.5} />
+        {/* root → children edges */}
+        <line x1={midX} y1={rootY + (compact ? 17 : 22)} x2={leftX} y2={midY - (compact ? 13 : 16)} stroke="#ccc" strokeWidth={1.5} />
+        <line x1={midX} y1={rootY + (compact ? 17 : 22)} x2={rightX} y2={midY - (compact ? 13 : 16)} stroke="#ccc" strokeWidth={1.5} />
         {/* root node */}
-        <rect x={midX - r} y={rootY - 14} width={r * 2} height={28} rx={6} fill="#f5f5f5" stroke="#999" strokeWidth={1.5} />
-        <text x={midX} y={rootY} textAnchor="middle" fontSize={compact ? 8 : 9} fill="#333" fontWeight="600">{tree.featureName}</text>
-        <text x={midX} y={rootY + 11} textAnchor="middle" fontSize={compact ? 8 : 9} fill="#555">≤ {tree.threshold}</text>
-        {/* left: always a leaf (setosa) */}
-        <rect x={leftX - r2} y={midY - 12} width={r2 * 2} height={24} rx={5} fill={labelColors[0]} fillOpacity={0.2} stroke={labelColors[0]} strokeWidth={1.5} />
-        <text x={leftX} y={midY + 4} textAnchor="middle" fontSize={compact ? 8 : 9} fill={labelColors[0]} fontWeight="600">setosa</text>
-        {/* "yes" / "no" labels */}
-        <text x={(midX + leftX) / 2 - 4} y={midY - 16} textAnchor="middle" fontSize={compact ? 7 : 8} fill="#888">yes</text>
-        <text x={(midX + rightX) / 2 + 4} y={midY - 16} textAnchor="middle" fontSize={compact ? 7 : 8} fill="#888">no</text>
+        <rect x={midX - r} y={rootY - 15} width={r * 2} height={30} rx={7} fill="#f0f4ff" stroke="#7986cb" strokeWidth={1.5} />
+        <text x={midX} y={rootY - 1} textAnchor="middle" fontSize={compact ? 8.5 : 9.5} fill="#283593" fontWeight="700">{tree.featureName}</text>
+        <text x={midX} y={rootY + 11} textAnchor="middle" fontSize={compact ? 8 : 9} fill="#444">≤ {tree.threshold}</text>
+        {/* yes / no labels */}
+        <text x={(midX + leftX) / 2 - 6} y={midY - 18} textAnchor="middle" fontSize={compact ? 7.5 : 8} fill="#888">yes</text>
+        <text x={(midX + rightX) / 2 + 6} y={midY - 18} textAnchor="middle" fontSize={compact ? 7.5 : 8} fill="#888">no</text>
+        {/* left leaf: always setosa */}
+        <rect x={leftX - r2} y={midY - 13} width={r2 * 2} height={26} rx={6} fill={CLS_COLORS[0] + "28"} stroke={CLS_COLORS[0]} strokeWidth={1.5} />
+        <text x={leftX} y={midY + 5} textAnchor="middle" fontSize={compact ? 8 : 9} fill={CLS_COLORS[0]} fontWeight="700">setosa</text>
         {/* right side */}
         {hasSecondSplit ? (
           <>
-            <rect x={rightX - r} y={midY - 14} width={r * 2} height={28} rx={6} fill="#f5f5f5" stroke="#999" strokeWidth={1.5} />
-            <text x={rightX} y={midY} textAnchor="middle" fontSize={compact ? 8 : 9} fill="#333" fontWeight="600">{rightNode.featureName}</text>
-            <text x={rightX} y={midY + 11} textAnchor="middle" fontSize={compact ? 8 : 9} fill="#555">≤ {rightNode.threshold}</text>
-            {/* edges inner → leaves */}
-            <line x1={rightX} y1={midY + 14} x2={leafLX + 2} y2={leafY - 10} stroke="#bbb" strokeWidth={1.5} />
-            <line x1={rightX} y1={midY + 14} x2={leafRX - 2} y2={leafY - 10} stroke="#bbb" strokeWidth={1.5} />
-            <rect x={leafLX - r2} y={leafY - 10} width={r2 * 2} height={22} rx={5} fill={labelColors[1]} fillOpacity={0.2} stroke={labelColors[1]} strokeWidth={1.5} />
-            <text x={leafLX} y={leafY + 4} textAnchor="middle" fontSize={compact ? 7 : 9} fill={labelColors[1]} fontWeight="600">{labelNames[1]}</text>
-            <rect x={leafRX - r2} y={leafY - 10} width={r2 * 2} height={22} rx={5} fill={labelColors[2]} fillOpacity={0.2} stroke={labelColors[2]} strokeWidth={1.5} />
-            <text x={leafRX} y={leafY + 4} textAnchor="middle" fontSize={compact ? 7 : 9} fill={labelColors[2]} fontWeight="600">{labelNames[2]}</text>
+            <rect x={rightX - r} y={midY - 15} width={r * 2} height={30} rx={7} fill="#f0f4ff" stroke="#7986cb" strokeWidth={1.5} />
+            <text x={rightX} y={midY - 1} textAnchor="middle" fontSize={compact ? 8.5 : 9.5} fill="#283593" fontWeight="700">{rightNode.featureName}</text>
+            <text x={rightX} y={midY + 11} textAnchor="middle" fontSize={compact ? 8 : 9} fill="#444">≤ {rightNode.threshold}</text>
+            <line x1={rightX} y1={midY + 15} x2={leafLX + 2} y2={leafY - 12} stroke="#ccc" strokeWidth={1.5} />
+            <line x1={rightX} y1={midY + 15} x2={leafRX - 2} y2={leafY - 12} stroke="#ccc" strokeWidth={1.5} />
+            <rect x={leafLX - r2} y={leafY - 12} width={r2 * 2} height={24} rx={5} fill={CLS_COLORS[1] + "28"} stroke={CLS_COLORS[1]} strokeWidth={1.5} />
+            <text x={leafLX} y={leafY + 4} textAnchor="middle" fontSize={compact ? 7.5 : 8.5} fill={CLS_COLORS[1]} fontWeight="700">versic.</text>
+            <rect x={leafRX - r2} y={leafY - 12} width={r2 * 2} height={24} rx={5} fill={CLS_COLORS[2] + "28"} stroke={CLS_COLORS[2]} strokeWidth={1.5} />
+            <text x={leafRX} y={leafY + 4} textAnchor="middle" fontSize={compact ? 7.5 : 8.5} fill={CLS_COLORS[2]} fontWeight="700">virgin.</text>
           </>
         ) : (
-          <rect x={rightX - r2} y={midY - 12} width={r2 * 2} height={24} rx={5}
-            fill={labelColors[rightNode.label]} fillOpacity={0.2} stroke={labelColors[rightNode.label]} strokeWidth={1.5} />
+          <>
+            <rect x={rightX - r2} y={midY - 13} width={r2 * 2} height={26} rx={6}
+              fill={CLS_COLORS[rightNode.label] + "28"} stroke={CLS_COLORS[rightNode.label]} strokeWidth={1.5} />
+            <text x={rightX} y={midY + 5} textAnchor="middle" fontSize={compact ? 8 : 9}
+              fill={CLS_COLORS[rightNode.label]} fontWeight="700">
+              {["setosa", "versic.", "virgin."][rightNode.label]}
+            </text>
+          </>
         )}
-        {/* query vote indicator */}
+        {/* query vote badge */}
         {queryLabel !== undefined && (
           <g>
-            <circle cx={compact ? W - 12 : W - 16} cy={compact ? 12 : 16} r={compact ? 9 : 11}
-              fill={labelColors[queryLabel]} fillOpacity={0.85} />
-            <text x={compact ? W - 12 : W - 16} y={(compact ? 12 : 16) + 4}
-              textAnchor="middle" fontSize={compact ? 8 : 9} fill="#fff" fontWeight="700">
+            <circle cx={W - 13} cy={13} r={10} fill={CLS_COLORS[queryLabel]} opacity={0.9} />
+            <text x={W - 13} y={17} textAnchor="middle" fontSize={8} fill="#fff" fontWeight="800">
               {["S", "Ve", "Vi"][queryLabel]}
             </text>
           </g>
@@ -140,81 +135,86 @@
     );
   }
 
-  // ── Bootstrap table ──
+  /* ── bootstrap sample table ── */
   function BootstrapTable({ bsIdx, treeId, data }) {
     const counts = {};
     bsIdx.forEach(i => { counts[i] = (counts[i] || 0) + 1; });
     const allIdx = Array.from({ length: data.length }, (_, i) => i);
     const oob = allIdx.filter(i => !counts[i]);
+    const unique = bsIdx.filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
     return (
-      <div style={{ fontSize: 12, border: "1px solid #e0e0e0", borderRadius: 8, overflow: "hidden", minWidth: 180 }}>
-        <div style={{ background: "#f5f5f5", padding: "6px 10px", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #e0e0e0" }}>
-          Tree {treeId} bootstrap
+      <div style={{ fontSize: 12, border: "1px solid #e0e0e0", borderRadius: 9, overflow: "hidden", minWidth: 190 }}>
+        <div style={{ background: "#e8eaf6", padding: "7px 10px", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #d0d0d0", color: "#283593" }}>
+          Tree {treeId} — bootstrap sample
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 0 }}>
-          <div style={{ padding: "4px 8px", background: "#fafafa", fontWeight: 600, fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>idx</div>
-          <div style={{ padding: "4px 8px", background: "#fafafa", fontWeight: 600, fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>pl, pw</div>
-          <div style={{ padding: "4px 8px", background: "#fafafa", fontWeight: 600, fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>cls</div>
-          <div style={{ padding: "4px 8px", background: "#fafafa", fontWeight: 600, fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>×</div>
-          {bsIdx.filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b).map(origIdx => (
+        <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 46px 28px", gap: 0 }}>
+          {["#", "pl, pw", "class", "×"].map(h => (
+            <div key={h} style={{ padding: "4px 7px", background: "#f5f5f5", fontWeight: 700, fontSize: 10.5, borderBottom: "1px solid #eee", color: "#555" }}>{h}</div>
+          ))}
+          {unique.map(origIdx => (
             <React.Fragment key={origIdx}>
-              <div style={{ padding: "3px 8px", borderBottom: "1px solid #f5f5f5", color: "#555" }}>{origIdx}</div>
-              <div style={{ padding: "3px 8px", borderBottom: "1px solid #f5f5f5", color: "#555" }}>
+              <div style={{ padding: "3px 7px", borderBottom: "1px solid #f5f5f5", color: "#888" }}>{origIdx}</div>
+              <div style={{ padding: "3px 7px", borderBottom: "1px solid #f5f5f5", color: "#555" }}>
                 {data[origIdx][0]}, {data[origIdx][1]}
               </div>
-              <div style={{ padding: "3px 8px", borderBottom: "1px solid #f5f5f5" }}>
-                <Dot cls={data[origIdx][2]} size={7} />
-                {CLS_NAMES[data[origIdx][2]].slice(0, 4)}
+              <div style={{ padding: "3px 7px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", gap: 3 }}>
+                <Dot cls={data[origIdx][2]} size={6} />
+                <span style={{ color: CLS_COLORS[data[origIdx][2]], fontWeight: 600 }}>{CLS_NAMES[data[origIdx][2]].slice(0, 5)}</span>
               </div>
-              <div style={{ padding: "3px 8px", borderBottom: "1px solid #f5f5f5", color: "#e91e63", fontWeight: 700 }}>
-                ×{counts[origIdx]}
-              </div>
+              <div style={{ padding: "3px 7px", borderBottom: "1px solid #f5f5f5", color: "#e91e63", fontWeight: 700 }}>×{counts[origIdx]}</div>
             </React.Fragment>
           ))}
         </div>
-        <div style={{ padding: "5px 10px", background: "#fff8e1", fontSize: 11, color: "#795548" }}>
-          <b>OOB:</b> {oob.length > 0 ? oob.join(", ") : "none"} ({oob.length} samples)
+        <div style={{ padding: "6px 10px", background: "#fff8e1", fontSize: 11, color: "#795548" }}>
+          <b>OOB:</b> idx {oob.length > 0 ? oob.join(", ") : "none"} ({oob.length}/{data.length} samples, {fmt(oob.length / data.length * 100, 0)}%)
         </div>
       </div>
     );
   }
 
-  // ── vote counter ──
-  function VoteCounter({ votes, counts }) {
+  /* ── vote counter ── */
+  function VoteCounter({ counts }) {
+    const total = counts.reduce((a, b) => a + b, 0);
+    const winner = counts.indexOf(Math.max(...counts));
     return (
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "12px 0" }}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", margin: "12px 0" }}>
         {CLS_NAMES.map((name, ci) => (
           <div key={ci} style={{
-            border: `2px solid ${CLS_COLORS[ci]}`, borderRadius: 10, padding: "10px 18px",
-            background: counts[ci] > 0 ? CLS_COLORS[ci] + "18" : "#f9f9f9",
-            textAlign: "center", minWidth: 90,
+            border: `2px solid ${CLS_COLORS[ci]}`, borderRadius: 11, padding: "10px 18px",
+            background: ci === winner ? CLS_COLORS[ci] + "22" : "#fafafa",
+            textAlign: "center", minWidth: 95,
+            boxShadow: ci === winner ? `0 0 0 2px ${CLS_COLORS[ci]}55` : "none",
           }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: CLS_COLORS[ci] }}>{counts[ci]}</div>
-            <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{name}</div>
-            <div style={{ fontSize: 10, color: "#aaa" }}>votes</div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: CLS_COLORS[ci], lineHeight: 1 }}>{counts[ci]}</div>
+            <div style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{name}</div>
+            <div style={{ fontSize: 10, color: "#aaa" }}>vote{counts[ci] !== 1 ? "s" : ""}</div>
+            {ci === winner && counts[ci] > 0 && <div style={{ fontSize: 10, marginTop: 3, color: CLS_COLORS[ci], fontWeight: 700 }}>winner</div>}
           </div>
         ))}
       </div>
     );
   }
 
-  // ── importance bar chart ──
+  /* ── importance bar ── */
   function ImportanceBar({ importance, features }) {
-    const max = Math.max(...importance);
+    const max = Math.max(...importance, 0.001);
+    const barColors = ["#3f51b5", "#ff9800", "#4caf50"];
     return (
       <div style={{ margin: "12px 0" }}>
         {features.map((f, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ width: 90, fontSize: 12, color: "#555", textAlign: "right" }}>{f}</span>
-            <div style={{ flex: 1, background: "#f0f0f0", borderRadius: 4, height: 22, overflow: "hidden" }}>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span style={{ width: 90, fontSize: 12, color: "#555", textAlign: "right", fontFamily: "monospace" }}>{f}</span>
+            <div style={{ flex: 1, background: "#f0f0f0", borderRadius: 5, height: 24, overflow: "hidden" }}>
               <div style={{
-                width: `${(importance[i] / max) * 100}%`, height: "100%",
-                background: i === 0 ? "#2196f3" : "#ff9800",
-                borderRadius: 4, transition: "width 0.4s",
+                width: `${Math.max((importance[i] / max) * 100, 4)}%`, height: "100%",
+                background: barColors[i % barColors.length], borderRadius: 5,
                 display: "flex", alignItems: "center", paddingLeft: 8,
+                transition: "width 0.5s",
               }}>
-                <span style={{ fontSize: 11, color: "#fff", fontWeight: 700 }}>{fmt(importance[i] * 100, 1)}%</span>
+                <span style={{ fontSize: 11, color: "#fff", fontWeight: 700, whiteSpace: "nowrap" }}>
+                  {fmt(importance[i] * 100, 1)}%
+                </span>
               </div>
             </div>
           </div>
@@ -223,88 +223,225 @@
     );
   }
 
-  // ── 3 parallel trees overview SVG ──
+  /* ── forest overview SVG ── */
   function ForestOverviewSvg() {
-    const W = 420, H = 160;
-    const treeXs = [60, 210, 360];
-    const treeW = 80, treeH = 90;
-    const clsColors = CLS_COLORS;
+    const W = 430, H = 200;
+    const treeXs = [65, 215, 365];
+    const treeW = 82, treeH = 92;
 
     return (
       <svg width={W} height={H} style={{ overflow: "visible", display: "block", margin: "0 auto" }}>
-        {/* data source */}
-        <rect x={W / 2 - 50} y={4} width={100} height={24} rx={6} fill="#e3f2fd" stroke="#90caf9" strokeWidth={1.5} />
-        <text x={W / 2} y={20} textAnchor="middle" fontSize={11} fill="#1565c0" fontWeight="700">Training Data</text>
-        {/* arrows to trees */}
-        {treeXs.map((tx, i) => (
-          <line key={i} x1={W / 2} y1={28} x2={tx} y2={42} stroke="#90caf9" strokeWidth={1.5} strokeDasharray="3 2" />
-        ))}
-        {/* 3 mini tree boxes */}
+        {/* training data box */}
+        <rect x={W / 2 - 58} y={4} width={116} height={26} rx={7} fill="#e3f2fd" stroke="#90caf9" strokeWidth={1.5} />
+        <text x={W / 2} y={21} textAnchor="middle" fontSize={11} fill="#0d47a1" fontWeight="700">12 labelled flowers</text>
+        {/* arrows to bootstrap */}
         {treeXs.map((tx, i) => (
           <g key={i}>
-            <rect x={tx - treeW / 2} y={42} width={treeW} height={treeH} rx={8}
-              fill="#f5f5f5" stroke="#bdbdbd" strokeWidth={1.5} />
-            <text x={tx} y={60} textAnchor="middle" fontSize={10} fill="#555" fontWeight="700">Tree {i + 1}</text>
-            {/* simplified tree icon */}
-            <line x1={tx} y1={68} x2={tx - 18} y2={88} stroke="#bbb" strokeWidth={1.2} />
-            <line x1={tx} y1={68} x2={tx + 18} y2={88} stroke="#bbb" strokeWidth={1.2} />
-            <rect x={tx - 12} y={60} width={24} height={16} rx={4} fill="#e8eaf6" stroke="#9fa8da" strokeWidth={1} />
-            <rect x={tx - 22} y={88} width={16} height={14} rx={3} fill={clsColors[0]} fillOpacity={0.4} stroke={clsColors[0]} strokeWidth={1} />
-            <rect x={tx + 6} y={88} width={16} height={14} rx={3} fill={clsColors[1]} fillOpacity={0.4} stroke={clsColors[1]} strokeWidth={1} />
+            <line x1={W / 2} y1={30} x2={tx} y2={44} stroke="#90caf9" strokeWidth={1.4} strokeDasharray="3 2" />
+            <text x={tx} y={43} textAnchor="middle" fontSize={8} fill="#90caf9">bootstrap {i + 1}</text>
+          </g>
+        ))}
+        {/* tree boxes */}
+        {treeXs.map((tx, i) => (
+          <g key={i}>
+            <rect x={tx - treeW / 2} y={48} width={treeW} height={treeH} rx={9}
+              fill="#fafafa" stroke={CLS_COLORS[i]} strokeWidth={1.8} />
+            <text x={tx} y={66} textAnchor="middle" fontSize={10} fill={CLS_COLORS[i]} fontWeight="700">Tree {i + 1}</text>
+            {/* simple tree icon */}
+            <line x1={tx} y1={74} x2={tx - 20} y2={92} stroke="#ddd" strokeWidth={1.2} />
+            <line x1={tx} y1={74} x2={tx + 20} y2={92} stroke="#ddd" strokeWidth={1.2} />
+            <rect x={tx - 14} y={66} width={28} height={16} rx={4} fill="#e8eaf6" stroke="#9fa8da" strokeWidth={1} />
+            <text x={tx} y={77} textAnchor="middle" fontSize={7.5} fill="#3949ab" fontWeight="600">petal_len</text>
+            <text x={tx} y={86} textAnchor="middle" fontSize={7} fill="#555">≤ {[2.4, 2.6, 2.5][i]}</text>
+            <rect x={tx - 24} y={92} width={18} height={13} rx={3} fill={CLS_COLORS[0] + "44"} stroke={CLS_COLORS[0]} strokeWidth={1} />
+            <text x={tx - 15} y={102} textAnchor="middle" fontSize={7} fill={CLS_COLORS[0]} fontWeight="700">S</text>
+            <rect x={tx + 6} y={92} width={18} height={13} rx={3} fill={CLS_COLORS[1] + "44"} stroke={CLS_COLORS[1]} strokeWidth={1} />
+            <text x={tx + 15} y={102} textAnchor="middle" fontSize={7} fill={CLS_COLORS[1]} fontWeight="700">V+</text>
             {/* prediction badge */}
-            <circle cx={tx + treeW / 2 - 8} cy={treeH + 28} r={11} fill={clsColors[i % 3]} fillOpacity={0.85} />
-            <text x={tx + treeW / 2 - 8} y={treeH + 33} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">
-              {["S", "Ve", "Vi"][i % 3]}
-            </text>
+            <circle cx={tx} cy={154} r={12} fill={CLS_COLORS[i % 3]} opacity={0.88} />
+            <text x={tx} y={158} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="800">{["S", "Ve", "Vi"][i % 3]}</text>
+            <text x={tx} y={172} textAnchor="middle" fontSize={9} fill="#888">votes</text>
+            <line x1={tx} y1={140} x2={tx} y2={142} stroke={CLS_COLORS[i]} strokeWidth={1.2} />
           </g>
         ))}
         {/* arrows to vote box */}
         {treeXs.map((tx, i) => (
-          <line key={i} x1={tx + treeW / 2 - 8} y1={treeH + 40} x2={W / 2} y2={H - 20} stroke="#bbb" strokeWidth={1.5} />
+          <line key={i} x1={tx} y1={176} x2={W / 2} y2={H - 16} stroke="#ccc" strokeWidth={1.4} />
         ))}
-        {/* vote / final box */}
-        <rect x={W / 2 - 52} y={H - 20} width={104} height={22} rx={6} fill="#fce4ec" stroke="#f48fb1" strokeWidth={1.5} />
-        <text x={W / 2} y={H - 5} textAnchor="middle" fontSize={11} fill="#c62828" fontWeight="700">Majority Vote</text>
+        {/* final vote box */}
+        <rect x={W / 2 - 60} y={H - 16} width={120} height={22} rx={7} fill="#fce4ec" stroke="#f48fb1" strokeWidth={1.5} />
+        <text x={W / 2} y={H - 1} textAnchor="middle" fontSize={11} fill="#b71c1c" fontWeight="700">Majority Vote → class</text>
       </svg>
     );
   }
 
+  /* ── deep single-tree vs RF boundary comparison SVG ── */
+  function BoundarySvg() {
+    const W = 380, H = 200;
+    const pad = { l: 10, r: 10, t: 10, b: 10 };
+    // Left panel: "deep DT boundary" = jagged lines
+    // Right panel: "RF boundary" = smoother
+    const halfW = W / 2 - 4;
+    return (
+      <svg width={W} height={H} style={{ overflow: "visible", display: "block", margin: "0 auto" }}>
+        {/* left: deep tree */}
+        <rect x={0} y={0} width={halfW} height={H} rx={7} fill="#fff3e0" stroke="#ffb74d" strokeWidth={1.2} />
+        <text x={halfW / 2} y={16} textAnchor="middle" fontSize={10} fill="#e65100" fontWeight="700">Deep single tree</text>
+        <text x={halfW / 2} y={29} textAnchor="middle" fontSize={9} fill="#bf360c">100% train acc, poor test</text>
+        {/* jagged boundary lines */}
+        <polyline points="20,50 30,50 30,70 60,70 60,55 80,55 80,75 110,75 110,60 140,60 140,80 160,80 160,55 175,55"
+          fill="none" stroke="#ef5350" strokeWidth={2} strokeDasharray="4 2" />
+        <polyline points="20,120 50,120 50,140 80,140 80,115 110,115 110,138 145,138 145,120 175,120"
+          fill="none" stroke="#ef5350" strokeWidth={2} strokeDasharray="4 2" />
+        {/* dots */}
+        {[[30,45,0],[55,65,0],[90,58,0],[130,68,0],[50,115,1],[100,132,1],[140,125,1],[160,140,2],[130,170,2],[90,165,2]].map(([x,y,c],i) => (
+          <circle key={i} cx={x} cy={y} r={4} fill={CLS_COLORS[c]} opacity={0.8} />
+        ))}
+        <text x={halfW / 2} y={H - 6} textAnchor="middle" fontSize={8.5} fill="#888">High variance, overfits noise</text>
+
+        {/* right: RF */}
+        <rect x={halfW + 8} y={0} width={halfW} height={H} rx={7} fill="#e8f5e9" stroke="#81c784" strokeWidth={1.2} />
+        <text x={halfW + 8 + halfW / 2} y={16} textAnchor="middle" fontSize={10} fill="#1b5e20" fontWeight="700">Random Forest</text>
+        <text x={halfW + 8 + halfW / 2} y={29} textAnchor="middle" fontSize={9} fill="#2e7d32">Smooth boundary, lower variance</text>
+        {/* smoother boundary */}
+        <line x1={halfW + 18} y1={90} x2={halfW + 8 + halfW - 10} y2={90} stroke="#43a047" strokeWidth={2.5} />
+        <line x1={halfW + 18} y1={148} x2={halfW + 8 + halfW - 10} y2={148} stroke="#43a047" strokeWidth={2.5} />
+        {[[30,45,0],[55,65,0],[90,58,0],[130,68,0],[50,115,1],[100,132,1],[140,125,1],[160,140,2],[130,170,2],[90,165,2]].map(([x,y,c],i) => (
+          <circle key={i} cx={halfW + 8 + x} cy={y} r={4} fill={CLS_COLORS[c]} opacity={0.8} />
+        ))}
+        <text x={halfW + 8 + halfW / 2} y={H - 6} textAnchor="middle" fontSize={8.5} fill="#888">Lower variance, generalises better</text>
+      </svg>
+    );
+  }
+
+  /* ── OOB per-tree accuracy grid ── */
+  function OOBGrid() {
+    return (
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "12px 0" }}>
+        {RF.bootstraps.map((bs, ti) => {
+          const bsSet = new Set(bs);
+          const oobIdx = Array.from({ length: 12 }, (_, i) => i).filter(i => !bsSet.has(i));
+          const hits = oobIdx.filter(i => {
+            const xpt = [RF.data[i][0], RF.data[i][1]];
+            return window.ML_RF.predictTreeCls(RF.trees[ti], xpt).label === RF.data[i][2];
+          });
+          const acc = oobIdx.length > 0 ? hits.length / oobIdx.length : 1;
+          return (
+            <div key={ti} style={{
+              border: "1px solid #e0e0e0", borderRadius: 10, padding: "10px 14px",
+              minWidth: 170, background: "#fafafa",
+            }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#333" }}>Tree {ti + 1}</div>
+              <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
+                OOB indices: {oobIdx.length > 0 ? oobIdx.join(", ") : "none"}
+              </div>
+              <div style={{ fontSize: 12, color: "#555", marginTop: 3 }}>
+                {hits.length}/{oobIdx.length} correct on OOB
+              </div>
+              <div style={{
+                marginTop: 7, padding: "5px 10px", borderRadius: 7, display: "inline-block",
+                background: acc > 0.8 ? "#e8f5e9" : "#fff3e0",
+                color: acc > 0.8 ? "#2e7d32" : "#e65100",
+                fontWeight: 700, fontSize: 13,
+              }}>
+                OOB acc: {fmt(acc * 100, 1)}%
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  /* ── variance bar for n_estimators ── */
+  function VarianceBarChart() {
+    const ns = [1, 2, 3, 5, 10, 20, 50, 100, 200];
+    const rho = 0.38;
+    return (
+      <div style={{ margin: "10px 0" }}>
+        {ns.map(n => {
+          const varRF = rho + (1 - rho) / n;
+          const pct = varRF * 100;
+          const color = n <= 3 ? "#ef5350" : n <= 10 ? "#ff9800" : "#4caf50";
+          return (
+            <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+              <span style={{ width: 68, fontSize: 11.5, textAlign: "right", color: "#555" }}>{n} tree{n > 1 ? "s" : ""}</span>
+              <div style={{ flex: 1, background: "#f0f0f0", borderRadius: 4, height: 19, overflow: "hidden" }}>
+                <div style={{
+                  width: `${Math.max(pct, 3)}%`, height: "100%", background: color,
+                  borderRadius: 4, display: "flex", alignItems: "center", paddingLeft: 7, transition: "width 0.3s",
+                }}>
+                  <span style={{ fontSize: 10, color: "#fff", fontWeight: 700 }}>{fmt(varRF, 2)}σ²</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
+          Using ρ = 0.38 (typical tree correlation with √p features). Formula: Var = ρσ² + (1−ρ)σ²/n
+        </div>
+      </div>
+    );
+  }
+
+  /* ════════════════════════════════════════
+     STAGES
+     ════════════════════════════════════════ */
   const STAGES = [
-    // ── Stage 1: Overview ──
+
+    /* ── 1. Overview ── */
     {
-      id: "overview", group: "Overview", title: "Random Forest: wisdom of crowds",
+      id: "overview", group: "Overview", title: "Random Forest: wisdom of the crowd",
       map: "Overview",
-      why: "A single decision tree is fast but fragile — it over-fits the training data. A random forest fixes this by building many diverse trees and having them vote.",
-      render: (trace) => (
+      why: "A single decision tree is powerful but fragile — it memorises training data. A random forest fixes this by combining many diverse trees, each slightly wrong in different ways, so their errors cancel out.",
+      render: () => (
         <>
           <Lead>
-            A <b>Random Forest</b> is an ensemble of decision trees. Each tree is trained on a
-            slightly different random subset of the data, so each makes slightly different errors.
-            When they <b>vote together</b> their individual mistakes cancel out, producing a far
-            more robust prediction than any single tree.
+            Think about going to see a doctor. One doctor might give you a wrong diagnosis —
+            they're human, they have biases, they might have had a bad day. Now imagine asking
+            <b> 100 independent doctors</b> and taking the majority vote. The crowd is almost
+            always right, even if any individual is sometimes wrong. That is the entire idea
+            behind a <b>Random Forest</b>.
+          </Lead>
+          <Lead>
+            A <b>Random Forest</b> is an <b>ensemble</b> (a collection) of decision trees, each
+            trained on a slightly different <b>bootstrap sample</b> of the training data and using
+            a random subset of features at every split. The key insight is that each tree makes
+            different mistakes, so when they all <b>vote</b> on a prediction the mistakes cancel
+            out and only the signal remains.
+          </Lead>
+          <Lead>
+            Two ideas do the heavy lifting. First, <b>bagging</b> (Bootstrap AGGregatING): sample
+            the training data with replacement to create diverse datasets. Second, <b>random feature
+            selection</b>: at every split consider only √p of the p available features. This
+            "decorrelates" the trees — even with different data, trees that always see the same
+            dominant feature will all split on it the same way, so we randomly block features to
+            force variety.
           </Lead>
           <div style={{ margin: "20px 0" }}>
             <ForestOverviewSvg />
           </div>
-          <div className="tf-archwrap" style={{ marginTop: 16 }}>
+          <div className="tf-archwrap" style={{ marginTop: 14 }}>
             <div className="tf-arch">
-              <div className="tf-arch-io">12 labelled flowers (petal length, width → species)<span>Training data</span></div>
-              <div className="tf-arch-f"><b>Bootstrap sampling</b> × 3</div>
-              <div className="tf-arch-row">3 overlapping subsets (sampling with replacement)</div>
-              <div className="tf-arch-f"><b>Grow 1 tree per subset</b> (random feature selection at each node)</div>
-              <div className="tf-arch-row">Tree 1, Tree 2, Tree 3 — each slightly different</div>
-              <div className="tf-arch-f"><b>Predict with each tree</b></div>
-              <div className="tf-arch-row">3 votes: e.g. [versicolor, versicolor, virginica]</div>
-              <div className="tf-arch-f"><b>Majority vote</b></div>
-              <div className="tf-arch-io tf-arch-io--out">Final prediction: versicolor (2/3 votes)<span>Output</span></div>
+              <div className="tf-arch-io">12 labelled Iris flowers (petal_len, petal_wid → species)<span>Training data</span></div>
+              <div className="tf-arch-f">Bootstrap sampling × 3 (sample 12 with replacement, 3 times)</div>
+              <div className="tf-arch-row">3 overlapping subsets — each with some duplicates and ~37% left out (OOB)</div>
+              <div className="tf-arch-f">Grow 1 decision tree per subset (random feature subsets at each node)</div>
+              <div className="tf-arch-row">Tree 1 (petal_len≤2.4) · Tree 2 (petal_len≤2.6) · Tree 3 (petal_len≤2.5)</div>
+              <div className="tf-arch-f">Each tree predicts a class for the query point</div>
+              <div className="tf-arch-row">votes: [versicolor, versicolor, virginica]</div>
+              <div className="tf-arch-f">Majority vote — most votes wins</div>
+              <div className="tf-arch-io tf-arch-io--out">versicolor (2/3 votes = 67% confidence)<span>Final prediction</span></div>
             </div>
           </div>
-          <div className="tf-legend" style={{ marginTop: 16 }}>
+          <div className="tf-legend" style={{ marginTop: 14 }}>
             {[
-              ["Bagging", "Bootstrap AGGregatING", "Sample with replacement → train a tree → average predictions"],
-              ["Feature randomness", "√p random features per split", "Decorrelates trees so their errors don't all point the same way"],
-              ["Majority vote", "Most common prediction wins", "Robust to individual tree mistakes"],
-              ["OOB error", "Out-of-bag validation", "Free accuracy estimate — no separate validation set needed"],
+              ["Ensemble", "Many models, one prediction", "Combining many imperfect models often outperforms any single perfect-looking model"],
+              ["Bagging", "Bootstrap AGGregatING", "Sample n points with replacement to get a slightly different training set — repeat k times"],
+              ["Bootstrap", "Sample with replacement", "Draw n items from n; some appear 2+×; ~37% never drawn → OOB (out-of-bag) samples"],
+              ["√p trick", "Random feature subsets", "At each split consider only √p random features, decorrelating the trees"],
+              ["OOB error", "Free validation", "Trees evaluate themselves on the ~37% of points they never trained on"],
+              ["Majority vote", "Winner of the tally", "The class with the most votes across all trees is the forest's prediction"],
             ].map(([sym, name, desc]) => (
               <div className="tf-leg" key={sym}>
                 <div className="tf-leg-top"><span className="tf-sym">{sym}</span></div>
@@ -313,50 +450,57 @@
               </div>
             ))}
           </div>
-          <Note>Use the <b>petal_len</b> and <b>petal_wid</b> sliders above — every vote, count, and confidence updates live as you move them.</Note>
+          <Note>Use the <b>petal_len</b> and <b>petal_wid</b> sliders above to move the query point. Every vote, count, and confidence value updates live as you drag.</Note>
         </>
       ),
     },
 
-    // ── Stage 2: Dataset ──
+    /* ── 2. Dataset ── */
     {
-      id: "dataset", group: "Data", title: "The training dataset — 12 labelled flowers",
+      id: "dataset", group: "Data", title: "The dataset — 12 labelled Iris flowers",
       map: "Dataset",
-      why: "We need a concrete dataset to see the forest in action. We use 4 examples of each Iris species, described by just two features.",
+      why: "Before building any model we need to understand the data. Three Iris species are cleanly separable by petal dimensions — making this a great sandbox to see what the forest learns.",
       render: (trace) => {
         const { x } = trace;
         return (
           <>
             <Lead>
               Our training set has <b>12 flowers</b> from three Iris species, each described by
-              <b> petal length</b> and <b>petal width</b> in cm. The three classes are well
-              separated — setosa has tiny petals, virginica has large ones, versicolor is in between.
-              The <b>pink ring</b> marks your query point.
+              just two measurements: <b>petal length</b> and <b>petal width</b>, both in centimetres.
+              Four examples of each species give us a small but representative dataset. The
+              <b> pink ring</b> marks your query point — the flower we want to classify.
+            </Lead>
+            <Lead>
+              Notice how the three classes form natural clusters: <span style={{ color: CLS_COLORS[0], fontWeight: 700 }}>setosa</span> has
+              tiny petals (length 1.3–1.6 cm), <span style={{ color: CLS_COLORS[1], fontWeight: 700 }}>versicolor</span> is in the
+              middle (4.5–5.0 cm length), and <span style={{ color: CLS_COLORS[2], fontWeight: 700 }}>virginica</span> has
+              the largest petals (5.8–6.1 cm). A single decision tree would memorise these 12
+              points perfectly — achieving 100% training accuracy. But does that mean it will
+              generalise to new flowers? Not necessarily — we'll explore that in the next stage.
             </Lead>
             <div style={{ display: "flex", justifyContent: "center", margin: "16px 0" }}>
               <ScatterPlot data={RF.data} query={x} />
             </div>
-            <div style={{ display: "flex", gap: 20, flexWrap: "wrap", margin: "8px 0" }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "6px 0 14px" }}>
               {CLS_NAMES.map((n, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <Dot cls={i} size={10} />
-                  <span style={{ fontSize: 13 }}>{n} ({RF.data.filter(d => d[2] === i).length} pts)</span>
+                  <Dot cls={i} size={11} />
+                  <span style={{ fontSize: 13 }}>{n} ({RF.data.filter(d => d[2] === i).length} flowers)</span>
                 </div>
               ))}
             </div>
             <div className="tf-subhead">All 12 training points</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(175px, 1fr))", gap: 7 }}>
               {RF.data.map((pt, i) => (
                 <div key={i} style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
-                  border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 12,
-                  background: "#fafafa",
+                  display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
+                  border: "1px solid #e8e8e8", borderRadius: 8, fontSize: 12, background: "#fafafa",
                 }}>
-                  <span style={{ color: "#aaa", minWidth: 18 }}>#{i}</span>
+                  <span style={{ color: "#bbb", minWidth: 22 }}>#{i}</span>
                   <Dot cls={pt[2]} size={8} />
                   <span style={{ color: "#555" }}>pl={pt[0]}, pw={pt[1]}</span>
-                  <span style={{ marginLeft: "auto", color: CLS_COLORS[pt[2]], fontWeight: 600, fontSize: 11 }}>
-                    {CLS_NAMES[pt[2]].slice(0, 5)}
+                  <span style={{ marginLeft: "auto", color: CLS_COLORS[pt[2]], fontWeight: 700, fontSize: 11 }}>
+                    {CLS_NAMES[pt[2]].slice(0, 6)}
                   </span>
                 </div>
               ))}
@@ -366,205 +510,258 @@
       },
     },
 
-    // ── Stage 3: Bagging ──
+    /* ── 3. Problem with single trees ── */
     {
-      id: "bagging", group: "Ensemble", title: "Bootstrap sampling — building diverse training sets",
-      map: "Bagging",
-      why: "If every tree saw the same data it would learn the same splits and voting would be useless. Bootstrap sampling creates 3 slightly different datasets by sampling with replacement.",
-      render: (trace) => (
+      id: "single-tree-problem", group: "Motivation", title: "The problem with single decision trees",
+      map: "Single Tree ↯",
+      why: "If single trees were perfect we would never need random forests. Understanding why deep trees overfit is the motivation for everything that follows.",
+      render: () => (
         <>
           <Lead>
-            <b>Bagging</b> (Bootstrap AGGregatING) creates <b>k different training sets</b> from
-            the original data by <b>sampling with replacement</b>. Each bootstrap sample has the
-            same size as the original (12 here) but some examples appear multiple times and others
-            are left out — those left-out samples are called <b>out-of-bag (OOB)</b> and serve as
-            a free validation set later.
+            A decision tree that is allowed to grow deep enough will eventually create a separate
+            leaf for every training example — achieving <b>100% training accuracy</b>. But this is
+            a trap. The tree has <b>memorised</b> the training data rather than learned the
+            underlying pattern. When new flowers arrive with slightly different measurements, the
+            tree's jagged, over-specific boundaries will fail.
           </Lead>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "16px 0" }}>
-            {RF.bootstraps.map((bs, ti) => (
-              <BootstrapTable key={ti} bsIdx={bs} treeId={ti + 1} data={RF.data} />
-            ))}
-          </div>
-          <div className="tf-subhead">How bootstrap sampling works</div>
-          <div className="nn-reg-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="nn-reg">
-              <div className="nn-reg-h">Sampling with replacement</div>
-              <p>Imagine writing each example on a slip of paper, throwing them all into a hat, drawing one, writing it down, then putting it back. Repeat 12 times. Some slips get drawn twice; some never get picked.</p>
+          <Lead>
+            In statistical language, a deep tree has <b>high variance</b>: small changes in the
+            training data lead to very different trees. This is the classic <b>bias–variance
+            tradeoff</b>. A shallow tree has high bias (it misses real patterns) and low variance.
+            A deep tree has low bias but high variance. Neither extreme is ideal. A random forest
+            achieves <b>low bias AND low variance</b> by building many high-variance trees and
+            averaging out their individual errors.
+          </Lead>
+          <Lead>
+            Below is a conceptual comparison. The deep single tree creates a jagged decision
+            boundary that hugs every training point. The random forest boundary is smoother —
+            it represents what the forest collectively believes is the true boundary, not what
+            any single noisy tree computed.
+          </Lead>
+          <BoundarySvg />
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "16px 0" }}>
+            <div style={{ flex: "1 1 220px", padding: "12px 16px", background: "#fff3e0", borderRadius: 9, border: "1.5px solid #ffb74d" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#e65100", marginBottom: 6 }}>Deep single tree — symptoms of overfitting</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#555", lineHeight: 1.7 }}>
+                <li>100% training accuracy (every leaf is pure)</li>
+                <li>Poor test accuracy on unseen flowers</li>
+                <li>Boundary hugs every training point</li>
+                <li>Retrain on slightly different data → completely different tree</li>
+                <li>No mechanism to know which splits are noise</li>
+              </ul>
             </div>
-            <div className="nn-reg">
-              <div className="nn-reg-h">Out-of-bag (OOB) samples</div>
-              <p>Any example not drawn becomes an OOB sample for that tree. On average about 37% of examples are OOB per tree — they act as a built-in test set, giving us a free validation error estimate.</p>
+            <div style={{ flex: "1 1 220px", padding: "12px 16px", background: "#e8f5e9", borderRadius: 9, border: "1.5px solid #81c784" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#1b5e20", marginBottom: 6 }}>Random Forest — how it fixes this</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#555", lineHeight: 1.7 }}>
+                <li>Each tree sees a different bootstrap sample</li>
+                <li>Noisy splits only affect their own tree</li>
+                <li>Vote averages out random errors across trees</li>
+                <li>Boundary is the consensus, not a single tree's opinion</li>
+                <li>OOB error gives honest test-set estimate for free</li>
+              </ul>
             </div>
           </div>
-          <div style={{ background: "#e8f5e9", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 8 }}>
-            <b>Key insight:</b> The diversity introduced by bagging is exactly why the forest is more robust than a single tree. Each tree has slightly different biases and the ensemble averages them out.
+          <div style={{ background: "#e3f2fd", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
+            <b>Key formula:</b> If each tree has independent prediction variance σ², the average of
+            B trees has variance <b>σ²/B</b>. In practice trees are correlated so it's
+            ρσ² + (1−ρ)σ²/B — but still far less than σ².
           </div>
         </>
       ),
     },
 
-    // ── Stage 4: Feature Randomness ──
+    /* ── 4. Bootstrap Sampling ── */
     {
-      id: "features", group: "Ensemble", title: "Feature randomness — decorrelating the trees",
-      map: "Feature Rand.",
-      why: "Even with different bootstrap samples, trees might all choose the same dominant feature at every split (e.g. always petal_len). Randomly restricting which features are considered prevents this.",
-      render: (trace) => (
+      id: "bagging", group: "Ensemble", title: "Bootstrap sampling — creating diverse training sets",
+      map: "Bootstrap",
+      why: "Bootstrap sampling is the engine of diversity. Without it every tree would train on the same data and vote identically — making the ensemble useless.",
+      render: () => (
         <>
           <Lead>
-            At each split, a standard decision tree considers <b>all p features</b>. A random forest
-            only considers a random subset of <b>√p features</b>. With p=2 features that means
-            √2 ≈ 1.4 → try roughly 1–2 features per split. This <b>decorrelates</b> the trees so
-            their errors don't all go in the same direction.
+            <b>Bootstrap sampling</b> means: take n training examples, draw n examples one at a
+            time <b>with replacement</b> (put each one back before drawing the next). Some examples
+            get drawn twice or three times; some never get drawn at all. Each bootstrap sample is
+            slightly different from the original dataset — enough to make each trained tree
+            slightly different.
           </Lead>
-          <div className="tf-subhead">Feature subsets per root split (illustration)</div>
+          <Lead>
+            The magic number is roughly <b>63%</b>. The probability that a specific example is
+            NOT drawn in a single bootstrap of n samples is (1 − 1/n)ⁿ, which converges to 1/e ≈
+            0.368 as n grows. So about <b>36.8% of examples are left out</b> — these are the
+            <b> out-of-bag (OOB)</b> samples. They form a free validation set: each tree can be
+            tested on its own OOB samples without any separate held-out set.
+          </Lead>
+          <Lead>
+            Below you can see exactly which of our 12 flowers appear in each bootstrap sample.
+            The "×2" markers show which flowers were drawn twice. The yellow box shows which
+            were left out (OOB). Notice that each tree sees a slightly different mix.
+          </Lead>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", margin: "16px 0" }}>
+            {RF.bootstraps.map((bs, ti) => (
+              <BootstrapTable key={ti} bsIdx={bs} treeId={ti + 1} data={RF.data} />
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+            <div style={{ padding: "12px 14px", background: "#e8f5e9", borderRadius: 9, border: "1px solid #a5d6a7" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#2e7d32", marginBottom: 5 }}>Sampling with replacement — the hat analogy</div>
+              <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                Write each flower on a slip of paper, throw them all in a hat. Draw one,
+                note it, put it <em>back</em>. Repeat 12 times. Some slips will be drawn
+                twice; some never. That's your bootstrap sample.
+              </p>
+            </div>
+            <div style={{ padding: "12px 14px", background: "#fff8e1", borderRadius: 9, border: "1px solid #ffe082" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#f57f17", marginBottom: 5 }}>Why OOB is so valuable</div>
+              <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                With 100 trees, every training example is OOB for roughly 37 trees. Those
+                37 trees can predict it without ever having trained on it — giving an almost
+                unbiased error estimate, equivalent to leave-one-out cross-validation.
+              </p>
+            </div>
+          </div>
+          <div style={{ background: "#f3e5f5", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 10 }}>
+            <b>Probability check:</b> P(example not drawn in bootstrap of n) = (1 − 1/n)ⁿ → e⁻¹ ≈ 0.368.
+            With n=12: (11/12)¹² = 0.352. About 35% are OOB per tree — confirmed by the tables above.
+          </div>
+        </>
+      ),
+    },
+
+    /* ── 5. Random Feature Subsets ── */
+    {
+      id: "features", group: "Ensemble", title: "Random feature subsets — decorrelating the trees",
+      map: "√p Trick",
+      why: "Even with different bootstrap samples, trees would always split on the same dominant feature. Restricting features at each split forces genuine diversity.",
+      render: () => (
+        <>
+          <Lead>
+            Here's a subtle but critical point: even if we give each tree a different bootstrap
+            sample, if there is one very dominant feature (like petal_len here), every tree will
+            split on that feature at the root. The trees will still be highly correlated —
+            averaging correlated things gives almost no variance reduction.
+          </Lead>
+          <Lead>
+            The fix is the <b>√p trick</b>: at each split, randomly select √p features from the p
+            available features and only consider those. With p = 2 features here, √2 ≈ 1.4, so
+            each split considers about 1–2 features. This forces some splits to use petal_wid
+            even at the root, creating trees with genuinely different structures — they are
+            <b> decorrelated</b>.
+          </Lead>
+          <Lead>
+            Why does decorrelation matter so much? Variance of an average of B identically
+            correlated (correlation ρ) variables is ρσ² + (1−ρ)σ²/B. If ρ = 1 (perfectly
+            correlated trees), this simplifies to σ² — no improvement at all. If ρ = 0
+            (independent trees), it's σ²/B — perfect improvement. Feature randomness pushes
+            ρ toward 0, giving us most of the benefit.
+          </Lead>
+          <div className="tf-subhead">Feature subsets used by each tree (from the model)</div>
           <div style={{ overflowX: "auto", margin: "12px 0" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 13, minWidth: 320 }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, minWidth: 340 }}>
               <thead>
                 <tr style={{ background: "#f5f5f5" }}>
-                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Tree</th>
-                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Root feature tried</th>
-                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Threshold chosen</th>
-                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Right-split feature</th>
+                  {["Tree", "Root feature", "Root threshold", "Right-child feature", "Effect"].map(h => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0", fontWeight: 700 }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {[
-                  [1, "petal_len (feature 0)", "≤ 2.4", "petal_wid ≤ 1.7"],
-                  [2, "petal_len (feature 0)", "≤ 2.6", "petal_wid ≤ 1.9"],
-                  [3, "petal_len (feature 0)", "≤ 2.5", "petal_len ≤ 5.2 (same feature!)"],
-                ].map(([t, f, th, r2]) => (
+                  [1, "petal_len (0)", "≤ 2.4", "petal_wid ≤ 1.7", "Uses both features"],
+                  [2, "petal_len (0)", "≤ 2.6", "petal_wid ≤ 1.9", "Uses both features"],
+                  [3, "petal_len (0)", "≤ 2.5", "petal_len ≤ 5.2", "Uses petal_len again!"],
+                ].map(([t, f, th, r2, eff]) => (
                   <tr key={t} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                    <td style={{ padding: "7px 12px", fontWeight: 700 }}>Tree {t}</td>
-                    <td style={{ padding: "7px 12px", color: "#1565c0" }}>{f}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 700, color: CLS_COLORS[t - 1] }}>Tree {t}</td>
+                    <td style={{ padding: "7px 12px", color: "#283593", fontFamily: "monospace" }}>{f}</td>
                     <td style={{ padding: "7px 12px", fontFamily: "monospace" }}>{th}</td>
-                    <td style={{ padding: "7px 12px", color: "#6a1b9a" }}>{r2}</td>
+                    <td style={{ padding: "7px 12px", color: "#6a1b9a", fontFamily: "monospace" }}>{r2}</td>
+                    <td style={{ padding: "7px 12px", color: "#555", fontSize: 12 }}>{eff}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="nn-reg-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="nn-reg">
-              <div className="nn-reg-h">Why different thresholds?</div>
-              <p>Each tree sees a different bootstrap sample with slightly different distributions. The optimal split threshold changes depending on which examples are present.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
+            <div style={{ padding: "12px 14px", background: "#e3f2fd", borderRadius: 9, border: "1px solid #90caf9" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#0d47a1", marginBottom: 5 }}>√p for classification</div>
+              <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                Standard default. With p=10 features: only 3 considered per split. This is
+                enough for good splits while ensuring trees are diverse.
+              </p>
             </div>
-            <div className="nn-reg">
-              <div className="nn-reg-h">The decorrelation effect</div>
-              <p>If all trees always used the same feature with the same threshold they'd be nearly identical — voting them together would give no benefit. The randomness ensures genuine diversity.</p>
+            <div style={{ padding: "12px 14px", background: "#f9fbe7", borderRadius: 9, border: "1px solid #dce775" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#558b2f", marginBottom: 5 }}>Why not use all features?</div>
+              <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                If we did, every tree would split on petal_len at the root (it's the best
+                feature by far). All trees would be nearly identical — voting would give no
+                benefit over a single tree.
+              </p>
             </div>
-          </div>
-          <div style={{ background: "#f3e5f5", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 8 }}>
-            <b>Rule of thumb:</b> For classification use √p features per split; for regression use p/3. These defaults work well across many datasets. Both are tunable hyperparameters.
           </div>
         </>
       ),
     },
 
-    // ── Stage 5: Tree 1 ──
+    /* ── 6. Training 3 trees ── */
     {
-      id: "tree1", group: "Trees", title: "Tree 1 — trained on bootstrap sample 1",
-      map: "Tree 1",
-      why: "Each tree is a standard decision tree, just trained on a different bootstrap sample. Let's walk through Tree 1's structure and its prediction for the query point.",
+      id: "trees", group: "Trees", title: "Training 3 trees — different samples, different splits",
+      map: "3 Trees",
+      why: "Seeing the structure of all three trees side by side reveals both the similarities (same overall logic) and differences (slightly different thresholds) that make the ensemble effective.",
       render: (trace) => {
         const { x, votes, paths } = trace;
-        const bs = RF.bootstraps[0];
-        const bsSet = new Set(bs);
-        const highlight = new Set(bs);
-        const path = paths[0];
         return (
           <>
             <Lead>
-              Tree 1 was trained on <b>bootstrap sample 1</b> (indices {RF.bootstraps[0].join(", ")}).
-              Its root split is <b>petal_len ≤ 2.4</b>. If true → setosa; else check
-              <b> petal_wid ≤ 1.7</b> → versicolor or virginica.
+              Each of our 3 trees is a standard classification decision tree, trained on its own
+              bootstrap sample. At each node it tried random feature subsets and chose the split
+              that maximally reduced <b>Gini impurity</b>. The root of all three trees uses
+              petal_len — it's the most discriminative feature — but the <b>threshold differs</b>
+              (2.4, 2.6, 2.5) because each tree saw slightly different data.
             </Lead>
-            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", margin: "16px 0" }}>
-              <div>
-                <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>Bootstrap sample 1 (highlighted)</div>
-                <ScatterPlot data={RF.data} query={x} highlight={highlight} w={300} h={200} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>Tree 1 structure</div>
-                <TreeSvg tree={RF.trees[0]} queryLabel={votes[0]} />
-              </div>
-            </div>
-            <div className="tf-subhead">Decision path for query point (pl={x[0]}, pw={x[1]})</div>
-            <div className="nn-calc" style={{ marginTop: 8 }}>
-              <div className="nn-calc-h">Tree 1 prediction path</div>
-              {path.filter(s => !s.leaf).map((step, i) => (
-                <div className="nn-calc-row" key={i}>
-                  <span style={{ color: "#555", fontSize: 13 }}>
-                    {step.node.featureName} = {fmt(step.val)} {step.goLeft ? "≤" : ">"} {step.node.threshold}
-                    → go <b>{step.goLeft ? "left" : "right"}</b>
-                  </span>
-                </div>
-              ))}
-              <div className="nn-calc-row" style={{ background: CLS_COLORS[votes[0]] + "22" }}>
-                <span style={{ fontWeight: 700, color: CLS_COLORS[votes[0]] }}>
-                  Leaf reached → predict <Dot cls={votes[0]} /> {CLS_NAMES[votes[0]]}
-                </span>
-              </div>
-            </div>
-          </>
-        );
-      },
-    },
-
-    // ── Stage 6: Tree 2 & Tree 3 ──
-    {
-      id: "tree23", group: "Trees", title: "Trees 2 & 3 — different samples, different splits",
-      map: "Trees 2 & 3",
-      why: "Seeing all three trees side by side makes it clear how slight differences in training data cause different split thresholds — yet they often still agree on the final class.",
-      render: (trace) => {
-        const { x, votes, paths } = trace;
-        return (
-          <>
             <Lead>
-              Trees 2 and 3 were trained on different bootstrap samples. Their split thresholds
-              are slightly different from Tree 1 (2.6 and 2.5 vs 2.4 at the root). Despite these
-              differences they often <b>agree on the prediction</b> for a given query point — which
-              is why the ensemble is confident.
+              Tree 3 is the most interesting: its right child splits on petal_len again rather
+              than petal_wid. This happened because in its bootstrap sample the petal_len split
+              was still more informative than petal_wid at that node — a direct consequence of
+              which points appeared (and how many times) in that bootstrap.
             </Lead>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "16px 0" }}>
-              {[1, 2].map(ti => {
-                const tree = RF.trees[ti];
-                const path = paths[ti];
-                return (
-                  <div key={ti} style={{ flex: "1 1 200px", minWidth: 220 }}>
-                    <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>Tree {ti + 1} structure</div>
-                    <TreeSvg tree={tree} queryLabel={votes[ti]} />
-                    <div className="nn-calc" style={{ marginTop: 8 }}>
-                      <div className="nn-calc-h">Tree {ti + 1} path</div>
-                      {path.filter(s => !s.leaf).map((step, i) => (
-                        <div className="nn-calc-row" key={i}>
-                          <span style={{ fontSize: 12, color: "#555" }}>
-                            {step.node.featureName} = {fmt(step.val)} {step.goLeft ? "≤" : ">"} {step.node.threshold}
-                            → <b>{step.goLeft ? "left" : "right"}</b>
-                          </span>
-                        </div>
-                      ))}
-                      <div className="nn-calc-row" style={{ background: CLS_COLORS[votes[ti]] + "22" }}>
-                        <span style={{ fontWeight: 700, color: CLS_COLORS[votes[ti]] }}>
-                          → <Dot cls={votes[ti]} />{CLS_NAMES[votes[ti]]}
+              {RF.trees.map((tree, ti) => (
+                <div key={ti} style={{ flex: "1 1 200px", minWidth: 210 }}>
+                  <div style={{ fontSize: 12, color: CLS_COLORS[ti], fontWeight: 700, marginBottom: 6 }}>
+                    Tree {ti + 1} — bootstrap {RF.bootstraps[ti].join(",").slice(0, 20)}…
+                  </div>
+                  <TreeSvg tree={tree} queryLabel={votes[ti]} />
+                  <div className="nn-calc" style={{ marginTop: 8 }}>
+                    <div className="nn-calc-h">Path for pl={fmt(x[0])}, pw={fmt(x[1])}</div>
+                    {paths[ti].filter(s => !s.leaf).map((step, si) => (
+                      <div className="nn-calc-row" key={si}>
+                        <span style={{ fontSize: 12, color: "#555" }}>
+                          {step.node.featureName} = {fmt(step.val)} {step.goLeft ? "≤" : ">"} {step.node.threshold}
+                          → <b style={{ color: "#333" }}>{step.goLeft ? "left" : "right"}</b>
                         </span>
                       </div>
+                    ))}
+                    <div className="nn-calc-row" style={{ background: CLS_COLORS[votes[ti]] + "22" }}>
+                      <span style={{ fontWeight: 700, color: CLS_COLORS[votes[ti]] }}>
+                        <Dot cls={votes[ti]} /> Predict: {CLS_NAMES[votes[ti]]}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
-            <div className="tf-subhead">Summary — all 3 trees</div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="tf-subhead">Summary — all 3 trees on this query</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {RF.trees.map((tree, ti) => (
                 <div key={ti} style={{
                   border: `2px solid ${CLS_COLORS[votes[ti]]}`, borderRadius: 10,
-                  padding: "10px 14px", minWidth: 130, background: CLS_COLORS[votes[ti]] + "10",
+                  padding: "10px 14px", minWidth: 138, background: CLS_COLORS[votes[ti]] + "10",
                 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>Tree {ti + 1}</div>
-                  <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>root: {tree.featureName} ≤ {tree.threshold}</div>
-                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>root: {tree.featureName} ≤ {tree.threshold}</div>
+                  <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 6 }}>
                     <Dot cls={votes[ti]} size={10} />
-                    <span style={{ fontWeight: 700, color: CLS_COLORS[votes[ti]], fontSize: 13 }}>
+                    <span style={{ fontWeight: 800, color: CLS_COLORS[votes[ti]], fontSize: 14 }}>
                       {CLS_NAMES[votes[ti]]}
                     </span>
                   </div>
@@ -576,193 +773,306 @@
       },
     },
 
-    // ── Stage 7: Majority Voting ──
+    /* ── 7. Majority Vote ── */
     {
-      id: "voting", group: "Prediction", title: "Majority voting — combining the 3 trees",
-      map: "Voting",
-      why: "The forest's prediction is simply the class that most trees voted for. This is majority voting, and it naturally suppresses individual tree errors.",
+      id: "voting", group: "Prediction", title: "Majority voting — combining all 3 votes",
+      map: "Vote",
+      why: "Majority voting is the simplest possible aggregation: each tree gets one vote, the class with the most votes wins. It naturally suppresses individual tree errors.",
       render: (trace) => {
         const { votes, counts, label, confidence, x } = trace;
         return (
           <>
             <Lead>
-              Each of the 3 trees casts one <b>vote</b> for the class it predicts at the query point
-              (pl={fmt(x[0])}, pw={fmt(x[1])}). The class with the <b>most votes wins</b>.
-              Confidence = votes for winner / total trees.
+              Each of the 3 trees casts exactly <b>one vote</b> for the class it predicts at the
+              query point (petal_len = {fmt(x[0])}, petal_wid = {fmt(x[1])}). The class with the
+              most votes is the forest's final prediction. Ties are broken by the smallest class
+              index (rare with an odd number of trees).
+            </Lead>
+            <Lead>
+              <b>Confidence</b> = (votes for winner) / (total trees). Here with 3 trees the only
+              possible confidences are 33% (1-2 split, winner), 67% (2-1 split), and 100% (all
+              agree). With 100 trees you get a finer-grained confidence from 0% to 100%.
             </Lead>
             <div className="tf-subhead">Votes cast by each tree</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "12px 0" }}>
               {RF.trees.map((tree, ti) => (
                 <div key={ti} style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  border: "1px solid #e0e0e0", borderRadius: 10, padding: "8px 14px",
-                  background: "#fafafa", minWidth: 160,
+                  display: "flex", alignItems: "center", gap: 12,
+                  border: `2px solid ${CLS_COLORS[votes[ti]]}`, borderRadius: 11,
+                  padding: "9px 14px", background: CLS_COLORS[votes[ti]] + "10", minWidth: 170,
                 }}>
-                  <svg width={32} height={32}>
-                    <circle cx={16} cy={16} r={13} fill={CLS_COLORS[votes[ti]]} fillOpacity={0.85} />
-                    <text x={16} y={21} textAnchor="middle" fontSize={11} fill="#fff" fontWeight="700">T{ti + 1}</text>
+                  <svg width={34} height={34}>
+                    <circle cx={17} cy={17} r={14} fill={CLS_COLORS[votes[ti]]} opacity={0.88} />
+                    <text x={17} y={22} textAnchor="middle" fontSize={11} fill="#fff" fontWeight="800">T{ti + 1}</text>
                   </svg>
                   <div>
-                    <div style={{ fontSize: 12, color: "#888" }}>Tree {ti + 1} votes:</div>
-                    <div style={{ fontWeight: 700, color: CLS_COLORS[votes[ti]], fontSize: 14 }}>
-                      <Dot cls={votes[ti]} />{CLS_NAMES[votes[ti]]}
+                    <div style={{ fontSize: 11, color: "#888" }}>Tree {ti + 1} votes for:</div>
+                    <div style={{ fontWeight: 800, color: CLS_COLORS[votes[ti]], fontSize: 14, display: "flex", alignItems: "center" }}>
+                      <Dot cls={votes[ti]} size={9} />{CLS_NAMES[votes[ti]]}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
             <div className="tf-subhead">Vote tally</div>
-            <VoteCounter votes={votes} counts={counts} />
+            <VoteCounter counts={counts} />
+            {/* SVG vote bar */}
+            <svg width={300} height={60} style={{ display: "block", margin: "4px 0 14px" }}>
+              {CLS_NAMES.map((name, ci) => {
+                const barW = (counts[ci] / votes.length) * 280;
+                return (
+                  <g key={ci}>
+                    <rect x={10} y={ci * 18 + 4} width={Math.max(barW, 2)} height={14} rx={4}
+                      fill={CLS_COLORS[ci]} opacity={0.85} />
+                    <text x={10 + Math.max(barW, 2) + 5} y={ci * 18 + 15} fontSize={10} fill={CLS_COLORS[ci]} fontWeight="700">
+                      {name}: {counts[ci]}/{votes.length}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
             <div style={{
-              background: CLS_COLORS[label] + "18",
-              border: `2px solid ${CLS_COLORS[label]}`,
-              borderRadius: 12, padding: "14px 20px", marginTop: 12,
-              display: "flex", alignItems: "center", gap: 14,
+              background: CLS_COLORS[label] + "18", border: `2px solid ${CLS_COLORS[label]}`,
+              borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 16,
             }}>
-              <svg width={44} height={44}>
-                <circle cx={22} cy={22} r={20} fill={CLS_COLORS[label]} fillOpacity={0.85} />
-                <text x={22} y={28} textAnchor="middle" fontSize={13} fill="#fff" fontWeight="800">✓</text>
+              <svg width={46} height={46}>
+                <circle cx={23} cy={23} r={21} fill={CLS_COLORS[label]} opacity={0.88} />
+                <text x={23} y={29} textAnchor="middle" fontSize={14} fill="#fff" fontWeight="900">✓</text>
               </svg>
               <div>
-                <div style={{ fontSize: 12, color: "#888" }}>Forest prediction</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: CLS_COLORS[label] }}>
-                  <Dot cls={label} size={12} />{CLS_NAMES[label]}
+                <div style={{ fontSize: 12, color: "#777" }}>Forest final prediction</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: CLS_COLORS[label] }}>
+                  <Dot cls={label} size={13} />{CLS_NAMES[label]}
                 </div>
                 <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-                  {counts[label]}/{votes.length} votes = {fmt(confidence * 100, 1)}% confidence
+                  {counts[label]}/{votes.length} votes = <b>{fmt(confidence * 100, 1)}%</b> confidence
                 </div>
               </div>
             </div>
-            <Note>Try moving the sliders to a boundary region — watch how trees start to disagree and confidence drops toward 33%.</Note>
+            <Note>Drag the sliders to the versicolor/virginica boundary region (petal_len ≈ 5.0–5.5). Watch confidence drop toward 33% as trees start disagreeing.</Note>
           </>
         );
       },
     },
 
-    // ── Stage 8: OOB Error ──
+    /* ── 8. OOB Error ── */
     {
       id: "oob", group: "Evaluation", title: "Out-of-bag (OOB) error — free cross-validation",
       map: "OOB Error",
-      why: "A brilliant trick: every tree skips ~37% of training examples. Those skipped examples can be used to evaluate that tree — giving a nearly unbiased error estimate for free.",
+      why: "OOB error is one of the cleverest tricks in machine learning: you get a nearly unbiased test error estimate without ever holding out a separate validation set.",
       render: (trace) => {
         const { oob } = trace;
         return (
           <>
             <Lead>
-              Each bootstrap sample leaves out some examples. These <b>out-of-bag (OOB)</b> examples
-              were never seen by that tree during training — so we can evaluate each tree on its own
-              OOB subset. Averaging over all trees gives the <b>OOB error</b>, which closely
-              approximates the true test error.
+              Here is the beautiful trick: each tree was trained on a bootstrap sample that left
+              out roughly 37% of the training data. Those left-out points — the <b>out-of-bag
+              (OOB) samples</b> — were never seen by that tree. So we can use that tree to predict
+              on its OOB points and measure its accuracy. This gives an honest, unbiased error
+              estimate — no separate test set needed.
             </Lead>
-            <div className="tf-subhead">OOB examples per tree</div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "12px 0" }}>
-              {RF.bootstraps.map((bs, ti) => {
-                const bsSet = new Set(bs);
-                const oobIdx = Array.from({ length: 12 }, (_, i) => i).filter(i => !bsSet.has(i));
-                const hits = oobIdx.filter(i => {
-                  const x = [RF.data[i][0], RF.data[i][1]];
-                  const pred = window.ML_RF.predictTreeCls(RF.trees[ti], x).label;
-                  return pred === RF.data[i][2];
-                });
-                const acc = oobIdx.length > 0 ? hits.length / oobIdx.length : 1;
-                return (
-                  <div key={ti} style={{
-                    border: "1px solid #e0e0e0", borderRadius: 10, padding: "10px 14px",
-                    minWidth: 160, background: "#fafafa",
-                  }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>Tree {ti + 1}</div>
-                    <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-                      OOB indices: {oobIdx.length > 0 ? oobIdx.join(", ") : "none"}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      {hits.length}/{oobIdx.length} correct
-                    </div>
-                    <div style={{
-                      marginTop: 6, padding: "4px 8px", borderRadius: 6,
-                      background: acc > 0.8 ? "#e8f5e9" : "#fff3e0",
-                      color: acc > 0.8 ? "#2e7d32" : "#e65100",
-                      fontWeight: 700, fontSize: 13, display: "inline-block",
-                    }}>
-                      OOB acc: {fmt(acc * 100, 1)}%
-                    </div>
-                  </div>
-                );
-              })}
+            <Lead>
+              To get the <b>overall OOB error</b>: for each training example, collect predictions
+              from all trees for which it was OOB (it will be OOB for about 37% of trees). Take
+              the majority vote of those predictions and compare to the true label. Average these
+              per-example errors across all training examples. This is statistically equivalent
+              to leave-one-out cross-validation but costs no extra computation.
+            </Lead>
+            <div className="tf-subhead">OOB accuracy per tree</div>
+            <OOBGrid />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+              <div style={{ padding: "12px 14px", background: "#e8f5e9", borderRadius: 9, border: "1px solid #a5d6a7" }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#2e7d32", marginBottom: 5 }}>Why 37% left out?</div>
+                <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                  P(not drawn once) = (1 − 1/n). P(not drawn in n draws) = (1 − 1/n)ⁿ → e⁻¹ ≈ 0.368.
+                  For n=12: (11/12)¹² ≈ 0.35. So each tree leaves out roughly 4 of our 12 flowers.
+                </p>
+              </div>
+              <div style={{ padding: "12px 14px", background: "#e3f2fd", borderRadius: 9, border: "1px solid #90caf9" }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#0d47a1", marginBottom: 5 }}>OOB vs k-fold cross-validation</div>
+                <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                  With 100+ trees, each example is OOB for ~37 trees. The OOB estimate
+                  closely approximates leave-one-out CV accuracy — which would require n
+                  separate model fits. Here it's completely free.
+                </p>
+              </div>
             </div>
-            <div className="nn-reg-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-              <div className="nn-reg">
-                <div className="nn-reg-h">Why ~37% left out?</div>
-                <p>The probability that a single example is NOT drawn in n draws with replacement is (1 − 1/n)ⁿ → 1/e ≈ 0.368 as n grows. So each tree naturally leaves out about 37% of examples.</p>
-              </div>
-              <div className="nn-reg">
-                <div className="nn-reg-h">OOB vs cross-validation</div>
-                <p>OOB error closely approximates leave-one-out cross-validation error, but it's free — no extra training runs needed. With 500 trees the OOB estimate is very reliable.</p>
-              </div>
+            <div style={{ background: "#fce4ec", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 10 }}>
+              <b>In sklearn:</b> set <code style={{ background: "#f8bbd0", padding: "1px 5px", borderRadius: 3 }}>oob_score=True</code> in RandomForestClassifier to get <code style={{ background: "#f8bbd0", padding: "1px 5px", borderRadius: 3 }}>model.oob_score_</code> — a free validation accuracy with zero extra computation.
             </div>
           </>
         );
       },
     },
 
-    // ── Stage 9: Feature Importance ──
+    /* ── 9. Feature Importance ── */
     {
       id: "importance", group: "Insights", title: "Feature importance — which inputs matter most?",
       map: "Importance",
-      why: "Random forests naturally score each feature by how much it reduces impurity when used for splits. This helps understand the data and do feature selection.",
+      why: "Random forests naturally produce a ranking of how useful each feature was. This is more reliable than from a single tree because it averages over many trees and bootstrap samples.",
       render: (trace) => {
         const { importance } = trace;
         return (
           <>
             <Lead>
-              <b>Feature importance</b> measures how much each feature contributes to reducing
-              impurity (Gini or entropy) across all splits in all trees. Features used for many
-              high-quality splits get high importance. RF importance is more reliable than single-tree
-              importance because it averages over many trees with different bootstrap samples.
+              <b>Impurity-based feature importance</b> measures how much each feature reduced
+              Gini impurity (or entropy) when used for splits, weighted by the fraction of
+              samples at each node, and averaged across all trees. Features used at roots of
+              many trees (where the most samples pass through) get the highest scores.
             </Lead>
-            <div className="tf-subhead">Impurity-based feature importance</div>
+            <Lead>
+              The formula for a single tree is: importance(feature f) = Σ_splits_on_f
+              [n_node/n_total × ΔGini]. Sum over all trees and normalise to sum to 1. RF
+              importance is more reliable than single-tree importance because it is averaged
+              over many bootstrap samples — individual splits on noisy features get averaged
+              out rather than dominating.
+            </Lead>
+            <div className="tf-subhead">Normalised feature importance (across all 3 trees)</div>
             <ImportanceBar importance={importance} features={RF.features} />
-            <div className="nn-reg-grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 12 }}>
-              <div className="nn-reg">
-                <div className="nn-reg-h">How it's computed</div>
-                <p>For each split in each tree, record the weighted impurity reduction: Δimpurity × (samples in node / total samples). Sum these values per feature across all trees, then normalise.</p>
+            {/* SVG bar chart version */}
+            <svg width={340} height={90} style={{ display: "block", margin: "8px 0 16px" }}>
+              {RF.features.map((f, i) => {
+                const barH = importance[i] * 160;
+                const barX = 60 + i * 120;
+                const color = i === 0 ? "#3f51b5" : "#ff9800";
+                return (
+                  <g key={i}>
+                    <rect x={barX} y={80 - barH} width={70} height={barH} rx={5} fill={color} opacity={0.85} />
+                    <text x={barX + 35} y={80 - barH - 5} textAnchor="middle" fontSize={11} fill={color} fontWeight="700">
+                      {fmt(importance[i] * 100, 1)}%
+                    </text>
+                    <text x={barX + 35} y={92} textAnchor="middle" fontSize={10} fill="#555">{f}</text>
+                  </g>
+                );
+              })}
+            </svg>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ padding: "12px 14px", background: "#e8eaf6", borderRadius: 9, border: "1px solid #9fa8da" }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#283593", marginBottom: 5 }}>Why petal_len dominates</div>
+                <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                  All 3 trees use petal_len at the root (biggest node — all 12 samples
+                  pass through). Root splits get the highest importance weight (n_node/n_total = 1).
+                  petal_wid only appears at the right child where fewer samples remain.
+                </p>
               </div>
-              <div className="nn-reg">
-                <div className="nn-reg-h">Interpretation caution</div>
-                <p>Impurity-based importance can overrate high-cardinality features. For more reliable estimates use permutation importance: shuffle each feature and measure how much accuracy drops.</p>
+              <div style={{ padding: "12px 14px", background: "#fff3e0", borderRadius: 9, border: "1px solid #ffcc80" }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#e65100", marginBottom: 5 }}>Caution: impurity bias</div>
+                <p style={{ margin: 0, fontSize: 13, color: "#555", lineHeight: 1.6 }}>
+                  High-cardinality features (many unique values) tend to get inflated
+                  importance even if they aren't truly predictive. Use <b>permutation
+                  importance</b> (shuffle feature → measure accuracy drop) for a fairer comparison.
+                </p>
               </div>
-            </div>
-            <div style={{ background: "#e3f2fd", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 8 }}>
-              <b>Here:</b> petal_len dominates because it's used at the root split (biggest impurity reduction) in all 3 trees. petal_wid contributes by resolving the versicolor/virginica boundary at the second level.
             </div>
           </>
         );
       },
     },
 
-    // ── Stage 10: Hyperparameters ──
+    /* ── 10. Missing Values & Outliers ── */
     {
-      id: "hyperparams", group: "Insights", title: "Hyperparameters & when to use Random Forest",
-      map: "Hyperparams",
-      why: "Knowing what levers exist — and when RF is the right tool vs a single tree or gradient boosting — completes the picture.",
-      render: (trace) => (
+      id: "robustness", group: "Insights", title: "Missing values & outliers — why RF is robust",
+      map: "Robustness",
+      why: "Random forests have practical advantages for messy real-world data that single trees and many other models don't share.",
+      render: () => (
         <>
           <Lead>
-            A random forest has a handful of key hyperparameters that control the accuracy–speed
-            tradeoff. Most defaults work well out of the box, making RF one of the easiest powerful
-            models to deploy.
+            In production, data is rarely clean. Features are missing, there are measurement
+            errors, and outliers abound. Random forests handle all of these much better than
+            most other models — and better than single decision trees.
           </Lead>
-          <div className="tf-subhead">Key hyperparameters</div>
+          <Lead>
+            <b>Missing values:</b> A simple approach is median/mode imputation before training.
+            A more sophisticated approach uses the RF itself: after initial training, use the
+            tree proximity matrix (two examples are close if they end up in the same leaf across
+            many trees) to impute missing values based on nearby examples. This is called
+            <b> proximity-based imputation</b> and often outperforms simple median/mode.
+          </Lead>
+          <Lead>
+            <b>Outliers:</b> An outlier affects at most one leaf in any given tree. Since the
+            tree boundary is determined by thresholds (not distances), a single extreme point
+            can only influence predictions in its own leaf. Across 100 trees the outlier
+            "wins" in its leaf perhaps 100 times, but across all leaves it's one of many —
+            and the vote averages it out. Compare this to linear regression where one outlier
+            pulls the entire hyperplane.
+          </Lead>
+          <div className="tf-subhead">Outlier robustness — numerical example</div>
+          <div className="nn-calc" style={{ marginTop: 8 }}>
+            <div className="nn-calc-h">Query: petal_len = 4.5, petal_wid = 1.5 (true class: versicolor)</div>
+            <div className="nn-calc-row">
+              <span style={{ color: "#555", fontSize: 13 }}>Tree 1 (trained with an outlier duplicate in its bootstrap): votes <b style={{ color: CLS_COLORS[2] }}>virginica</b></span>
+            </div>
+            <div className="nn-calc-row">
+              <span style={{ color: "#555", fontSize: 13 }}>Tree 2 (no outlier in its bootstrap): votes <b style={{ color: CLS_COLORS[1] }}>versicolor</b></span>
+            </div>
+            <div className="nn-calc-row">
+              <span style={{ color: "#555", fontSize: 13 }}>Tree 3 (no outlier in its bootstrap): votes <b style={{ color: CLS_COLORS[1] }}>versicolor</b></span>
+            </div>
+            <div className="nn-calc-row" style={{ background: CLS_COLORS[1] + "18" }}>
+              <span style={{ fontWeight: 700, color: CLS_COLORS[1] }}>
+                Final: versicolor (2/3) — outlier's influence absorbed by the vote
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+            <div style={{ padding: "12px 14px", background: "#e8f5e9", borderRadius: 9, border: "1px solid #a5d6a7" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#2e7d32", marginBottom: 5 }}>Good defaults for missing data</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#555", lineHeight: 1.7 }}>
+                <li>Median imputation for continuous features</li>
+                <li>Mode imputation for categorical features</li>
+                <li>RF proximity imputation (most accurate)</li>
+                <li>Some implementations support native NaN handling</li>
+              </ul>
+            </div>
+            <div style={{ padding: "12px 14px", background: "#e3f2fd", borderRadius: 9, border: "1px solid #90caf9" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#0d47a1", marginBottom: 5 }}>When outlier robustness breaks</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#555", lineHeight: 1.7 }}>
+                <li>Extreme outliers in a small dataset (few examples per leaf)</li>
+                <li>Target variable outliers (regression): average is pulled up</li>
+                <li>Outliers in the majority of bootstrap samples (they all see it)</li>
+              </ul>
+            </div>
+          </div>
+        </>
+      ),
+    },
+
+    /* ── 11. Hyperparameters & When to Use ── */
+    {
+      id: "hyperparams", group: "Insights", title: "Hyperparameters & when to choose Random Forest",
+      map: "Hyperparams",
+      why: "Knowing what levers exist — and when RF is the right tool — completes the picture. RF is often the best default ensemble but it's not always the best choice.",
+      render: () => (
+        <>
+          <Lead>
+            One of Random Forest's greatest practical advantages is that it works well
+            <b> out of the box</b>. The defaults are robust across a huge range of datasets.
+            You rarely need to tune more than n_estimators. Compare this to gradient boosting,
+            which has many interacting hyperparameters that require careful tuning.
+          </Lead>
+          <Lead>
+            The most important hyperparameter is <b>n_estimators</b> (number of trees). More
+            trees always helps up to a point — then accuracy plateaus but compute keeps growing.
+            In practice 100–500 trees covers most use cases. The relationship is diminishing
+            returns: going from 1 to 10 trees dramatically cuts error; going from 100 to 200
+            barely moves the needle.
+          </Lead>
+          <div className="tf-subhead">Variance vs number of trees (ρ = 0.38, σ² = 1)</div>
+          <VarianceBarChart />
+          <div className="tf-subhead" style={{ marginTop: 14 }}>Key hyperparameters</div>
           <div className="tf-legend">
             {[
-              ["n_estimators", "Number of trees", "Default 100. More trees = lower variance, diminishing returns after ~200. Computational cost scales linearly."],
-              ["max_features", "Features per split", "√p for classification, p/3 for regression. Smaller = more decorrelated trees but higher bias per tree."],
-              ["max_depth", "Max tree depth", "Default unlimited. Limiting depth reduces overfitting and speeds training. Try 10–30."],
-              ["min_samples_split", "Min samples to split", "Default 2. Higher values add regularisation, prevent noisy splits on small groups."],
-              ["oob_score", "Use OOB for validation", "Free accuracy estimate — set True to enable without a separate validation set."],
-              ["n_jobs", "Parallel workers", "Set -1 to use all CPU cores. Trees are independent, so RF parallelises perfectly."],
+              ["n_estimators", "Number of trees", "100 default. More = lower variance, diminishing returns after ~200. Linearly increases compute."],
+              ["max_features", "Features per split", "'sqrt' for classification (default). Try 'log2' for more diversity. Fewer = more decorrelated trees but higher per-tree bias."],
+              ["max_depth", "Max tree depth", "None (unlimited) by default. Limiting to 10–30 speeds training and reduces memory. RF is robust — shallow trees still work in an ensemble."],
+              ["min_samples_split", "Min samples to split", "Default 2. Increase to 5–20 for regularisation on small/noisy datasets."],
+              ["bootstrap", "Use bootstrapping", "True by default. Set False to train each tree on the full dataset — removes OOB and reduces diversity."],
+              ["oob_score", "Compute OOB accuracy", "Set True for free validation accuracy. Uses minimal extra memory and zero extra training time."],
+              ["n_jobs", "Parallel CPU cores", "-1 to use all cores. Trees are 100% independent, so RF parallelises perfectly — near-linear speedup."],
+              ["class_weight", "Handle imbalance", "'balanced' adjusts sample weights to account for class imbalance. Important for skewed datasets."],
             ].map(([sym, name, desc]) => (
               <div className="tf-leg" key={sym}>
-                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 11 }}>{sym}</span></div>
+                <div className="tf-leg-top"><span className="tf-sym" style={{ fontSize: 10.5 }}>{sym}</span></div>
                 <div className="tf-leg-name">{name}</div>
                 <div className="tf-leg-desc">{desc}</div>
               </div>
@@ -773,51 +1083,62 @@
             <div className="opt-pc-col is-pro">
               <div style={{ fontWeight: 700, marginBottom: 8, color: "#2e7d32" }}>Advantages</div>
               {[
-                "Handles mixed feature types and missing values well",
-                "Naturally provides feature importance ranking",
-                "Robust to outliers and noisy features",
-                "Very few hyperparameters to tune — good defaults",
-                "Parallelises trivially across trees",
-                "Built-in OOB validation estimate",
+                "Works well out of the box — robust defaults",
+                "Reliable feature importance built in",
+                "Handles mixed types, missing values, outliers",
+                "OOB validation — no separate test set needed",
+                "Trivially parallelises — each tree is independent",
+                "Low risk of catastrophic failure",
+                "No feature scaling required",
               ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✓ {t}</div>)}
             </div>
             <div className="opt-pc-col is-con">
               <div style={{ fontWeight: 700, marginBottom: 8, color: "#c62828" }}>Limitations</div>
               {[
-                "Not interpretable — 100 trees can't be read like 1",
-                "Slower prediction than a single decision tree",
-                "Can still overfit on very noisy datasets",
-                "Less accurate than gradient boosting on tabular data",
-                "High memory usage with many large trees",
-                "Poor at extrapolation beyond training range",
+                "Not interpretable — 100 trees can't be read like one",
+                "Slower prediction than a single tree",
+                "High memory: stores all n_estimators trees in RAM",
+                "Cannot extrapolate beyond training range",
+                "Less accurate than XGBoost/LightGBM on tabular data",
+                "Poor at sparse data (text, high-dim one-hot encodings)",
               ].map((t, i) => <div key={i} style={{ fontSize: 13, marginBottom: 5 }}>✗ {t}</div>)}
             </div>
           </div>
-          <div className="tf-subhead">When to choose Random Forest</div>
+          <div className="tf-subhead">Decision guide</div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
               <thead>
                 <tr style={{ background: "#f5f5f5" }}>
                   <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Scenario</th>
-                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Recommendation</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Best choice</th>
+                  <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Why</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  ["Need quick, robust baseline", "RF — strong defaults, hard to get badly wrong"],
-                  ["Need model explanation", "Single decision tree — one tree you can read"],
-                  ["Squeeze last 2% accuracy", "Gradient Boosting (XGBoost/LightGBM)"],
-                  ["Very large dataset (millions of rows)", "LightGBM — faster than RF at scale"],
-                  ["Feature selection / insight", "RF — reliable importance scores"],
-                  ["Streaming / online learning", "Neither — both are batch algorithms"],
-                ].map(([s, r], i) => (
+                  ["Need a quick, robust baseline", "Random Forest", "Strong defaults, hard to get badly wrong"],
+                  ["Need model explanation", "Single decision tree", "One tree you can actually read"],
+                  ["Squeeze last 2–3% accuracy", "XGBoost / LightGBM", "Sequential boosting beats bagging on most tabular data"],
+                  ["Very large dataset (millions of rows)", "LightGBM", "Histogram-based splits are far faster than RF at scale"],
+                  ["Feature selection / insight", "Random Forest", "Reliable importance from many bootstrap samples"],
+                  ["Class imbalance", "RF with class_weight='balanced'", "Easy built-in correction; alternatives: SMOTE, cost-sensitive"],
+                  ["Online / streaming data", "Hoeffding trees, SGD", "RF requires retraining the whole forest for new data"],
+                  ["Very high-dimensional sparse data", "Linear model / SVM", "RF struggles with many near-zero features (text, one-hot)"],
+                ].map(([s, r, why], i) => (
                   <tr key={i} style={{ borderBottom: "1px solid #f0f0f0", background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
                     <td style={{ padding: "7px 12px" }}>{s}</td>
-                    <td style={{ padding: "7px 12px", fontWeight: 600, color: "#1565c0" }}>{r}</td>
+                    <td style={{ padding: "7px 12px", fontWeight: 700, color: "#1565c0" }}>{r}</td>
+                    <td style={{ padding: "7px 12px", color: "#666", fontSize: 12 }}>{why}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+          <div style={{ background: "#e8f5e9", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 12 }}>
+            <b>Quick start:</b>{" "}
+            <code style={{ background: "#c8e6c9", padding: "2px 6px", borderRadius: 3, fontFamily: "monospace" }}>
+              from sklearn.ensemble import RandomForestClassifier; clf = RandomForestClassifier(n_estimators=100, oob_score=True, n_jobs=-1)
+            </code>
           </div>
         </>
       ),
@@ -854,7 +1175,7 @@
         </label>
         {trace && (
           <span style={{
-            marginLeft: 12, padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 700,
+            marginLeft: 12, padding: "4px 13px", borderRadius: 20, fontSize: 13, fontWeight: 700,
             background: ["#4caf50", "#2196f3", "#ff9800"][trace.label] + "22",
             color: ["#4caf50", "#2196f3", "#ff9800"][trace.label],
             border: `1.5px solid ${["#4caf50", "#2196f3", "#ff9800"][trace.label]}`,

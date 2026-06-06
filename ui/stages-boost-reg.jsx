@@ -71,10 +71,8 @@
   }
 
   // ── step-function prediction line ──
-  function StepLine({ preds, color = "var(--accent)", label }) {
-    // build step-function path from sorted (x, pred) pairs
+  function StepLine({ preds, color = "var(--accent)", strokeWidth = 2.5 }) {
     const sorted = BOOST_REG.xs.map((x, i) => ({ x, p: preds[i] })).sort((a, b) => a.x - b.x);
-    // draw horizontal segments
     const segments = [];
     for (let i = 0; i < sorted.length; i++) {
       const x0 = i === 0 ? xMin : (sorted[i - 1].x + sorted[i].x) / 2;
@@ -87,7 +85,7 @@
           <line key={i}
             x1={sx(seg.x0)} y1={sy(Math.max(yMin, Math.min(yMax, seg.p)))}
             x2={sx(seg.x1)} y2={sy(Math.max(yMin, Math.min(yMax, seg.p)))}
-            stroke={color} strokeWidth="2.5" strokeLinecap="round" opacity="0.9" />
+            stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" opacity="0.9" />
         ))}
         {segments.slice(0, -1).map((seg, i) => (
           <line key={"v" + i}
@@ -95,28 +93,26 @@
             y1={sy(Math.max(yMin, Math.min(yMax, seg.p)))}
             x2={sx((sorted[i].x + sorted[i + 1].x) / 2)}
             y2={sy(Math.max(yMin, Math.min(yMax, segments[i + 1].p)))}
-            stroke={color} strokeWidth="2.5" opacity="0.5" />
+            stroke={color} strokeWidth={strokeWidth} opacity="0.5" />
         ))}
       </>
     );
   }
 
   // ── residual bars ──
-  function ResidualBars({ residuals }) {
+  function ResidualBars({ residuals, preds }) {
     return (
       <>
         {BOOST_REG.xs.map((x, i) => {
           const r = residuals[i];
-          const yBase = sy(0);
-          const yTip = sy(r);
+          const baseY = preds ? sy(preds[i]) : sy(BOOST_REG.ys[i] - r);
+          const tipY = preds ? sy(BOOST_REG.ys[i]) : sy(BOOST_REG.ys[i]);
           const col = r >= 0 ? "#1f9e6b" : "#e0492e";
           return (
-            <line key={i} x1={sx(x)} y1={yBase} x2={sx(x)} y2={yTip}
-              stroke={col} strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+            <line key={i} x1={sx(x)} y1={baseY} x2={sx(x)} y2={tipY}
+              stroke={col} strokeWidth="2.5" strokeLinecap="round" opacity="0.75" />
           );
         })}
-        <line x1={PAD.l} y1={sy(0)} x2={W - PAD.r} y2={sy(0)}
-          stroke="var(--faint)" strokeWidth="1" strokeDasharray="4 3" />
       </>
     );
   }
@@ -124,15 +120,14 @@
   // ── MSE progress bars ──
   function MSEBars({ rounds }) {
     const maxMSE = rounds[0].mse;
-    const barW = 280;
     return (
       <div style={{ margin: "12px 0" }}>
         {rounds.map((r, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--muted)", width: 68, flexShrink: 0 }}>
+            <span style={{ fontSize: 12, color: "var(--muted)", width: 72, flexShrink: 0 }}>
               {i === 0 ? "Init (F₀)" : `After T${i}`}
             </span>
-            <div style={{ flex: 1, background: "var(--line-soft)", borderRadius: 4, height: 14, overflow: "hidden", maxWidth: barW }}>
+            <div style={{ flex: 1, background: "var(--line-soft)", borderRadius: 4, height: 14, overflow: "hidden", maxWidth: 280 }}>
               <div style={{
                 height: "100%", borderRadius: 4,
                 width: `${(r.mse / maxMSE) * 100}%`,
@@ -140,8 +135,8 @@
                 transition: "width 0.4s ease"
               }} />
             </div>
-            <span style={{ fontSize: 12, fontFamily: "var(--num-font)", color: "var(--ink)", width: 52, flexShrink: 0 }}>
-              {r.mse.toFixed(3)}
+            <span style={{ fontSize: 12, fontFamily: "var(--num-font)", color: "var(--ink)", width: 58, flexShrink: 0 }}>
+              {r.mse.toFixed(4)}
             </span>
           </div>
         ))}
@@ -149,26 +144,23 @@
     );
   }
 
-  // ── stump diagram SVG ──
-  function StumpSvg({ stump, label, showPreds, xs }) {
+  // ── decision stump SVG ──
+  function StumpSvg({ stump, label }) {
     const W2 = 260, H2 = 140;
     const midX = W2 / 2;
     const rootY = 32, childY = 100;
     const leftX = 60, rightX = W2 - 60;
-    const isLeft = xs ? xs.map(x => x <= stump.threshold) : [];
     return (
       <svg width={W2} height={H2} style={{ overflow: "visible" }}>
         <line x1={midX} y1={rootY + 16} x2={leftX} y2={childY - 16} stroke="var(--line)" strokeWidth="1.5" />
         <line x1={midX} y1={rootY + 16} x2={rightX} y2={childY - 16} stroke="var(--line)" strokeWidth="1.5" />
         <text x={(midX + leftX) / 2 - 12} y={(rootY + childY) / 2 + 2} fontSize="10" fill="var(--muted)" fontStyle="italic">yes</text>
         <text x={(midX + rightX) / 2 + 8} y={(rootY + childY) / 2 + 2} fontSize="10" fill="var(--muted)" fontStyle="italic">no</text>
-        {/* root */}
         <rect x={midX - 68} y={rootY - 16} width={136} height={32} rx="8"
           fill="var(--panel-solid)" stroke="var(--accent)" strokeWidth="2" />
         <text x={midX} y={rootY + 5} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink)">
           age ≤ {stump.threshold}?
         </text>
-        {/* left leaf */}
         <rect x={leftX - 38} y={childY - 16} width={76} height={32} rx="8"
           fill={stump.leftVal >= 0 ? "rgba(31,158,107,.15)" : "rgba(224,73,46,.12)"}
           stroke={stump.leftVal >= 0 ? "#1f9e6b" : "#e0492e"} strokeWidth="1.5" />
@@ -177,7 +169,6 @@
           {fmt(stump.leftVal, 3)}
         </text>
         <text x={leftX} y={childY + 12} textAnchor="middle" fontSize="9" fill="var(--muted)">age ≤ {stump.threshold}</text>
-        {/* right leaf */}
         <rect x={rightX - 38} y={childY - 16} width={76} height={32} rx="8"
           fill={stump.rightVal >= 0 ? "rgba(31,158,107,.15)" : "rgba(224,73,46,.12)"}
           stroke={stump.rightVal >= 0 ? "#1f9e6b" : "#e0492e"} strokeWidth="1.5" />
@@ -185,7 +176,7 @@
           fill={stump.rightVal >= 0 ? "#1f9e6b" : "#e0492e"}>
           {fmt(stump.rightVal, 3)}
         </text>
-        <text x={rightX} y={childY + 12} textAnchor="middle" fontSize="9" fill="var(--muted)">age > {stump.threshold}</text>
+        <text x={rightX} y={childY + 12} textAnchor="middle" fontSize="9" fill="var(--muted)">age &gt; {stump.threshold}</text>
         {label && <text x={midX} y={H2 - 2} textAnchor="middle" fontSize="10" fill="var(--faint)">{label}</text>}
       </svg>
     );
@@ -194,643 +185,978 @@
   // ── color palette for multi-round lines ──
   const ROUND_COLORS = ["#94A2BC", "#f59e0b", "#2B5BFF"];
 
+  // ── small inline chart legend ──
+  function LineLegend({ items }) {
+    return (
+      <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--muted)", margin: "6px 0 10px", flexWrap: "wrap" }}>
+        {items.map(([col, label]) => (
+          <span key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 18, height: 2.5, background: col, display: "inline-block", borderRadius: 2 }} />
+            {label}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
   // ────────────────────────────────────────────────────────
-  //  STAGES
+  //  STAGE 1: Overview
   // ────────────────────────────────────────────────────────
-  window.ML_STAGES = [
+  const stageOverview = {
+    id: "overview", group: "Overview", title: "Gradient Boosting — sequential ensemble learning",
+    map: "Overview",
+    why: "Boosting is fundamentally different from bagging (Random Forest). Random Forest builds trees in parallel and averages them. Boosting builds trees one at a time, each correcting the errors of all previous trees.",
+    render: () => (
+      <>
+        <Lead>
+          <b>Gradient Boosting</b> is best understood through an analogy: imagine a student
+          who takes a practice test, then only studies the questions they got wrong. The next
+          practice test, they again focus exclusively on their new mistakes. Round after round,
+          they zero in on their weak spots. That is exactly how gradient boosting works — each
+          new tree studies only what the current ensemble got wrong.
+        </Lead>
+        <Lead>
+          This is the key difference from <b>Random Forest</b>. Random Forest grows hundreds
+          of trees <em>independently and in parallel</em>, then averages their votes. Each tree
+          is equally ignorant of the others. Gradient Boosting grows trees <em>sequentially</em>:
+          Tree 2 cannot start until Tree 1 has made predictions, because Tree 2 must fit the
+          <b> residuals</b> (errors) left behind by Tree 1. This sequential dependency is what
+          makes boosting so powerful — and why it is harder to parallelize than Random Forest.
+        </Lead>
 
-    // ── Stage 1: Overview ──
-    {
-      id: "overview", group: "Overview", title: "Gradient Boosting — sequential ensemble learning",
-      map: "Overview",
-      why: "Understand the high-level idea before diving into the math. Boosting is fundamentally different from bagging — it's sequential, not parallel.",
-      render: (trace) => (
-        <>
-          <Lead>
-            <b>Gradient Boosting</b> builds an ensemble of weak learners (usually shallow trees) <em>one at a time</em>.
-            Each new tree corrects the <b>residual errors</b> left by all previous trees. The key idea:
-            instead of fitting the original targets, fit the <em>gradients of the loss</em>.
-          </Lead>
-
-          {/* Architecture flow */}
-          <div style={{ margin: "20px 0 10px" }}>
-            <div className="tf-subhead">Sequential boosting pipeline</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap", margin: "12px 0" }}>
-              {[
-                { label: "Initial pred", sub: "F₀ = mean(y)", color: "#94A2BC" },
-                null,
-                { label: "Residuals", sub: "r = y − F₀", color: "#f59e0b" },
-                null,
-                { label: "Tree 1", sub: "fit residuals", color: "#2B5BFF" },
-                null,
-                { label: "Update", sub: "F₁ = F₀ + η·T₁", color: "#7c5cff" },
-                null,
-                { label: "Tree 2", sub: "fit new resid.", color: "#2B5BFF" },
-                null,
-                { label: "⋯", sub: "", color: "var(--muted)" },
-                null,
-                { label: "Final", sub: "F = Σ η·Tₜ", color: "#1f9e6b" },
-              ].map((item, i) =>
-                item === null ? (
-                  <div key={i} style={{ fontSize: 18, color: "var(--faint)", padding: "0 2px" }}>→</div>
-                ) : (
-                  <div key={i} style={{
-                    padding: "7px 10px", borderRadius: 8, textAlign: "center", minWidth: 72,
-                    background: item.color === "var(--muted)" ? "transparent" : `${item.color}18`,
-                    border: `1.5px solid ${item.color === "var(--muted)" ? "transparent" : item.color + "44"}`,
-                  }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{item.label}</div>
-                    {item.sub && <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{item.sub}</div>}
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-
-          <div className="tf-legend">
+        <div style={{ margin: "18px 0 10px" }}>
+          <div className="tf-subhead">Sequential boosting pipeline</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap", margin: "10px 0" }}>
             {[
-              ["Sequential", "Trees are built one after another — each tree knows about all previous trees."],
-              ["Residual fitting", "Each tree is trained on the errors (residuals) of the current ensemble, not the original targets."],
-              ["Learning rate η", "Each tree's contribution is shrunk by η < 1 to prevent overfitting."],
-              ["Weak learners", "Shallow trees (depth 1–3) are ideal — they correct one mistake at a time."],
-            ].map(([name, desc]) => (
-              <div className="tf-leg" key={name}>
-                <div className="tf-leg-name">{name}</div>
-                <div className="tf-leg-desc">{desc}</div>
-              </div>
-            ))}
+              { label: "F₀ = mean(y)", sub: "initial pred", color: "#94A2BC" },
+              null,
+              { label: "residuals", sub: "r = y − F₀", color: "#f59e0b" },
+              null,
+              { label: "Tree 1", sub: "fit residuals", color: "#2B5BFF" },
+              null,
+              { label: "F₁ = F₀ + η·T₁", sub: "update", color: "#7c5cff" },
+              null,
+              { label: "new residuals", sub: "r = y − F₁", color: "#f59e0b" },
+              null,
+              { label: "Tree 2 …", sub: "fit new resid.", color: "#2B5BFF" },
+              null,
+              { label: "F = Σ η·Tₜ", sub: "final ensemble", color: "#1f9e6b" },
+            ].map((item, i) =>
+              item === null ? (
+                <div key={i} style={{ fontSize: 18, color: "var(--faint)", padding: "0 3px" }}>→</div>
+              ) : (
+                <div key={i} style={{
+                  padding: "7px 10px", borderRadius: 8, textAlign: "center", minWidth: 80,
+                  background: item.color === "var(--muted)" ? "transparent" : `${item.color}18`,
+                  border: `1.5px solid ${item.color + "44"}`,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: item.color }}>{item.label}</div>
+                  {item.sub && <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{item.sub}</div>}
+                </div>
+              )
+            )}
           </div>
+        </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-            <div style={{ background: "var(--accent-soft)", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-ink)", marginBottom: 6 }}>Gradient Boosting</div>
-              <ul style={{ fontSize: 13, color: "var(--ink)", margin: 0, padding: "0 0 0 16px", lineHeight: 1.7 }}>
-                <li>Trees built sequentially</li>
-                <li>Each corrects previous errors</li>
-                <li>Fits gradients of loss function</li>
-                <li>Learning rate controls step size</li>
-              </ul>
+        <div className="tf-legend">
+          {[
+            ["Weak learner", "A shallow decision tree — often just one split (a 'stump'). It is deliberately simple so that it only corrects one pattern at a time, leaving room for future trees."],
+            ["Residual", "The error left by the current ensemble: rᵢ = yᵢ − F(xᵢ). Positive residual = we under-predicted. Negative = we over-predicted. The next tree fits these residuals directly."],
+            ["Additive model", "F(x) = F₀ + η·T₁(x) + η·T₂(x) + … We keep adding trees. Each adds a small correction. The final answer is the sum of all corrections."],
+            ["Learning rate η", "A number between 0 and 1 (e.g. 0.5). We multiply each tree's output by η before adding it. This 'shrinkage' prevents any single tree from dominating and overfitting."],
+            ["Ensemble", "The combined model — all trees together. One stump is weak. 100 stumps, each correcting the last, can be extremely powerful."],
+          ].map(([name, desc]) => (
+            <div className="tf-leg" key={name}>
+              <div className="tf-leg-name">{name}</div>
+              <div className="tf-leg-desc">{desc}</div>
             </div>
-            <div style={{ background: "rgba(31,158,107,.08)", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#1f9e6b", marginBottom: 6 }}>Random Forest (comparison)</div>
-              <ul style={{ fontSize: 13, color: "var(--ink)", margin: 0, padding: "0 0 0 16px", lineHeight: 1.7 }}>
-                <li>Trees built in parallel</li>
-                <li>Each trained independently</li>
-                <li>Diversity from random sampling</li>
-                <li>Vote/average at the end</li>
-              </ul>
-            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+          <div style={{ background: "var(--accent-soft)", borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-ink)", marginBottom: 6 }}>Gradient Boosting</div>
+            <ul style={{ fontSize: 13, color: "var(--ink)", margin: 0, padding: "0 0 0 16px", lineHeight: 1.75 }}>
+              <li>Trees built <b>sequentially</b></li>
+              <li>Each tree fits the <b>residuals</b> of all previous trees</li>
+              <li>Output = sum of all tree predictions × η</li>
+              <li>Must tune learning rate and number of trees</li>
+              <li>Prone to overfitting without regularization</li>
+            </ul>
           </div>
-        </>
-      ),
-    },
+          <div style={{ background: "rgba(31,158,107,.08)", borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#1f9e6b", marginBottom: 6 }}>Random Forest (comparison)</div>
+            <ul style={{ fontSize: 13, color: "var(--ink)", margin: 0, padding: "0 0 0 16px", lineHeight: 1.75 }}>
+              <li>Trees built <b>in parallel</b>, independently</li>
+              <li>Each tree trained on a <b>bootstrap sample</b></li>
+              <li>Diversity from random feature subsets</li>
+              <li>Final prediction = average of all trees</li>
+              <li>Naturally resistant to overfitting</li>
+            </ul>
+          </div>
+        </div>
 
-    // ── Stage 2: Dataset ──
-    {
-      id: "dataset", group: "Data", title: "Dataset — house age vs. price",
-      map: "Dataset",
-      why: "We need to understand the data before building our model. With only 8 points and a 1D feature, we can visualize every boosting step clearly.",
-      render: (trace) => (
+        <Note>
+          The "gradient" in Gradient Boosting comes from the fact that fitting residuals is
+          equivalent to following the <b>negative gradient of the MSE loss</b>. This means
+          the framework generalizes to any differentiable loss — just swap out the loss function
+          (as we do in the Classification variant using log-loss).
+        </Note>
+      </>
+    ),
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 2: Dataset
+  // ────────────────────────────────────────────────────────
+  const stageDataset = {
+    id: "dataset", group: "Data", title: "Dataset — house age vs. price",
+    map: "Dataset",
+    why: "With 8 points and one feature, we can visualize every boosting step in detail. Real boosting datasets have thousands of rows and dozens of features — the math is identical.",
+    render: (trace) => (
+      <>
+        <Lead>
+          Our toy dataset contains <b>8 houses</b>. Each house has one feature: its <b>age in years</b>.
+          The target we want to predict is <b>price in $100k</b>. Older houses tend to be cheaper —
+          there is a clear downward trend. With just one feature, we can draw every step of
+          the boosting process on a simple 2D chart.
+        </Lead>
+        <Lead>
+          This is a <b>regression</b> problem: we want to predict a continuous number (price),
+          not a category. Gradient boosting for regression uses <b>Mean Squared Error (MSE)</b>
+          as its loss function. We will watch the MSE shrink with each additional tree.
+          The query age (red dashed line) is controlled by the slider — try different ages to
+          see how the ensemble's prediction changes.
+        </Lead>
+
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
+          <ScatterAxes />
+          <DataDots queryX={trace.input.x} />
+        </svg>
+
+        <div className="tf-subhead" style={{ marginTop: 12 }}>Training data</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%", maxWidth: 380 }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid var(--line)" }}>
+                {["#", "age (years)", "price ($100k)", "trend"].map(h => (
+                  <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {BOOST_REG.xs.map((x, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
+                  <td style={{ padding: "5px 10px", color: "var(--faint)", fontFamily: "var(--num-font)" }}>{i + 1}</td>
+                  <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)" }}>{x}</td>
+                  <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)", color: "var(--accent-ink)", fontWeight: 600 }}>{BOOST_REG.ys[i]}</td>
+                  <td style={{ padding: "5px 10px", fontSize: 12, color: "var(--muted)" }}>
+                    {BOOST_REG.ys[i] > 5 ? "expensive (young)" : "cheap (old)"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="nn-calc" style={{ marginTop: 12 }}>
+          <div className="nn-calc-h">Quick statistics</div>
+          <div className="nn-calc-row">
+            mean age = {fmt(BOOST_REG.xs.reduce((a, b) => a + b, 0) / BOOST_REG.xs.length, 1)} years
+          </div>
+          <div className="nn-calc-row">
+            mean price = {fmt(BOOST_REG.ys.reduce((a, b) => a + b, 0) / BOOST_REG.ys.length, 3)} $100k — this is our starting prediction (F₀)
+          </div>
+          <div className="nn-calc-row">
+            price range: {Math.min(...BOOST_REG.ys)} – {Math.max(...BOOST_REG.ys)} $100k
+          </div>
+        </div>
+
+        <Note>
+          Goal: predict price for a house of <b>age = {trace.input.x}</b> years.
+          Before any tree, the best constant prediction is the mean price.
+          The boosting rounds will progressively refine this.
+        </Note>
+      </>
+    ),
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 3: Initial Prediction (Step 0)
+  // ────────────────────────────────────────────────────────
+  const stageInit = {
+    id: "init", group: "Boosting", title: "Step 0 — initial prediction: the mean",
+    map: "Init pred",
+    why: "Before any tree, predict the global mean of y. This is the constant that minimizes MSE over the training set. All residuals measure how far this constant is from each true value.",
+    render: (trace) => {
+      const r0 = trace.rounds[0];
+      const initP = trace.initPred;
+      const ySum = BOOST_REG.ys.reduce((a, b) => a + b, 0);
+      return (
         <>
           <Lead>
-            Our training data has 8 houses described by <b>age (years)</b>. We want to predict
-            <b> price ($100k)</b>. Older houses tend to cost less — a clear downward trend.
-            Move the slider to set the query age.
+            Before we build a single tree, we need a <b>starting prediction</b>.
+            The best constant prediction that minimizes MSE is the <b>mean of all y-values</b>.
+            So F₀(x) = ȳ for every single training point, regardless of age. The prediction
+            is a perfectly horizontal line — it ignores all feature information entirely.
           </Lead>
+          <Lead>
+            Once we have F₀, we compute the <b>residuals</b>: rᵢ = yᵢ − F₀(xᵢ).
+            A positive residual means we under-predicted (actual price was higher than the mean).
+            A negative residual means we over-predicted (actual price was lower than the mean).
+            These residuals are exactly what Tree 1 will try to learn.
+          </Lead>
+
+          <Formula label="F₀(x)">
+            F₀(x) = mean(y) = ({BOOST_REG.ys.join(" + ")}) / {BOOST_REG.ys.length} = {fmt(ySum, 1)} / {BOOST_REG.ys.length} = <b>{fmt(initP, 3)}</b>
+          </Formula>
+
+          <div className="tf-subhead">Initial prediction (flat line) and residuals</div>
           <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
             <ScatterAxes />
+            <line x1={PAD.l} y1={sy(initP)} x2={W - PAD.r} y2={sy(initP)}
+              stroke="#94A2BC" strokeWidth="2.5" strokeDasharray="7 4" opacity="0.85" />
+            <text x={W - PAD.r - 4} y={sy(initP) - 6} textAnchor="end" fontSize="10" fill="#94A2BC" fontWeight="600">
+              F₀ = {fmt(initP, 2)}
+            </text>
+            {BOOST_REG.xs.map((x, i) => (
+              <line key={i}
+                x1={sx(x)} y1={sy(initP)} x2={sx(x)} y2={sy(BOOST_REG.ys[i])}
+                stroke={BOOST_REG.ys[i] > initP ? "#1f9e6b" : "#e0492e"}
+                strokeWidth="2.5" strokeLinecap="round" opacity="0.75" />
+            ))}
             <DataDots queryX={trace.input.x} />
           </svg>
-          <div className="tf-subhead" style={{ marginTop: 12 }}>Training data</div>
+          <LineLegend items={[["#94A2BC", "F₀ = mean(y)"], ["#1f9e6b", "positive residual (under-predicted)"], ["#e0492e", "negative residual (over-predicted)"]]} />
+
+          <div className="tf-subhead">Initial residuals table</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--line)" }}>
-                  {["#", "age", "price ($100k)"].map(h => (
-                    <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>{h}</th>
+                  {["age", "true y", "F₀ = mean", "residual r = y − F₀", "interpretation"].map(h => (
+                    <th key={h} style={{ padding: "5px 8px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {BOOST_REG.xs.map((x, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
-                    <td style={{ padding: "5px 10px", color: "var(--faint)", fontFamily: "var(--num-font)" }}>{i + 1}</td>
-                    <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)" }}>{x}</td>
-                    <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)", color: "var(--accent-ink)", fontWeight: 600 }}>{BOOST_REG.ys[i]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Note>The goal is to predict price for a house of <b>age = {trace.input.x}</b> years.
-            After training, our ensemble will output a single number — the predicted price.
-          </Note>
-        </>
-      ),
-    },
-
-    // ── Stage 3: Initial Prediction ──
-    {
-      id: "init", group: "Boosting", title: "Step 0 — initial prediction: mean of targets",
-      map: "Init pred",
-      why: "Gradient boosting starts with the simplest possible prediction: the mean. This is the constant that minimizes MSE before seeing any features.",
-      render: (trace) => {
-        const r0 = trace.rounds[0];
-        const initP = trace.initPred;
-        return (
-          <>
-            <Lead>
-              Before any tree, we predict the <b>global mean</b> of all training targets.
-              This is F₀(x) = mean(y) = {fmt(initP)}. All 8 houses get the same prediction,
-              resulting in <b>large residuals</b> (vertical bars).
-            </Lead>
-            <Formula label="F₀(x)">
-              F₀(x) = mean(y) = ({BOOST_REG.ys.join(" + ")}) / 8 = <b>{fmt(initP)}</b>
-            </Formula>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
-              <ScatterAxes />
-              {/* flat prediction line */}
-              <line x1={PAD.l} y1={sy(initP)} x2={W - PAD.r} y2={sy(initP)}
-                stroke="#94A2BC" strokeWidth="2.5" strokeDasharray="6 3" opacity="0.8" />
-              <text x={W - PAD.r - 4} y={sy(initP) - 5} textAnchor="end" fontSize="10" fill="#94A2BC" fontWeight="600">
-                F₀ = {fmt(initP)}
-              </text>
-              {/* residual lines */}
-              {BOOST_REG.xs.map((x, i) => (
-                <line key={i}
-                  x1={sx(x)} y1={sy(initP)} x2={sx(x)} y2={sy(BOOST_REG.ys[i])}
-                  stroke={BOOST_REG.ys[i] > initP ? "#1f9e6b" : "#e0492e"}
-                  strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-              ))}
-              <DataDots queryX={trace.input.x} />
-            </svg>
-            <div className="tf-subhead">Initial residuals (y − F₀)</div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid var(--line)" }}>
-                    {["age", "true y", "F₀", "residual r = y − F₀"].map(h => (
-                      <th key={h} style={{ padding: "5px 8px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {BOOST_REG.xs.map((x, i) => (
+                {BOOST_REG.xs.map((x, i) => {
+                  const r = r0.residuals[i];
+                  return (
                     <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
                       <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{x}</td>
                       <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{BOOST_REG.ys[i]}</td>
-                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#94A2BC" }}>{fmt(initP)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#94A2BC" }}>{fmt(initP, 3)}</td>
                       <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", fontWeight: 700,
-                        color: r0.residuals[i] >= 0 ? "#1f9e6b" : "#e0492e" }}>
-                        {fmt(r0.residuals[i], 3)}
+                        color: r >= 0 ? "#1f9e6b" : "#e0492e" }}>
+                        {fmt(r, 3)}
+                      </td>
+                      <td style={{ padding: "4px 8px", fontSize: 11, color: "var(--muted)" }}>
+                        {r > 0.5 ? "much too low" : r < -0.5 ? "much too high" : "close"}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="nn-calc" style={{ marginTop: 10 }}>
-              <div className="nn-calc-h">Initial MSE</div>
-              <div className="nn-calc-row">
-                MSE = (1/n) Σ(y − F₀)² = <b>{fmt(r0.mse, 4)}</b> — this is what we must reduce.
-              </div>
-            </div>
-          </>
-        );
-      },
-    },
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-    // ── Stage 4: Residuals ──
-    {
-      id: "residuals", group: "Boosting", title: "Residuals = the gradient signal",
-      map: "Residuals",
-      why: "In gradient boosting with MSE loss, the negative gradient equals the residuals. This is what makes it 'gradient' boosting — we follow the gradient of the loss.",
-      render: (trace) => {
-        const r0 = trace.rounds[0];
-        // residual SVG — y-axis is residuals
-        const rMin = -4, rMax = 4;
-        const sry = v => PAD.t + (1 - (v - rMin) / (rMax - rMin)) * (H - PAD.t - PAD.b);
-        return (
-          <>
-            <Lead>
-              The <b>residual</b> rᵢ = yᵢ − F₀(xᵢ) tells us: how much does the prediction need to
-              increase (positive) or decrease (negative)? In MSE, this equals the <b>negative gradient</b> of the loss.
-              The next tree will be trained to predict these residuals.
-            </Lead>
-            <Formula label="Gradient of MSE">
-              −∂L/∂F = −∂[(y−F)²/2]/∂F = (y − F) = residual
-            </Formula>
-            <div className="tf-subhead">Residual plot (F₀ errors)</div>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
-              <ScatterAxes yLabel="residual (y − F₀)" xLabel="age (years)" />
-              {/* zero line */}
-              <line x1={PAD.l} y1={sry(0)} x2={W - PAD.r} y2={sry(0)}
-                stroke="var(--faint)" strokeWidth="1" strokeDasharray="4 3" />
-              {BOOST_REG.xs.map((x, i) => {
-                const r = r0.residuals[i];
-                return (
-                  <g key={i}>
-                    <line x1={sx(x)} y1={sry(0)} x2={sx(x)} y2={sry(r)}
-                      stroke={r >= 0 ? "#1f9e6b" : "#e0492e"} strokeWidth="3" strokeLinecap="round" opacity="0.85" />
-                    <circle cx={sx(x)} cy={sry(r)} r="4"
-                      fill={r >= 0 ? "#1f9e6b" : "#e0492e"} />
-                    <text x={sx(x)} y={sry(r) + (r >= 0 ? -7 : 14)} textAnchor="middle" fontSize="9" fill="var(--muted)">
-                      {fmt(r, 2)}
-                    </text>
-                  </g>
-                );
-              })}
-              {/* y-axis ticks for residuals */}
-              {[-3, -2, -1, 0, 1, 2, 3].map(v => (
-                <g key={v}>
-                  <line x1={PAD.l - 4} y1={sry(v)} x2={PAD.l} y2={sry(v)} stroke="var(--ink)" strokeWidth="1" />
-                  <text x={PAD.l - 6} y={sry(v) + 4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
-                </g>
-              ))}
-            </svg>
-            <div className="tf-legend" style={{ marginTop: 12 }}>
-              {[
-                ["Green bars (positive)", "Model predicted too low — next tree should push prediction UP"],
-                ["Red bars (negative)", "Model predicted too high — next tree should push prediction DOWN"],
-                ["Tree 1 will fit these", "Tree 1 is a regression tree trained on {(xᵢ, rᵢ)} pairs, not (xᵢ, yᵢ)"],
-              ].map(([n, d]) => (
-                <div className="tf-leg" key={n}>
-                  <div className="tf-leg-name">{n}</div>
-                  <div className="tf-leg-desc">{d}</div>
-                </div>
-              ))}
+          <div className="nn-calc" style={{ marginTop: 10 }}>
+            <div className="nn-calc-h">Initial MSE — before any tree</div>
+            <div className="nn-calc-row">
+              MSE = (1/n) Σ(yᵢ − F₀)² = (1/{BOOST_REG.ys.length}) Σ rᵢ² = <b>{fmt(r0.mse, 4)}</b>
             </div>
-          </>
-        );
-      },
-    },
-
-    // ── Stage 5: Tree 1 ──
-    {
-      id: "tree1", group: "Boosting", title: "Tree 1 — fit the residuals with a stump",
-      map: "Tree 1",
-      why: "The first tree splits data at age=16 — young houses have positive residuals (underpredicted) and old houses have negative residuals (overpredicted). One split captures this pattern.",
-      render: (trace) => {
-        const stump = BOOST_REG.stumps[0];
-        const r0 = trace.rounds[0];
-        return (
-          <>
-            <Lead>
-              Tree 1 is a <b>decision stump</b> (depth-1 tree) trained to predict the residuals from Step 0.
-              It finds the best split: <b>age ≤ 16</b>. Left leaf = average residual for young houses,
-              right leaf = average residual for old houses.
-            </Lead>
-            <Row>
-              <div>
-                <div className="tf-subhead">Stump 1 structure</div>
-                <StumpSvg stump={stump} label="splits at age=16" />
-              </div>
-              <div>
-                <div className="tf-subhead">Leaf averages</div>
-                <div className="nn-calc" style={{ minWidth: 220 }}>
-                  <div className="nn-calc-h">Left leaf (age ≤ 16, n=4)</div>
-                  <div className="nn-calc-row">
-                    residuals: {r0.residuals.filter((_, i) => BOOST_REG.xs[i] <= 16).map(r => fmt(r, 2)).join(", ")}
-                  </div>
-                  <div className="nn-calc-row">
-                    avg = <b style={{ color: "#1f9e6b" }}>{fmt(stump.leftVal, 3)}</b>
-                  </div>
-                  <div className="nn-calc-h" style={{ marginTop: 8 }}>Right leaf (age > 16, n=4)</div>
-                  <div className="nn-calc-row">
-                    residuals: {r0.residuals.filter((_, i) => BOOST_REG.xs[i] > 16).map(r => fmt(r, 2)).join(", ")}
-                  </div>
-                  <div className="nn-calc-row">
-                    avg = <b style={{ color: "#e0492e" }}>{fmt(stump.rightVal, 3)}</b>
-                  </div>
-                </div>
-              </div>
-            </Row>
-            <div className="tf-subhead" style={{ marginTop: 8 }}>Tree 1 predictions for each point</div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid var(--line)" }}>
-                    {["age", "residual rᵢ", "tree1(xᵢ)", "correct direction?"].map(h => (
-                      <th key={h} style={{ padding: "5px 8px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {BOOST_REG.xs.map((x, i) => {
-                    const pred = x <= stump.threshold ? stump.leftVal : stump.rightVal;
-                    const correct = (r0.residuals[i] >= 0 && pred >= 0) || (r0.residuals[i] < 0 && pred < 0);
-                    return (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
-                        <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{x}</td>
-                        <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)",
-                          color: r0.residuals[i] >= 0 ? "#1f9e6b" : "#e0492e", fontWeight: 600 }}>
-                          {fmt(r0.residuals[i], 3)}
-                        </td>
-                        <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)",
-                          color: pred >= 0 ? "#1f9e6b" : "#e0492e" }}>
-                          {fmt(pred, 3)}
-                        </td>
-                        <td style={{ padding: "4px 8px", fontSize: 14 }}>{correct ? "✓" : "✗"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="nn-calc-row" style={{ color: "var(--muted)", fontSize: 11 }}>
+              This is our baseline. We must reduce this with each boosting round.
             </div>
-          </>
-        );
-      },
+          </div>
+        </>
+      );
     },
+  };
 
-    // ── Stage 6: Update after Tree 1 ──
-    {
-      id: "update1", group: "Boosting", title: "Update — F₁ = F₀ + η × Tree 1",
-      map: "After T1",
-      why: "We don't add the full tree prediction — we scale it by η=0.5 (learning rate). This shrinkage prevents any single tree from dominating and overfitting.",
-      render: (trace) => {
-        const r0 = trace.rounds[0];
-        const r1 = trace.rounds[Math.min(1, trace.rounds.length - 1)];
-        const stump = BOOST_REG.stumps[0];
-        const eta = BOOST_REG.eta;
-        return (
-          <>
-            <Lead>
-              We update predictions: <b>F₁(x) = F₀(x) + η × T₁(x)</b>. With η=0.5, houses with
-              age ≤ 16 gain +{fmt(eta * stump.leftVal, 3)} and houses with age > 16 gain {fmt(eta * stump.rightVal, 3)}.
-              The flat line becomes a <b>step function</b>.
-            </Lead>
-            <Formula label="Update rule">
-              F₁(x) = F₀(x) + <b>η</b> × T₁(x) = {fmt(trace.initPred)} + <b>{eta}</b> × T₁(x)
-            </Formula>
-            <div className="tf-subhead">Prediction before and after Tree 1</div>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
-              <ScatterAxes />
-              {/* old flat line */}
-              <line x1={PAD.l} y1={sy(trace.initPred)} x2={W - PAD.r} y2={sy(trace.initPred)}
-                stroke="#94A2BC" strokeWidth="1.5" strokeDasharray="5 3" opacity="0.6" />
-              <text x={PAD.l + 4} y={sy(trace.initPred) - 5} fontSize="10" fill="#94A2BC">F₀</text>
-              {/* new step line */}
-              <StepLine preds={r1.preds} color="#f59e0b" />
-              <DataDots queryX={trace.input.x} />
-              {/* residual bars after update */}
-              {BOOST_REG.xs.map((x, i) => (
-                <line key={i}
-                  x1={sx(x)} y1={sy(r1.preds[i])} x2={sx(x)} y2={sy(BOOST_REG.ys[i])}
-                  stroke={r1.residuals[i] >= 0 ? "#1f9e6b" : "#e0492e"}
-                  strokeWidth="2" strokeLinecap="round" opacity="0.5" />
-              ))}
-            </svg>
-            <div className="tf-subhead">MSE reduced</div>
-            <MSEBars rounds={trace.rounds.slice(0, 2)} />
-            <div className="nn-calc">
-              <div className="nn-calc-h">Update for age = {trace.input.x}</div>
-              <div className="nn-calc-row">T₁({trace.input.x}) = {trace.input.x <= stump.threshold ? fmt(stump.leftVal, 3) + " (left leaf)" : fmt(stump.rightVal, 3) + " (right leaf)"}</div>
-              <div className="nn-calc-row">F₁({trace.input.x}) = {fmt(trace.initPred)} + {eta} × {trace.input.x <= stump.threshold ? fmt(stump.leftVal, 3) : fmt(stump.rightVal, 3)} = <b>{fmt(trace.rounds[Math.min(1, trace.rounds.length - 1)].preds[BOOST_REG.xs.findIndex(x => x === trace.input.x)] ?? (trace.initPred + eta * (trace.input.x <= stump.threshold ? stump.leftVal : stump.rightVal)), 3)}</b></div>
-            </div>
-          </>
-        );
-      },
-    },
+  // ────────────────────────────────────────────────────────
+  //  STAGE 4: Round 1 — First Stump
+  // ────────────────────────────────────────────────────────
+  const stageTree1 = {
+    id: "tree1", group: "Boosting", title: "Round 1 — first stump fits the residuals",
+    map: "Round 1",
+    why: "Tree 1 is NOT trained on the original y-values. It is trained on the residuals r = y − F₀. This is the central mechanic of gradient boosting.",
+    render: (trace) => {
+      const stump = BOOST_REG.stumps[0];
+      const r0 = trace.rounds[0];
+      const r1 = trace.rounds[Math.min(1, trace.rounds.length - 1)];
+      const eta = BOOST_REG.eta;
 
-    // ── Stage 7: Tree 2 ──
-    {
-      id: "tree2", group: "Boosting", title: "Tree 2 — fit residuals after F₁",
-      map: "Tree 2",
-      why: "After Tree 1, residuals are smaller but not zero. Tree 2 looks at the new residuals and finds the next best split, refining the ensemble further.",
-      render: (trace) => {
-        const stump2 = BOOST_REG.stumps[1];
-        const r1 = trace.rounds[Math.min(1, trace.rounds.length - 1)];
-        const r2 = trace.rounds[Math.min(2, trace.rounds.length - 1)];
-        return (
-          <>
-            <Lead>
-              After updating F₁, we compute new residuals and train <b>Tree 2</b> on them.
-              Tree 2 splits at <b>age ≤ 10</b>, targeting the finer structure still missed.
-              Leaf values are now much smaller — we've already corrected the major error.
-            </Lead>
-            <Row>
-              <div>
-                <div className="tf-subhead">Stump 2 structure</div>
-                <StumpSvg stump={stump2} label="splits at age=10" />
-              </div>
-              <div>
-                <div className="tf-subhead">Residuals after F₁</div>
-                <div className="nn-calc" style={{ minWidth: 220 }}>
-                  <div className="nn-calc-h">New residuals (smaller!)</div>
-                  {r1.residuals.map((r, i) => (
-                    <div key={i} className="nn-calc-row" style={{ fontSize: 11 }}>
-                      age={BOOST_REG.xs[i]}: r = <b style={{ color: r >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(r, 3)}</b>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Row>
-            <div className="tf-subhead">Prediction after Trees 1 + 2</div>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
-              <ScatterAxes />
-              <StepLine preds={r1.preds} color="#f59e0b" />
-              <StepLine preds={r2.preds} color="#2B5BFF" />
-              <DataDots queryX={trace.input.x} />
-            </svg>
-            <div style={{ display: "flex", gap: 16, fontSize: 12, margin: "6px 0 10px" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 20, height: 2, background: "#f59e0b", display: "inline-block" }} />
-                After T1
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 20, height: 2, background: "#2B5BFF", display: "inline-block" }} />
-                After T2
-              </span>
-            </div>
-            <MSEBars rounds={trace.rounds.slice(0, 3)} />
-          </>
-        );
-      },
-    },
+      const leftResids = r0.residuals.filter((_, i) => BOOST_REG.xs[i] <= stump.threshold);
+      const rightResids = r0.residuals.filter((_, i) => BOOST_REG.xs[i] > stump.threshold);
+      const leftAvg = leftResids.reduce((a, b) => a + b, 0) / leftResids.length;
+      const rightAvg = rightResids.reduce((a, b) => a + b, 0) / rightResids.length;
 
-    // ── Stage 8: Full ensemble ──
-    {
-      id: "ensemble", group: "Boosting", title: "Full ensemble — 3 trees combined",
-      map: "Ensemble",
-      why: "With the nTrees slider you can see how each additional tree refines the prediction curve. The step function becomes a closer approximation of the true underlying pattern.",
-      render: (trace, ctx) => {
-        const { input, setInput } = ctx;
-        const activeRound = trace.rounds[trace.rounds.length - 1];
-        const allMSEs = trace.rounds.map(r => r.mse);
-        return (
-          <>
-            <Lead>
-              The final ensemble is <b>F(x) = F₀ + η·T₁ + η·T₂ + η·T₃</b>. Use the nTrees
-              slider (in the header) to see each tree's contribution. Each tree adds a refinement
-              to the step function, bringing MSE down progressively.
-            </Lead>
-            <div className="tf-subhead">Ensemble prediction curve</div>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
-              <ScatterAxes />
-              {/* show each active round's line with fading opacity */}
-              {trace.rounds.slice(1).map((r, t) => (
-                <StepLine key={t} preds={r.preds}
-                  color={ROUND_COLORS[t] || "#2B5BFF"} />
-              ))}
-              <DataDots queryX={input.x} />
-              {/* final prediction marker */}
-              <circle cx={sx(input.x)} cy={sy(Math.max(yMin, Math.min(yMax, trace.queryPred)))} r={7}
-                fill="#e0492e" stroke="white" strokeWidth="2" />
-              <text x={sx(input.x) + 10} y={sy(Math.max(yMin, Math.min(yMax, trace.queryPred))) - 6}
-                fontSize="11" fill="#e0492e" fontWeight="700">
-                {fmt(trace.queryPred)} $100k
-              </text>
-            </svg>
-            <div className="tf-subhead">MSE reduction per round</div>
-            <MSEBars rounds={trace.rounds} />
-            <div className="nn-calc">
-              <div className="nn-calc-h">Prediction for age = {input.x} with {input.nTrees} tree(s)</div>
-              <div className="nn-calc-row">F₀ = {fmt(trace.initPred)}</div>
-              {trace.rounds.slice(1).map((r, t) => {
-                const stump = BOOST_REG.stumps[t];
-                const sp = input.x <= stump.threshold ? stump.leftVal : stump.rightVal;
-                return (
-                  <div key={t} className="nn-calc-row">
-                    + η × T{t + 1}({input.x}) = {BOOST_REG.eta} × {fmt(sp, 3)} = <b>{fmt(BOOST_REG.eta * sp, 3)}</b>
-                  </div>
-                );
-              })}
-              <div className="nn-calc-row">
-                <b>= {fmt(trace.queryPred, 3)} $100k</b>
-              </div>
-            </div>
-          </>
-        );
-      },
-    },
-
-    // ── Stage 9: Learning Rate ──
-    {
-      id: "eta", group: "Concepts", title: "Learning rate η — shrinkage prevents overfitting",
-      map: "Learning rate",
-      why: "The learning rate is one of the most important hyperparameters. Too high → overfit fast with few trees. Too low → need many trees but generalizes better.",
-      render: (trace) => {
-        // Show conceptual illustration with 3 eta values
-        const etas = [1.0, 0.5, 0.1];
-        const etaColors = ["#e0492e", "#2B5BFF", "#1f9e6b"];
-        return (
-          <>
-            <Lead>
-              The learning rate <b>η</b> multiplies each tree's contribution: F(x) += η × T(x).
-              A small η forces the model to take small steps — many trees cover the loss landscape
-              smoothly rather than jumping over the optimum.
-            </Lead>
-            <div className="tf-subhead">Effect of η on convergence</div>
-            <svg viewBox="0 0 420 180" style={{ width: "100%", maxWidth: 420 }}>
-              {/* conceptual loss curves */}
-              {etas.map((eta, ei) => {
-                // simulate a decay curve
-                const pts = [];
-                let loss = 3.8;
-                for (let t = 0; t <= 30; t++) {
-                  const decay = eta === 1.0 ? (t === 0 ? 3.8 : t < 5 ? 3.8 * Math.exp(-1.2 * t) + (t > 3 ? Math.sin(t) * 0.2 : 0) : 0.02 + Math.random() * 0.3) :
-                    eta === 0.5 ? 3.8 * Math.exp(-0.35 * t) + 0.08 :
-                    3.8 * Math.exp(-0.07 * t) + 0.25;
-                  pts.push([t, Math.max(0, decay)]);
-                }
-                const lx = t => 40 + (t / 30) * 360;
-                const ly = v => 160 - Math.min(155, (v / 4) * 155);
-                const polyline = pts.map(([t, v]) => `${lx(t)},${ly(v)}`).join(" ");
-                return (
-                  <polyline key={ei} points={polyline} fill="none"
-                    stroke={etaColors[ei]} strokeWidth="2.2" opacity="0.85" />
-                );
-              })}
-              {/* axes */}
-              <line x1={40} y1={5} x2={40} y2={165} stroke="var(--line)" strokeWidth="1" />
-              <line x1={40} y1={165} x2={400} y2={165} stroke="var(--line)" strokeWidth="1" />
-              <text x={220} y={178} textAnchor="middle" fontSize="10" fill="var(--muted)">number of trees</text>
-              <text x={14} y={90} textAnchor="middle" fontSize="10" fill="var(--muted)" transform="rotate(-90,14,90)">MSE</text>
-              {/* legend */}
-              {etas.map((eta, ei) => (
-                <g key={ei}>
-                  <line x1={50 + ei * 120} y1={22} x2={68 + ei * 120} y2={22} stroke={etaColors[ei]} strokeWidth="2.5" />
-                  <text x={72 + ei * 120} y={26} fontSize="10" fill={etaColors[ei]} fontWeight="600">η={eta}</text>
-                </g>
-              ))}
-            </svg>
-            <div className="tf-legend" style={{ marginTop: 12 }}>
-              {[
-                ["η = 1.0 (red)", "Full step — converges fast but may oscillate or overfit. Fewer trees needed."],
-                ["η = 0.5 (blue)", "Balanced — our setting. Converges smoothly with 3–10 trees."],
-                ["η = 0.1 (green)", "Small steps — very smooth convergence but needs 50–300+ trees for best accuracy."],
-                ["Rule of thumb", "Smaller η always needs more trees. XGBoost default is η=0.3; scikit-learn default is 0.1."],
-              ].map(([n, d]) => (
-                <div className="tf-leg" key={n}>
-                  <div className="tf-leg-name">{n}</div>
-                  <div className="tf-leg-desc">{d}</div>
-                </div>
-              ))}
-            </div>
-            <Note>
-              The shrinkage introduced by η makes gradient boosting more <b>regularized</b>.
-              It's mathematically equivalent to L2 regularization applied to the tree weights.
-            </Note>
-          </>
-        );
-      },
-    },
-
-    // ── Stage 10: Hyperparameters ──
-    {
-      id: "hyperparams", group: "Concepts", title: "Hyperparameters & when to use gradient boosting",
-      map: "Hyperparams",
-      why: "Knowing when to use gradient boosting vs alternatives is as important as knowing how it works.",
-      render: (trace) => (
+      return (
         <>
           <Lead>
-            Gradient boosting is one of the most powerful ML algorithms for structured/tabular data.
-            It wins many Kaggle competitions. But it has important hyperparameters to tune and specific
-            scenarios where it excels — and where other approaches win.
+            Tree 1 is a <b>decision stump</b> — a tree with exactly one split (depth = 1).
+            It is trained on the <em>residuals</em> from Step 0, not on the original prices.
+            Think of it as asking: "Given a house's age, what correction do we need to make
+            to our current prediction?" The best single split is at <b>age = 16</b>:
+            young houses need a positive correction (we're predicting too low) and old
+            houses need a negative correction (we're predicting too high).
           </Lead>
-          <div className="tf-subhead">Key hyperparameters</div>
-          <div className="tf-legend">
+          <Lead>
+            Each leaf value is the <b>mean of the residuals</b> in that leaf. This is the optimal
+            constant prediction for that leaf under MSE loss. After finding Tree 1, we update:
+            <b> F₁(x) = F₀(x) + η × T₁(x)</b>. The learning rate η = {eta} shrinks the
+            correction so we don't overshoot.
+          </Lead>
+
+          <Row>
+            <div>
+              <div className="tf-subhead">Stump 1 structure</div>
+              <StumpSvg stump={stump} label="trained on residuals r₀" />
+            </div>
+            <div>
+              <div className="tf-subhead">Leaf value calculation</div>
+              <div className="nn-calc" style={{ minWidth: 230 }}>
+                <div className="nn-calc-h">Left leaf: age ≤ {stump.threshold} (n={leftResids.length})</div>
+                <div className="nn-calc-row" style={{ fontSize: 11 }}>
+                  residuals: [{leftResids.map(r => fmt(r, 2)).join(", ")}]
+                </div>
+                <div className="nn-calc-row">
+                  avg = {fmt(leftAvg, 3)} ≈ <b style={{ color: "#1f9e6b" }}>{fmt(stump.leftVal, 3)}</b>
+                </div>
+                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right leaf: age &gt; {stump.threshold} (n={rightResids.length})</div>
+                <div className="nn-calc-row" style={{ fontSize: 11 }}>
+                  residuals: [{rightResids.map(r => fmt(r, 2)).join(", ")}]
+                </div>
+                <div className="nn-calc-row">
+                  avg = {fmt(rightAvg, 3)} ≈ <b style={{ color: "#e0492e" }}>{fmt(stump.rightVal, 3)}</b>
+                </div>
+              </div>
+            </div>
+          </Row>
+
+          <div className="tf-subhead" style={{ marginTop: 10 }}>Prediction after update: F₁ = F₀ + η·T₁</div>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
+            <ScatterAxes />
+            <line x1={PAD.l} y1={sy(trace.initPred)} x2={W - PAD.r} y2={sy(trace.initPred)}
+              stroke="#94A2BC" strokeWidth="1.5" strokeDasharray="5 3" opacity="0.55" />
+            <text x={PAD.l + 4} y={sy(trace.initPred) - 5} fontSize="9" fill="#94A2BC" opacity="0.7">F₀</text>
+            <StepLine preds={r1.preds} color="#f59e0b" />
+            <ResidualBars residuals={r1.residuals} preds={r1.preds} />
+            <DataDots queryX={trace.input.x} />
+          </svg>
+          <LineLegend items={[["#94A2BC", "F₀ (baseline mean)"], ["#f59e0b", "F₁ after T1"]]} />
+
+          <div className="tf-subhead">Per-point update table</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--line)" }}>
+                  {["age", "true y", "F₀", "T₁(x)", "η·T₁", "F₁ = F₀+η·T₁", "new resid."].map(h => (
+                    <th key={h} style={{ padding: "5px 8px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {BOOST_REG.xs.map((x, i) => {
+                  const t1 = x <= stump.threshold ? stump.leftVal : stump.rightVal;
+                  return (
+                    <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{x}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{BOOST_REG.ys[i]}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#94A2BC" }}>{fmt(trace.initPred, 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: t1 >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(t1, 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{fmt(eta * t1, 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#f59e0b", fontWeight: 600 }}>{fmt(r1.preds[i], 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", fontWeight: 700,
+                        color: r1.residuals[i] >= 0 ? "#1f9e6b" : "#e0492e", fontSize: 11 }}>
+                        {fmt(r1.residuals[i], 3)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <MSEBars rounds={trace.rounds.slice(0, 2)} />
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 5: Round 2 — Second Stump
+  // ────────────────────────────────────────────────────────
+  const stageTree2 = {
+    id: "tree2", group: "Boosting", title: "Round 2 — second stump on new residuals",
+    map: "Round 2",
+    why: "After round 1, the residuals are smaller but not zero. Tree 2 targets the remaining errors — the finer structure that Tree 1 missed. Residuals keep shrinking.",
+    render: (trace) => {
+      const stump2 = BOOST_REG.stumps[1];
+      const r1 = trace.rounds[Math.min(1, trace.rounds.length - 1)];
+      const r2 = trace.rounds[Math.min(2, trace.rounds.length - 1)];
+      const eta = BOOST_REG.eta;
+
+      const leftResids2 = r1.residuals.filter((_, i) => BOOST_REG.xs[i] <= stump2.threshold);
+      const rightResids2 = r1.residuals.filter((_, i) => BOOST_REG.xs[i] > stump2.threshold);
+
+      return (
+        <>
+          <Lead>
+            After round 1, the residuals are smaller — the big error (young vs. old houses)
+            has already been corrected. Now Tree 2 focuses on the <em>remaining</em> errors.
+            It finds a different split: <b>age ≤ 10</b>. Very young houses (age ≤ 10) still have
+            a small positive residual; the rest have a small negative residual. The leaf values
+            are much smaller than before — we're making finer corrections.
+          </Lead>
+          <Lead>
+            This is exactly the "studying your wrong answers" analogy. After round 1 you
+            got most questions right. Round 2 focuses only on the ones you still missed.
+            The corrections get smaller and smaller as the model converges.
+          </Lead>
+
+          <Row>
+            <div>
+              <div className="tf-subhead">Stump 2 structure</div>
+              <StumpSvg stump={stump2} label="trained on residuals r₁" />
+            </div>
+            <div>
+              <div className="tf-subhead">Residuals after F₁ (smaller!)</div>
+              <div className="nn-calc" style={{ minWidth: 230 }}>
+                <div className="nn-calc-h">Left leaf: age ≤ {stump2.threshold} (n={leftResids2.length})</div>
+                <div className="nn-calc-row" style={{ fontSize: 11 }}>
+                  [{leftResids2.map(r => fmt(r, 2)).join(", ")}]
+                </div>
+                <div className="nn-calc-row">
+                  avg ≈ <b style={{ color: stump2.leftVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(stump2.leftVal, 3)}</b>
+                </div>
+                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right leaf: age &gt; {stump2.threshold} (n={rightResids2.length})</div>
+                <div className="nn-calc-row" style={{ fontSize: 11 }}>
+                  [{rightResids2.map(r => fmt(r, 2)).join(", ")}]
+                </div>
+                <div className="nn-calc-row">
+                  avg ≈ <b style={{ color: stump2.rightVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(stump2.rightVal, 3)}</b>
+                </div>
+              </div>
+            </div>
+          </Row>
+
+          <div className="tf-subhead">Predictions after Trees 1 + 2</div>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
+            <ScatterAxes />
+            <StepLine preds={r1.preds} color="#f59e0b" strokeWidth={1.5} />
+            <StepLine preds={r2.preds} color="#2B5BFF" strokeWidth={2.5} />
+            <ResidualBars residuals={r2.residuals} preds={r2.preds} />
+            <DataDots queryX={trace.input.x} />
+          </svg>
+          <LineLegend items={[["#f59e0b", "F₁ after T1"], ["#2B5BFF", "F₂ after T2 (new residuals shown)"]]} />
+
+          <div className="tf-subhead">Residuals comparison: round 0 vs round 1 vs round 2</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--line)" }}>
+                  {["age", "true y", "F₀ resid.", "F₁ resid.", "F₂ resid.", "trend"].map(h => (
+                    <th key={h} style={{ padding: "5px 8px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {BOOST_REG.xs.map((x, i) => {
+                  const r0resid = trace.rounds[0].residuals[i];
+                  const r1resid = trace.rounds[Math.min(1, trace.rounds.length - 1)].residuals[i];
+                  const r2resid = r2.residuals[i];
+                  const shrinking = Math.abs(r2resid) < Math.abs(r1resid) && Math.abs(r1resid) < Math.abs(r0resid);
+                  return (
+                    <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{x}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{BOOST_REG.ys[i]}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "var(--muted)", fontSize: 11 }}>{fmt(r0resid, 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#f59e0b", fontSize: 11 }}>{fmt(r1resid, 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", fontWeight: 700,
+                        color: Math.abs(r2resid) < 0.3 ? "#1f9e6b" : "#2B5BFF" }}>
+                        {fmt(r2resid, 3)}
+                      </td>
+                      <td style={{ padding: "4px 8px", fontSize: 13 }}>{shrinking ? "↓ shrinking" : "→"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <MSEBars rounds={trace.rounds.slice(0, 3)} />
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 6: Round 3 — Third Stump + Residual Table
+  // ────────────────────────────────────────────────────────
+  const stageTree3 = {
+    id: "tree3", group: "Boosting", title: "Round 3 — residuals shrink toward zero",
+    map: "Round 3",
+    why: "The third stump makes even finer corrections. The full residuals-per-round table shows the core idea: each round, the errors get smaller. This is gradient descent on the loss.",
+    render: (trace) => {
+      const stump3 = BOOST_REG.stumps[2];
+      const r2 = trace.rounds[Math.min(2, trace.rounds.length - 1)];
+      const r3 = trace.rounds[Math.min(3, trace.rounds.length - 1)];
+
+      return (
+        <>
+          <Lead>
+            Round 3 makes even smaller corrections. The split is at <b>age = 30</b>, with leaf
+            values of ±{fmt(Math.abs(stump3.leftVal), 3)} — much smaller than Tree 1's ±{fmt(Math.abs(BOOST_REG.stumps[0].leftVal), 3)}.
+            This pattern always holds: early trees make big corrections, later trees fine-tune.
+            It is gradient descent in function space — each step is smaller than the last.
+          </Lead>
+          <Lead>
+            The table below is the heart of gradient boosting. Read each row left to right:
+            you can see the prediction improving after each tree, and the residual column shrinking.
+            Eventually (with enough trees and a small enough η), all residuals converge to near-zero.
+          </Lead>
+
+          <Row>
+            <div>
+              <div className="tf-subhead">Stump 3 structure</div>
+              <StumpSvg stump={stump3} label="trained on residuals r₂" />
+            </div>
+            <div>
+              <div className="tf-subhead">Leaf values getting smaller</div>
+              <div className="nn-calc" style={{ minWidth: 230 }}>
+                {[0, 1, 2].map(t => {
+                  const s = BOOST_REG.stumps[t];
+                  return (
+                    <div key={t}>
+                      <div className="nn-calc-h" style={t > 0 ? { marginTop: 6 } : {}}>Tree {t + 1} leaves</div>
+                      <div className="nn-calc-row" style={{ fontSize: 11 }}>
+                        left: <b style={{ color: s.leftVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(s.leftVal, 3)}</b>
+                        &nbsp; right: <b style={{ color: s.rightVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(s.rightVal, 3)}</b>
+                        &nbsp; <span style={{ color: "var(--muted)" }}>(magnitude ~{fmt(Math.max(Math.abs(s.leftVal), Math.abs(s.rightVal)), 2)})</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Row>
+
+          <div className="tf-subhead" style={{ marginTop: 12 }}>Full residuals-per-round table (watch them shrink)</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 11.5, width: "100%" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--line)" }}>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>age</th>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "var(--muted)", fontWeight: 600 }}>true y</th>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "#94A2BC", fontWeight: 600 }}>F₀ pred</th>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "#94A2BC", fontWeight: 600 }}>resid₀</th>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "#f59e0b", fontWeight: 600 }}>F₁ pred</th>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "#f59e0b", fontWeight: 600 }}>resid₁</th>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "#2B5BFF", fontWeight: 600 }}>F₂ pred</th>
+                  <th style={{ padding: "5px 8px", textAlign: "left", color: "#2B5BFF", fontWeight: 600 }}>resid₂</th>
+                  {trace.rounds.length > 3 && <th style={{ padding: "5px 8px", textAlign: "left", color: "#1f9e6b", fontWeight: 600 }}>F₃ pred</th>}
+                  {trace.rounds.length > 3 && <th style={{ padding: "5px 8px", textAlign: "left", color: "#1f9e6b", fontWeight: 600 }}>resid₃</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {BOOST_REG.xs.map((x, i) => {
+                  const rds = trace.rounds;
+                  return (
+                    <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{x}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", fontWeight: 600 }}>{BOOST_REG.ys[i]}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#94A2BC" }}>{fmt(rds[0].preds[i], 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#94A2BC", fontSize: 11 }}>{fmt(rds[0].residuals[i], 3)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#f59e0b" }}>{rds.length > 1 ? fmt(rds[1].preds[i], 3) : "—"}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#f59e0b", fontSize: 11 }}>{rds.length > 1 ? fmt(rds[1].residuals[i], 3) : "—"}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#2B5BFF" }}>{rds.length > 2 ? fmt(rds[2].preds[i], 3) : "—"}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#2B5BFF", fontSize: 11 }}>{rds.length > 2 ? fmt(rds[2].residuals[i], 3) : "—"}</td>
+                      {rds.length > 3 && <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#1f9e6b" }}>{fmt(rds[3].preds[i], 3)}</td>}
+                      {rds.length > 3 && <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#1f9e6b", fontSize: 11 }}>{fmt(rds[3].residuals[i], 3)}</td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="tf-subhead" style={{ marginTop: 10 }}>MSE reduction across all rounds</div>
+          <MSEBars rounds={trace.rounds} />
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 7: Full Ensemble
+  // ────────────────────────────────────────────────────────
+  const stageEnsemble = {
+    id: "ensemble", group: "Boosting", title: "Full ensemble — additive model F = F₀ + Σ η·Tₜ",
+    map: "Ensemble",
+    why: "The final model is a sum of all trees, each weighted by η. The step-function approximation improves with more trees. Use the nTrees slider to see each tree's contribution.",
+    render: (trace, ctx) => {
+      const { input } = ctx;
+      return (
+        <>
+          <Lead>
+            The final prediction is the <b>additive sum of all trees</b>:
+            F(x) = F₀ + η·T₁(x) + η·T₂(x) + η·T₃(x). Each tree adds a small piecewise-constant
+            correction to the running prediction. Together, they build a step function that
+            closely approximates the true underlying pattern in the data.
+          </Lead>
+          <Lead>
+            Use the <b>nTrees slider</b> (in the header) to add trees one at a time and watch
+            the prediction curve evolve. Notice how the first tree makes the biggest jump,
+            and later trees make increasingly subtle refinements. The red dot marks the
+            ensemble's prediction for your query age.
+          </Lead>
+
+          <Formula label="Additive model">
+            F(x) = F₀ + η·T₁(x) + η·T₂(x) + η·T₃(x) = {fmt(trace.initPred)} + {BOOST_REG.eta}·T₁(x) + {BOOST_REG.eta}·T₂(x) + {BOOST_REG.eta}·T₃(x)
+          </Formula>
+
+          <div className="tf-subhead">Ensemble prediction curve vs training data</div>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W }}>
+            <ScatterAxes />
+            {trace.rounds.slice(1).map((r, t) => (
+              <StepLine key={t} preds={r.preds}
+                color={ROUND_COLORS[t] || "#2B5BFF"}
+                strokeWidth={t === trace.rounds.length - 2 ? 3 : 1.8} />
+            ))}
+            <DataDots queryX={input.x} />
+            <circle cx={sx(input.x)} cy={sy(Math.max(yMin, Math.min(yMax, trace.queryPred)))} r={8}
+              fill="#e0492e" stroke="white" strokeWidth="2.5" />
+            <text x={sx(input.x) + 11} y={sy(Math.max(yMin, Math.min(yMax, trace.queryPred))) - 6}
+              fontSize="11" fill="#e0492e" fontWeight="700">
+              {fmt(trace.queryPred, 2)} $100k
+            </text>
+          </svg>
+          <LineLegend items={[
+            ["#94A2BC", "After T1"],
+            ["#f59e0b", "After T2"],
+            ["#2B5BFF", "After T3"],
+            ["#e0492e", `Query (age=${input.x})`],
+          ]} />
+
+          <div className="nn-calc">
+            <div className="nn-calc-h">Prediction breakdown for age = {input.x} ({input.nTrees} tree(s))</div>
+            <div className="nn-calc-row">F₀ = {fmt(trace.initPred, 3)} (mean of training y)</div>
+            {trace.rounds.slice(1).map((r, t) => {
+              const stump = BOOST_REG.stumps[t];
+              const sp = input.x <= stump.threshold ? stump.leftVal : stump.rightVal;
+              const leaf = input.x <= stump.threshold ? "left" : "right";
+              return (
+                <div key={t} className="nn-calc-row">
+                  + η×T{t+1}(age={input.x}) = {BOOST_REG.eta}×{fmt(sp, 3)} ({leaf} leaf) = <b>{fmt(BOOST_REG.eta * sp, 3)}</b>
+                </div>
+              );
+            })}
+            <div className="nn-calc-row" style={{ borderTop: "1px solid var(--line)", marginTop: 4, paddingTop: 4 }}>
+              Final prediction F({input.x}) = <b className="nn-calc-res">{fmt(trace.queryPred, 3)} $100k</b>
+            </div>
+          </div>
+
+          <div className="tf-subhead" style={{ marginTop: 12 }}>MSE reduction across rounds</div>
+          <MSEBars rounds={trace.rounds} />
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 8: Learning Rate
+  // ────────────────────────────────────────────────────────
+  const stageEta = {
+    id: "eta", group: "Concepts", title: "Learning rate η — shrinkage prevents overfitting",
+    map: "Learning rate",
+    why: "η is one of the most important hyperparameters in gradient boosting. It controls the trade-off between convergence speed and generalization quality.",
+    render: () => {
+      const etas = [1.0, 0.5, 0.1];
+      const etaColors = ["#e0492e", "#2B5BFF", "#1f9e6b"];
+      return (
+        <>
+          <Lead>
+            The <b>learning rate η</b> (also called "shrinkage") multiplies each tree's contribution
+            before adding it to the ensemble: F(x) += η × T(x). With η = 1.0, we add the full
+            tree prediction. With η = 0.1, we add only 10% of it. Why not always use η = 1.0?
+            Because large steps overshoot the optimum and cause overfitting — just like gradient
+            descent in neural networks needs a small step size to converge stably.
+          </Lead>
+          <Lead>
+            The golden rule: <b>smaller η always needs more trees</b>. η = 0.1 with 100 trees
+            often generalizes better than η = 1.0 with 10 trees, even though both reach
+            similar training error. The many small steps explore the loss landscape more
+            smoothly, finding a flatter minimum that generalizes better to new data.
+            XGBoost default is η = 0.3; scikit-learn GBM default is η = 0.1.
+          </Lead>
+
+          <div className="tf-subhead">Effect of η on loss convergence</div>
+          <svg viewBox="0 0 420 200" style={{ width: "100%", maxWidth: 420 }}>
+            {etas.map((eta, ei) => {
+              const pts = [];
+              for (let t = 0; t <= 40; t++) {
+                let loss;
+                if (eta === 1.0) {
+                  loss = t === 0 ? 4.0 : t < 3 ? 4.0 * Math.exp(-1.5 * t) + Math.sin(t * 0.9) * 0.15 : 0.35 + Math.sin(t * 0.5) * 0.12;
+                } else if (eta === 0.5) {
+                  loss = 4.0 * Math.exp(-0.38 * t) + 0.06;
+                } else {
+                  loss = 4.0 * Math.exp(-0.09 * t) + 0.02;
+                }
+                pts.push([t, Math.max(0, loss)]);
+              }
+              const lx = t => 44 + (t / 40) * 350;
+              const ly = v => 175 - Math.min(165, (v / 4.5) * 165);
+              const polyline = pts.map(([t, v]) => `${lx(t)},${ly(v)}`).join(" ");
+              return <polyline key={ei} points={polyline} fill="none" stroke={etaColors[ei]} strokeWidth="2.2" opacity="0.9" />;
+            })}
+            <line x1={44} y1={10} x2={44} y2={178} stroke="var(--line)" strokeWidth="1" />
+            <line x1={44} y1={178} x2={394} y2={178} stroke="var(--line)" strokeWidth="1" />
+            <text x={219} y={196} textAnchor="middle" fontSize="10" fill="var(--muted)">number of trees</text>
+            <text x={15} y={95} textAnchor="middle" fontSize="10" fill="var(--muted)" transform="rotate(-90,15,95)">training MSE</text>
+            {etas.map((eta, ei) => (
+              <g key={ei}>
+                <line x1={56 + ei * 110} y1={24} x2={76 + ei * 110} y2={24} stroke={etaColors[ei]} strokeWidth="2.5" />
+                <text x={80 + ei * 110} y={28} fontSize="10" fill={etaColors[ei]} fontWeight="700">η = {eta}</text>
+              </g>
+            ))}
+            <text x={250} y={50} fontSize="9" fill="#e0492e">oscillates / overfits</text>
+            <text x={250} y={90} fontSize="9" fill="#2B5BFF">balanced</text>
+            <text x={200} y={140} fontSize="9" fill="#1f9e6b">slow but smooth</text>
+          </svg>
+
+          <div className="tf-legend" style={{ marginTop: 12 }}>
             {[
-              ["n_estimators", "Number of boosting rounds (trees). More trees → lower training error, risk of overfitting. Use early stopping to find the right value. Typical: 100–1000."],
-              ["learning_rate η", "Shrinkage factor per tree (0 < η ≤ 1). Smaller = better generalization but slower. Typical: 0.01–0.3."],
-              ["max_depth", "Max depth of each tree. Depth 1 = stumps, depth 3–5 captures interactions. Typical: 3–6."],
-              ["subsample", "Fraction of training data used per tree. < 1.0 adds stochasticity (like random forest). Typical: 0.7–1.0."],
-              ["min_samples_leaf", "Minimum samples in a leaf node. Higher = simpler trees, less overfitting."],
+              ["η = 1.0 (red)", "Full step — fast but oscillates and overfits training data. Early stopping essential. Few trees needed but test error can be poor."],
+              ["η = 0.5 (blue)", "Our dataset's setting. Converges cleanly with 3–10 trees. Balanced trade-off between speed and generalization."],
+              ["η = 0.1 (green)", "Small shrinkage — very smooth convergence. Needs 50–300+ trees for best accuracy, but generalizes excellently. Standard production setting."],
+              ["Rule of thumb", "Always pair small η with large n_estimators. Use early stopping (monitor validation loss) to find the right number of trees automatically."],
+              ["Mathematical view", "Shrinkage is equivalent to L2 regularization on the tree weights. Smaller η = stronger regularization = less overfitting."],
             ].map(([n, d]) => (
-              <div className="tf-leg is-learned" key={n}>
+              <div className="tf-leg" key={n}>
                 <div className="tf-leg-name">{n}</div>
                 <div className="tf-leg-desc">{d}</div>
               </div>
             ))}
           </div>
-          <div className="tf-subhead" style={{ marginTop: 16 }}>When to use gradient boosting</div>
-          <div className="opt-pc">
-            <div className="opt-pc-col is-pro">
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#1f9e6b", marginBottom: 8 }}>Use it when…</div>
-              <ul style={{ fontSize: 13, margin: 0, padding: "0 0 0 16px", lineHeight: 1.8 }}>
-                <li>Tabular / structured data</li>
-                <li>Mixed numerical + categorical features</li>
-                <li>You need high accuracy on a leaderboard</li>
-                <li>Missing values present (XGBoost handles natively)</li>
-                <li>Moderate dataset size (10k–10M rows)</li>
+
+          <Note>
+            With η = 0.5 and 3 trees, our toy model achieves MSE = {fmt(runBoostReg({ x: 15, nTrees: 3 }).mse, 4)}.
+            With real data, tuning η and n_estimators together (via cross-validation) is the
+            most impactful hyperparameter optimization you can do.
+          </Note>
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 9: Missing Values & Outliers
+  // ────────────────────────────────────────────────────────
+  const stageMissing = {
+    id: "robustness", group: "Concepts", title: "Missing values & outliers — practical robustness",
+    map: "Robustness",
+    why: "Real-world data is messy. Understanding how boosting handles (or fails to handle) missing values and outliers is essential for production use.",
+    render: (trace) => {
+      // Show effect of an outlier on residuals
+      const outlierY = 12.0; // an outlier price way above trend
+      const outlierX = 7;    // age 7 with price 12 (far above expected ~8.2)
+      const initPredVal = trace.initPred;
+      const outlierResid = outlierY - initPredVal;
+
+      // loss comparison table
+      const preds = [3.0, 3.5, 4.0, 4.5, 5.0];
+      const trueY = 8.0;
+      return (
+        <>
+          <Lead>
+            Two practical challenges: <b>missing feature values</b> and <b>outliers in y</b>.
+            Standard GBM (scikit-learn) requires imputation before training — you must fill
+            in missing values with the mean, median, or a learned value. <b>XGBoost</b> handles
+            missing values natively by learning, at each split, the best default direction
+            for samples with a missing feature value. This is one of XGBoost's biggest
+            practical advantages.
+          </Lead>
+          <Lead>
+            Outliers in y are more dangerous. MSE loss squares the residuals, so a single
+            extreme outlier creates a residual that is orders of magnitude larger than normal points.
+            The boosting algorithm will spend many rounds trying to correct that one point,
+            at the cost of accuracy on all other points. The solution: use a <b>robust loss function</b>
+            like Huber loss (smooth combination of MSE and MAE) or quantile loss (predicts medians).
+          </Lead>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "14px 0" }}>
+            <div style={{ background: "var(--accent-soft)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-ink)", marginBottom: 8 }}>Missing Values</div>
+              <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.7 }}>
+                <b>Standard GBM:</b> impute first (mean/median). Missing values are never seen during training.
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.7, marginTop: 8 }}>
+                <b>XGBoost:</b> at each split, learn the optimal default direction for missing values.
+                If feature is missing, route left or right — whichever minimizes loss. No imputation needed.
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.7, marginTop: 8 }}>
+                <b>LightGBM:</b> same approach as XGBoost. Both handle sparse features natively.
+              </div>
+            </div>
+            <div style={{ background: "rgba(224,73,46,.08)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#e0492e", marginBottom: 8 }}>Outliers in y</div>
+              <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.7 }}>
+                Imagine a house priced at $12m (age=7). Its residual after F₀ = {fmt(outlierResid, 2)}.
+                All other residuals are below 3.0. This outlier <b>dominates</b> the gradient signal.
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.7, marginTop: 8 }}>
+                <b>Fix:</b> use Huber loss L(r) = r²/2 if |r| ≤ δ, else δ|r| − δ²/2.
+                For large residuals, Huber loss grows <em>linearly</em> (not quadratically), capping the influence of outliers.
+              </div>
+            </div>
+          </div>
+
+          <div className="tf-subhead">Why MSE is sensitive to outliers — loss comparison</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%", maxWidth: 500 }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--line)" }}>
+                  {["pred F(x)", "true y", "residual r", "MSE loss (r²)", "MAE loss (|r|)", "Huber (δ=1)"].map(h => (
+                    <th key={h} style={{ padding: "5px 8px", color: "var(--muted)", fontWeight: 600, textAlign: "left" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {preds.map(p => {
+                  const r = trueY - p;
+                  const mse = r * r;
+                  const mae = Math.abs(r);
+                  const delta = 1.0;
+                  const huber = Math.abs(r) <= delta ? r * r / 2 : delta * (Math.abs(r) - delta / 2);
+                  const isOutlier = Math.abs(r) > 4;
+                  return (
+                    <tr key={p} style={{ borderBottom: "1px solid var(--line-soft)", background: isOutlier ? "rgba(224,73,46,.06)" : undefined }}>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{p.toFixed(1)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{trueY}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#e0492e", fontWeight: isOutlier ? 700 : 400 }}>{fmt(r, 2)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: isOutlier ? "#e0492e" : "var(--ink)", fontWeight: isOutlier ? 700 : 400 }}>{fmt(mse, 2)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)" }}>{fmt(mae, 2)}</td>
+                      <td style={{ padding: "4px 8px", fontFamily: "var(--num-font)", color: "#1f9e6b" }}>{fmt(huber, 2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <Note>
+            In XGBoost, set <code>objective="reg:pseudohubererror"</code> or use quantile regression
+            (<code>objective="reg:quantileerror"</code>) to get outlier-robust predictions.
+            For scikit-learn GBM: <code>loss="huber"</code>. Always inspect your target variable
+            for extreme outliers before boosting — they can wreck your model.
+          </Note>
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 10: Evaluation & XGBoost
+  // ────────────────────────────────────────────────────────
+  const stageEval = {
+    id: "eval", group: "Concepts", title: "Evaluation & XGBoost — going beyond vanilla GBM",
+    map: "Evaluation",
+    why: "Knowing the right evaluation metrics and understanding how XGBoost improves on vanilla GBM is essential for using boosting effectively in practice.",
+    render: (trace) => {
+      // R² calculation on our toy data
+      const finalPreds = trace.preds;
+      const yMean = BOOST_REG.ys.reduce((a, b) => a + b, 0) / BOOST_REG.ys.length;
+      const ssTot = BOOST_REG.ys.reduce((s, y) => s + (y - yMean) ** 2, 0);
+      const ssRes = BOOST_REG.ys.reduce((s, y, i) => s + (y - finalPreds[i]) ** 2, 0);
+      const r2 = 1 - ssRes / ssTot;
+
+      return (
+        <>
+          <Lead>
+            For regression, the primary metrics are <b>MSE</b> (Mean Squared Error),
+            <b> RMSE</b> (Root MSE, same units as y), and <b>R²</b> (coefficient of determination).
+            R² = 1 − SS_res/SS_tot measures how much variance the model explains.
+            R² = 1.0 is a perfect fit; R² = 0 means the model does no better than predicting
+            the mean (which is exactly what F₀ does). Our 3-tree model achieves R² = {fmt(r2, 3)}.
+          </Lead>
+          <Lead>
+            <b>XGBoost</b> (Chen & Guestrin, 2016) is the most widely deployed gradient boosting
+            implementation. It extends vanilla GBM with four key improvements: (1) second-order
+            gradients for better leaf value estimation, (2) L1/L2 regularization on leaf weights,
+            (3) native missing value handling, and (4) parallel column subsampling like Random Forest.
+            These improvements make XGBoost substantially more accurate and faster than scikit-learn's GBM.
+          </Lead>
+
+          <div className="nn-calc" style={{ marginTop: 4 }}>
+            <div className="nn-calc-h">Evaluation on toy data (3 trees, η={BOOST_REG.eta})</div>
+            <div className="nn-calc-row">MSE = {fmt(trace.mse, 4)}</div>
+            <div className="nn-calc-row">RMSE = √{fmt(trace.mse, 4)} = {fmt(Math.sqrt(trace.mse), 3)} $100k</div>
+            <div className="nn-calc-row">R² = 1 − {fmt(ssRes, 3)} / {fmt(ssTot, 3)} = <b>{fmt(r2, 3)}</b> (explains {(r2 * 100).toFixed(1)}% of variance)</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "14px 0" }}>
+            <div style={{ background: "var(--accent-soft)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-ink)", marginBottom: 8 }}>Vanilla GBM (scikit-learn)</div>
+              <ul style={{ fontSize: 12, color: "var(--ink)", margin: 0, padding: "0 0 0 16px", lineHeight: 1.75 }}>
+                <li>First-order gradients only</li>
+                <li>No built-in regularization</li>
+                <li>Requires imputation for missing values</li>
+                <li>Single-threaded tree building</li>
+                <li>Simple, easy to understand</li>
               </ul>
             </div>
-            <div className="opt-pc-col is-con">
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#e0492e", marginBottom: 8 }}>Skip it when…</div>
-              <ul style={{ fontSize: 13, margin: 0, padding: "0 0 0 16px", lineHeight: 1.8 }}>
-                <li>Image, text, or sequence data → use Neural Networks</li>
-                <li>Very small datasets (< 200 rows) → use Linear/KNN</li>
-                <li>You need full probabilistic uncertainty → use Bayesian methods</li>
-                <li>Online/streaming learning → gradient boosting is batch-only</li>
-                <li>Extreme speed requirements at inference time</li>
+            <div style={{ background: "rgba(124,92,255,.08)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#7c5cff", marginBottom: 8 }}>XGBoost improvements</div>
+              <ul style={{ fontSize: 12, color: "var(--ink)", margin: 0, padding: "0 0 0 16px", lineHeight: 1.75 }}>
+                <li>Second-order gradients (Hessian) — Newton step</li>
+                <li>L1 + L2 regularization on leaf weights (α, λ)</li>
+                <li>Missing value handling — learned default direction</li>
+                <li>Column subsampling per tree / per split</li>
+                <li>GPU training, distributed computing</li>
               </ul>
             </div>
           </div>
+
+          <div className="tf-subhead">XGBoost leaf value formula</div>
+          <Formula label="XGBoost leaf">
+            w* = −ΣGᵢ / (ΣHᵢ + λ) &nbsp;where G = ∂L/∂F (gradient), H = ∂²L/∂F² (Hessian), λ = L2 regularization
+          </Formula>
+          <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.7, marginBottom: 12 }}>
+            For MSE loss: Gᵢ = Fᵢ − yᵢ (residual), Hᵢ = 1. So XGBoost leaf = −Σ(Fᵢ−yᵢ)/(n+λ),
+            which equals the mean residual regularized toward zero. For log-loss: Hᵢ = pᵢ(1−pᵢ),
+            so confident predictions get smaller updates — automatic "confidence-aware" learning rate.
+          </div>
+
+          <div className="opt-pc">
+            <div className="opt-pc-col is-pro">
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#1f9e6b", marginBottom: 6 }}>When GBM/XGBoost wins</div>
+              <ul style={{ fontSize: 13, margin: 0, padding: "0 0 0 16px", lineHeight: 1.8 }}>
+                <li>Tabular / structured data</li>
+                <li>Kaggle-style competitions</li>
+                <li>Mixed numerical + categorical features</li>
+                <li>Missing values in features</li>
+                <li>When precision matters more than training speed</li>
+              </ul>
+            </div>
+            <div className="opt-pc-col is-con">
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#e0492e", marginBottom: 6 }}>When Random Forest wins</div>
+              <ul style={{ fontSize: 13, margin: 0, padding: "0 0 0 16px", lineHeight: 1.8 }}>
+                <li>Quick baseline needed (less tuning)</li>
+                <li>Small datasets (RF less prone to overfit)</li>
+                <li>Training speed is a priority</li>
+                <li>Interpretability via feature importances</li>
+                <li>No validation set for early stopping</li>
+              </ul>
+            </div>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 14, fontSize: 12 }}>
             {[
-              { name: "XGBoost", notes: "2nd-order gradients, regularization, column subsampling, GPU" },
-              { name: "LightGBM", notes: "Histogram-based splits, leaf-wise growth, fastest on large datasets" },
-              { name: "CatBoost", notes: "Handles categoricals natively, ordered boosting reduces target leakage" },
+              { name: "XGBoost", notes: "2nd-order gradients, regularization, GPU. The original Kaggle workhorse." },
+              { name: "LightGBM", notes: "Histogram-based splits, leaf-wise growth. Fastest on large datasets (>100k rows)." },
+              { name: "CatBoost", notes: "Native categoricals, ordered boosting. Best out-of-the-box without tuning." },
             ].map(pkg => (
               <div key={pkg.name} style={{ background: "var(--accent-soft)", borderRadius: 8, padding: "10px 12px" }}>
                 <div style={{ fontWeight: 700, color: "var(--accent-ink)", marginBottom: 4 }}>{pkg.name}</div>
@@ -839,8 +1165,24 @@
             ))}
           </div>
         </>
-      ),
+      );
     },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  ASSEMBLE STAGES
+  // ────────────────────────────────────────────────────────
+  window.ML_STAGES = [
+    stageOverview,
+    stageDataset,
+    stageInit,
+    stageTree1,
+    stageTree2,
+    stageTree3,
+    stageEnsemble,
+    stageEta,
+    stageMissing,
+    stageEval,
   ];
 
   // ── META ──
@@ -870,8 +1212,8 @@
           <span className="nn-slider-v">{input.nTrees}</span>
         </label>
         <span style={{ fontSize: 12, color: "var(--muted)", paddingLeft: 4 }}>
-          pred: <b style={{ color: "var(--accent-ink)" }}>{fmt(trace.queryPred)} $100k</b>
-          &nbsp;|&nbsp;MSE: <b>{fmt(trace.mse, 3)}</b>
+          pred: <b style={{ color: "var(--accent-ink)" }}>{fmt(trace.queryPred, 2)} $100k</b>
+          &nbsp;|&nbsp;MSE: <b>{fmt(trace.mse, 4)}</b>
         </span>
       </>
     ),
