@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-tftheme="paper">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naveen Chowdary Aliveli — AI Engineer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="ui/styles-tf.css?v=2" />
+  <link rel="stylesheet" href="styles-home.css?v=2" />
+  <link rel="stylesheet" href="styles-portfolio.css?v=2" />
+</head>
+<body>
+  <div class="home" id="app"></div>
+
+  <script src="profile.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="three-bg.js"></script>
+  <script src="skillgraph.js"></script>
+  <script>
+    (function () {
+      var P = window.PROFILE;
+      document.documentElement.setAttribute("data-tftheme", "paper");
+
+      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+      var arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+      var mail = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+      var ext = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>';
+      var gh = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.46-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05a9.4 9.4 0 0 1 5 0c1.91-1.32 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.93.68 1.88 0 1.36-.01 2.46-.01 2.8 0 .27.18.6.69.49A10.03 10.03 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>';
+      var brandMark = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.4"/><circle cx="5" cy="6" r="1.6"/><circle cx="19" cy="6" r="1.6"/><circle cx="5" cy="18" r="1.6"/><circle cx="19" cy="18" r="1.6"/><path d="M6.6 7 10 10.4M17.4 7 14 10.4M6.6 17 10 13.6M17.4 17 14 13.6"/></svg>';
+
+      var STACK_ICONS = {
+        "Languages": '<path d="M8 6 3 12l5 6M16 6l5 6-5 6"/>',
+        "Frameworks": '<path d="M12 3 2 8l10 5 10-5-10-5zM2 16l10 5 10-5M2 12l10 5 10-5"/>',
+        "Inference & Training": '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>',
+        "Generative AI": '<path d="M12 2l2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2z"/>',
+        "Classical ML": '<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>',
+        "Deep Learning": '<circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12 17 6.6M7 12.2 17 17.4"/>',
+        "Data & Vector DBs": '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+        "Cloud & MLOps": '<path d="M17.5 19a4.5 4.5 0 0 0 .2-9 6 6 0 0 0-11.7 1.6A3.5 3.5 0 0 0 6.5 19z"/>'
+      };
+      function stackIcon(g) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + (STACK_ICONS[g] || '<circle cx="12" cy="12" r="8"/>') + '</svg>'; }
+
+      var TOOL_ICONS = {
+        "Python":"python","Git":"git","PyTorch":"pytorch","TensorFlow":"tensorflow",
+        "LangChain":"langchain","Hugging Face":"huggingface","ONNX":"onnx","Docker":"docker",
+        "Kubernetes":"kubernetes","FastAPI":"fastapi","Streamlit":"streamlit","MySQL":"mysql",
+        "MongoDB":"mongodb","Spark":"apachespark","Hadoop":"apachehadoop","Qdrant":"qdrant",
+        "AWS":"amazonwebservices","Azure":"microsoftazure","MLflow":"mlflow","TensorRT":"nvidia",
+        "Ray":"ray","Pinecone":"pinecone","SQL":"postgresql"
+      };
+      function toolChip(name) {
+        var slug = TOOL_ICONS[name];
+        var ic = slug ? '<img class="pf-skill-ic" src="https://cdn.simpleicons.org/' + slug + '" alt="" loading="lazy" onerror="this.remove()"/>' : '';
+        return '<span class="pf-skill">' + ic + esc(name) + '</span>';
+      }
+
+      var statHtml = (P.stats || []).map(function (s) { return '<div class="home-stat"><div class="home-stat-v">' + esc(s.v) + '</div><div class="home-stat-l">' + esc(s.l) + '</div></div>'; }).join("");
+
+      var expHtml = (P.experience || []).map(function (e) {
+        var pts = (e.points || []).map(function (p) { return '<li>' + esc(p) + '</li>'; }).join("");
+        return '<div class="pf-exp reveal">' +
+          '<div class="pf-exp-rail"><span class="pf-exp-dot"></span></div>' +
+          '<div class="pf-exp-body">' +
+            '<div class="pf-exp-top"><div class="pf-exp-role">' + esc(e.role) + '</div><div class="pf-exp-period">' + esc(e.period) + '</div></div>' +
+            '<div class="pf-exp-coline"><span class="pf-exp-co">' + esc(e.company) + '</span><span class="pf-exp-loc"> · ' + esc(e.location || "") + '</span></div>' +
+            '<ul class="pf-exp-points">' + pts + '</ul>' +
+          '</div>' +
+        '</div>';
+      }).join("");
+
+      var stackHtml = (P.techStack || []).map(function (g) {
+        var items = g.items.map(function (i) { return toolChip(i); }).join("");
+        return '<div class="pf-stackcard reveal">' +
+          '<div class="pf-stackcard-h"><span class="pf-stackcard-ic">' + stackIcon(g.group) + '</span><span class="pf-stackcard-t">' + esc(g.group) + '</span></div>' +
+          '<div class="pf-skills">' + items + '</div>' +
+        '</div>';
+      }).join("");
+
+      var projHtml = (P.projects || []).map(function (pr) {
+        var tags = (pr.tags || []).map(function (t) { return '<span class="card-tag">' + esc(t) + '</span>'; }).join("");
+        var isRepo = pr.href && pr.href.indexOf("http") === 0;
+        var hl = pr.highlight ? '<div class="pf-proj-hl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>' + esc(pr.highlight) + '</div>' : '';
+        var inner =
+          '<div class="card-top"><span class="pf-proj-ic">' + brandMark + '</span>' +
+            (pr.featured ? '<span class="card-status feat">★ Featured</span>' : (pr.href ? '<span class="card-status live">' + (isRepo ? "Repo" : "On-site") + '</span>' : '<span class="card-status soon">Work</span>')) + '</div>' +
+          '<div class="card-title">' + esc(pr.title) + '</div>' +
+          hl +
+          '<div class="card-desc">' + esc(pr.desc) + '</div>' +
+          '<div class="card-tags">' + tags + '</div>' +
+          (pr.href ? '<div class="card-go">' + (isRepo ? "View on GitHub " : "Open ") + arrow + '</div>' : '');
+        if (pr.href) return '<a class="card reveal' + (pr.featured ? ' is-feat' : '') + '"' + (isRepo ? ' target="_blank" rel="noopener"' : '') + ' href="' + esc(pr.href) + '">' + inner + '</a>';
+        return '<div class="card pf-proj-static reveal">' + inner + '</div>';
+      }).join("");
+
+      var eduHtml = (P.education || []).map(function (e) {
+        return '<div class="pf-edu reveal">' +
+          '<div class="pf-edu-top"><div class="pf-edu-school">' + esc(e.school) + '</div><div class="pf-exp-period">' + esc(e.period) + '</div></div>' +
+          '<div class="pf-edu-degree">' + esc(e.degree) + ' · ' + esc(e.location || "") + '</div>' +
+          '<div class="pf-edu-detail">' + esc(e.detail || "") + '</div>' +
+        '</div>';
+      }).join("");
+
+      var certHtml = (P.certifications || []).map(function (c) {
+        return '<div class="pf-cert reveal"><span class="pf-cert-badge">★</span><div><div class="pf-cert-title">' + esc(c.title) + '</div><div class="pf-cert-org">' + esc(c.org) + '</div></div></div>';
+      }).join("");
+
+      var links = (P.links || []).filter(function (l) { return l.href && l.href !== "#"; })
+        .map(function (l) { return '<a class="pf-link" href="' + esc(l.href) + '" target="_blank" rel="noopener">' + esc(l.label) + ext + '</a>'; }).join("");
+
+      document.getElementById("app").innerHTML =
+        '<nav class="home-nav">' +
+          '<a class="home-brand" href="index.html">' +
+            '<span class="home-brand-mark">' + brandMark + '</span>' +
+            '<span class="home-brand-name">Neural Codex<small>Interactive AI explainers</small></span>' +
+          '</a>' +
+          '<div class="home-nav-links">' +
+            '<a class="home-nav-link" href="index.html">Home</a>' +
+            '<a class="home-nav-link is-active" href="about.html">About me</a>' +
+          '</div>' +
+          '<div class="home-nav-right"><a class="home-iconlink" href="' + esc(P.github) + '" target="_blank" rel="noopener" title="GitHub">' + gh + '</a></div>' +
+        '</nav>' +
+
+        '<header class="pf-hero">' +
+          '<div class="hero3d" id="hero3d-about"></div><div class="pf-hero-grid"></div>' +
+          '<div class="pf-hero-inner">' +
+            '<div class="pf-hero-text">' +
+              '<div class="pf-eyebrow"><span class="dot"></span>' + esc(P.badge || P.role) + ' · ' + esc(P.location || "") + '</div>' +
+              '<h1 class="pf-name">' + esc(P.name.split(" ")[0]) + ' <span class="grad">' + esc(P.name.split(" ").slice(1).join(" ") || "") + '</span></h1>' +
+              '<div class="pf-role">' + esc(P.role) + '</div>' +
+              '<p class="pf-tagline">' + esc(P.tagline) + '</p>' +
+              '<div class="pf-cta">' +
+                '<a class="pf-btn pf-btn--primary" href="#contact">Get in touch</a>' +
+                '<a class="pf-btn" href="#experience">See experience ' + arrow + '</a>' +
+              '</div>' +
+            '</div>' +
+            '<div class="pf-avatar"><div class="pf-avatar-ring"></div><div class="pf-avatar-mono">' + esc(P.initials || P.name.slice(0,2)) + '</div></div>' +
+          '</div>' +
+        '</header>' +
+
+        '<section class="pf-section" id="about">' +
+          '<div class="pf-kicker">About</div><h2 class="pf-h2">Who I am</h2>' +
+          '<p class="pf-bio">' + esc(P.bio) + '</p>' +
+        '</section>' +
+
+        '<section class="pf-section" id="experience">' +
+          '<div class="pf-kicker">Career</div><h2 class="pf-h2">Experience</h2>' +
+          '<div class="pf-timeline">' + expHtml + '</div>' +
+        '</section>' +
+
+        '<section class="pf-section" id="stack">' +
+          '<div class="pf-kicker">Toolbox</div><h2 class="pf-h2">Tech stack</h2>' +
+          '<p class="pf-graph-hint"><span class="pf-graph-dot"></span><span>Interactive map — <b>drag</b> any node to explore. Hubs are categories; connected pills are the tools.</span></p>' +
+          '<div class="pf-legend" id="skill-legend"></div>' +
+          '<div class="pf-graph" id="skillgraph"></div>' +
+        '</section>' +
+
+        '<section class="pf-section" id="projects">' +
+          '<div class="pf-writing-head"><div><div class="pf-kicker">Projects</div><h2 class="pf-h2" style="margin:0">Selected work</h2></div>' +
+          '<a class="pf-viewall" href="' + esc(P.github) + '" target="_blank" rel="noopener">View all on GitHub ' + arrow + '</a></div>' +
+          '<div class="grid">' + projHtml + '</div>' +
+        '</section>' +
+
+        '<section class="pf-section" id="education">' +
+          '<div class="pf-two">' +
+            '<div><div class="pf-kicker">Education</div><h2 class="pf-h2">Education</h2>' + eduHtml + '</div>' +
+            '<div><div class="pf-kicker">Recognition</div><h2 class="pf-h2">Certifications &amp; awards</h2><div class="pf-certs">' + certHtml + '</div></div>' +
+          '</div>' +
+        '</section>' +
+
+        '<section class="pf-section" id="contact">' +
+          '<div class="pf-kicker">Contact</div><h2 class="pf-h2">Let\u2019s talk</h2>' +
+          '<div class="pf-contact">' +
+            '<p class="pf-contact-line">Questions, collaborations, or just want to chat about how a model works? I\u2019m happy to hear from you.</p>' +
+            '<div class="pf-links"><a class="pf-iconbtn" href="mailto:' + esc(P.email) + '" aria-label="Email me" title="Email me">' + mail + '</a>' + links + '</div>' +
+          '</div>' +
+        '</section>' +
+
+        '<footer class="home-foot"><b>' + esc(P.name) + '</b> · ' + esc(P.role) + '<br/><a href="index.html" style="color:var(--accent-ink)">← Back to the explainers</a></footer>';
+
+      if (window.NeuralBG) NeuralBG.init("hero3d-about", { color: 0x2B5BFF, count: 64 });
+      if (window.SkillGraph) SkillGraph.init("skillgraph", P.techStack || [], { legendId: "skill-legend" });
+
+      (function () {
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var els = document.querySelectorAll(".reveal");
+        if (reduce || !window.IntersectionObserver) { return; }
+        els.forEach(function (e) { e.classList.add("armed"); });
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("is-in"); io.unobserve(en.target); } });
+        }, { threshold: 0.1, rootMargin: "0px 0px -6% 0px" });
+        els.forEach(function (e) { io.observe(e); });
+        setTimeout(function () { els.forEach(function (e) { e.classList.add("is-in"); }); }, 2200);
+      })();
+    })();
+  </script>
+</body>
+</html>

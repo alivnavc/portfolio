@@ -1,0 +1,96 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "data.js"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--bg",
+      "--bg-2",
+      "--blur",
+      "--faint",
+      "--font",
+      "--glass",
+      "--glass-line",
+      "--glass-soft",
+      "--ink",
+      "--line",
+      "--line-2",
+      "--muted",
+      "--ok",
+      "--r-pill",
+      "--sonic",
+      "--sonic-2",
+      "--sonic-700",
+      "--sonic-900",
+      "--surface",
+      "--user-grad"
+    ],
+    "tokenKinds": {
+      "--sonic": "color",
+      "--sonic-2": "color",
+      "--sonic-700": "color",
+      "--sonic-900": "color",
+      "--ink": "color",
+      "--muted": "color",
+      "--faint": "color",
+      "--line": "color",
+      "--line-2": "color",
+      "--surface": "color",
+      "--bg": "color",
+      "--bg-2": "color",
+      "--ok": "color",
+      "--user-grad": "other",
+      "--glass": "other",
+      "--glass-soft": "color",
+      "--glass-line": "color",
+      "--blur": "other",
+      "--r-pill": "spacing",
+      "--font": "font"
+    },
+    "fontFamilies": []
+  }
+}
