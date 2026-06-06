@@ -266,5 +266,35 @@ window.SITE = {
         },
       ],
     },
+    {
+      id: "ml-fundamentals",
+      title: "ML Fundamentals",
+      kicker: "The science behind every model",
+      desc:
+        "Core concepts that underpin every machine learning system — from end-to-end pipeline design " +
+        "to dimensionality reduction and evaluation — with real-world examples and decision guides.",
+      icon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l5 3"/></svg>',
+      articles: [
+        {
+          title: "ML Model Lifecycle",
+          sub: "End-to-end from raw data to production",
+          href: "ML Lifecycle.html",
+          desc: "The full pipeline: data ingestion, EDA (missing values, outliers, imbalance), feature engineering, scaling, splitting, model selection, training, evaluation metrics, hyperparameter tuning, and production monitoring.",
+          tags: ["EDA", "feature engineering", "evaluation", "pipeline", "production"],
+          steps: 17,
+          status: "live",
+        },
+        {
+          title: "PCA",
+          sub: "Principal Component Analysis",
+          href: "PCA.html",
+          desc: "Step-by-step PCA with a 6-student toy dataset: standardize → covariance matrix → eigendecomposition → explained variance → projection → reconstruction. When to use vs t-SNE, UMAP, LDA.",
+          tags: ["PCA", "dimensionality reduction", "eigenvalues", "covariance"],
+          steps: 10,
+          status: "live",
+        },
+      ],
+    },
   ],
 };
