@@ -266,6 +266,286 @@
   }
 
   /* ════════════════════════════════════════
+     FOREST REGRESSION ANIMATION
+     ════════════════════════════════════════ */
+
+  const REG_PHASE_LABELS = [
+    "Phase 0 — Training data scatter",
+    "Phase 1 — Tree 1 step function builds",
+    "Phase 2 — Tree 2 step function builds",
+    "Phase 3 — Tree 3 step function builds",
+    "Phase 4 — Query point appears at age = 12",
+    "Phase 5 — Each tree predicts at query age",
+    "Phase 6 — Predictions average to final answer",
+    "Phase 7 — All curves + averaged ensemble",
+  ];
+
+  // Simplified step-function data for each tree (age breakpoints and predictions)
+  // Based on RF.data: [[2,8.2],[5,7.5],[8,6.8],[12,5.7],[20,3.8],[28,2.9],[35,2.2],[42,1.8]]
+  // Tree 1: splits age≤10 → 7.5, age≤25 → 4.75, age>25 → 2.3
+  // Tree 2: splits age≤8  → 7.85, age≤22 → 4.75, age>22 → 2.3
+  // Tree 3: splits age≤11 → 7.1, age≤28 → 4.1,  age>28 → 2.05
+  const REG_TREE_CURVES = [
+    [ { age: 0, pred: 7.5 }, { age: 10, pred: 7.5 }, { age: 10, pred: 4.75 }, { age: 25, pred: 4.75 }, { age: 25, pred: 2.3 }, { age: 48, pred: 2.3 } ],
+    [ { age: 0, pred: 7.85 }, { age: 8, pred: 7.85 }, { age: 8, pred: 4.75 }, { age: 22, pred: 4.75 }, { age: 22, pred: 2.3 }, { age: 48, pred: 2.3 } ],
+    [ { age: 0, pred: 7.1 }, { age: 11, pred: 7.1 }, { age: 11, pred: 4.1 }, { age: 28, pred: 4.1 }, { age: 28, pred: 2.05 }, { age: 48, pred: 2.05 } ],
+  ];
+  const QUERY_AGE = 12;
+  const TREE_PREDS_AT_QUERY = [4.75, 4.75, 4.1]; // each tree's pred at age 12
+  const AVG_PRED = ((4.75 + 4.75 + 4.1) / 3); // ≈ 4.53
+
+  function ForestRegAnim() {
+    const [phase, setPhase] = React.useState(0);
+    const [playing, setPlaying] = React.useState(false);
+    const [speed, setSpeed] = React.useState(1000);
+
+    React.useEffect(() => {
+      if (!playing || phase >= 7) { setPlaying(false); return; }
+      const t = setTimeout(() => setPhase(p => p + 1), speed);
+      return () => clearTimeout(t);
+    }, [playing, phase, speed]);
+
+    function reset() { setPhase(0); setPlaying(false); }
+    function togglePlay() {
+      if (phase >= 7) { setPhase(0); setPlaying(true); }
+      else setPlaying(p => !p);
+    }
+
+    // Chart dimensions
+    const W = 800, H = 440;
+    const pad = { l: 54, r: 20, t: 30, b: 50 };
+    const chartW = W - pad.l - pad.r;
+    const chartH = H - pad.t - pad.b - 54; // leave room for phase text
+    const xMin = 0, xMax = 48, yMin = 0, yMax = 10;
+    const sx = v => pad.l + ((v - xMin) / (xMax - xMin)) * chartW;
+    const sy = v => pad.t + chartH - ((v - yMin) / (yMax - yMin)) * chartH;
+
+    function stepPath(pts) {
+      if (!pts || pts.length < 2) return "";
+      let d = `M${sx(pts[0].age)},${sy(pts[0].pred)}`;
+      for (let i = 1; i < pts.length; i++) {
+        d += ` H${sx(pts[i].age)} V${sy(pts[i].pred)}`;
+      }
+      return d;
+    }
+
+    // Averaged curve (pointwise average of 3 step functions, sampled every age integer)
+    const avgCurve = (() => {
+      const ages = [];
+      for (let a = 0; a <= 48; a++) ages.push(a);
+      const result = [];
+      for (const age of ages) {
+        const preds = REG_TREE_CURVES.map(curve => {
+          // find the segment containing this age
+          for (let i = curve.length - 1; i >= 0; i--) {
+            if (curve[i].age <= age) return curve[i].pred;
+          }
+          return curve[0].pred;
+        });
+        result.push({ age, pred: preds.reduce((a, b) => a + b, 0) / preds.length });
+      }
+      // deduplicate consecutive same pred
+      const deduped = [result[0]];
+      for (let i = 1; i < result.length; i++) {
+        if (Math.abs(result[i].pred - result[i - 1].pred) > 0.001) deduped.push(result[i]);
+      }
+      return deduped;
+    })();
+
+    // Prediction labels (phase 5+)
+    const predLabels = [
+      { tree: 1, color: TREE_COLORS[0], val: TREE_PREDS_AT_QUERY[0], label: `Tree 1: $${TREE_PREDS_AT_QUERY[0].toFixed(2)} × 100k` },
+      { tree: 2, color: TREE_COLORS[1], val: TREE_PREDS_AT_QUERY[1], label: `Tree 2: $${TREE_PREDS_AT_QUERY[1].toFixed(2)} × 100k` },
+      { tree: 3, color: TREE_COLORS[2], val: TREE_PREDS_AT_QUERY[2], label: `Tree 3: $${TREE_PREDS_AT_QUERY[2].toFixed(2)} × 100k` },
+    ];
+
+    return (
+      <div style={{ fontFamily: "inherit" }}>
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <button onClick={togglePlay} style={{
+            padding: "6px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+            background: playing ? "#ff9800" : "#4caf50", color: "#fff", fontWeight: 700, fontSize: 14,
+          }}>
+            {playing ? "⏸ Pause" : (phase >= 7 ? "⟳ Reset & Play" : "▶ Play")}
+          </button>
+          <button onClick={reset} style={{
+            padding: "6px 14px", borderRadius: 8, border: "1px solid #ccc", cursor: "pointer",
+            background: "#fafafa", fontWeight: 600, fontSize: 13,
+          }}>⟳ Reset</button>
+          <span style={{ fontSize: 12, color: "#555", background: "#f5f5f5", padding: "5px 12px", borderRadius: 8, fontWeight: 600 }}>
+            Phase {phase} of 7 — {REG_PHASE_LABELS[phase]}
+          </span>
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "#777" }}>Speed:</span>
+            {[["Slow", 1800], ["Normal", 1000], ["Fast", 500]].map(([label, ms]) => (
+              <button key={label} onClick={() => setSpeed(ms)} style={{
+                padding: "4px 10px", borderRadius: 6, border: "1.5px solid",
+                borderColor: speed === ms ? "#1565c0" : "#ddd",
+                background: speed === ms ? "#e3f2fd" : "#fafafa",
+                color: speed === ms ? "#1565c0" : "#888",
+                cursor: "pointer", fontWeight: speed === ms ? 700 : 400, fontSize: 12,
+              }}>{label}</button>
+            ))}
+          </span>
+        </div>
+
+        {/* Main SVG */}
+        <svg width={W} height={H} style={{ display: "block", border: "1px solid #e8e8e8", borderRadius: 12, background: "#fefefe" }}>
+
+          {/* Axes */}
+          <line x1={pad.l} y1={pad.t + chartH} x2={pad.l + chartW} y2={pad.t + chartH} stroke="#ccc" strokeWidth={1} />
+          <line x1={pad.l} y1={pad.t} x2={pad.l} y2={pad.t + chartH} stroke="#ccc" strokeWidth={1} />
+          {/* X ticks */}
+          {[0, 10, 20, 30, 40].map(v => (
+            <g key={v}>
+              <line x1={sx(v)} y1={pad.t + chartH} x2={sx(v)} y2={pad.t + chartH + 4} stroke="#ccc" strokeWidth={1} />
+              <text x={sx(v)} y={pad.t + chartH + 15} textAnchor="middle" fontSize={10} fill="#888">{v}</text>
+            </g>
+          ))}
+          {/* Y ticks */}
+          {[0, 2, 4, 6, 8, 10].map(v => (
+            <g key={v}>
+              <line x1={pad.l - 4} y1={sy(v)} x2={pad.l} y2={sy(v)} stroke="#ccc" strokeWidth={1} />
+              <text x={pad.l - 7} y={sy(v) + 4} textAnchor="end" fontSize={10} fill="#888">{v}</text>
+            </g>
+          ))}
+          <text x={(pad.l + pad.l + chartW) / 2} y={pad.t + chartH + 32} textAnchor="middle" fontSize={11} fill="#666">Age (years)</text>
+          <text x={13} y={pad.t + chartH / 2} textAnchor="middle" fontSize={11} fill="#666"
+            transform={`rotate(-90,13,${pad.t + chartH / 2})`}>Price ($100k)</text>
+
+          {/* Training data points (always shown from phase 0) */}
+          {RF.data.map((pt, i) => (
+            <circle key={i} cx={sx(pt[0])} cy={sy(pt[1])} r={5.5} fill="#333" opacity={0.72} />
+          ))}
+
+          {/* Tree step curves — appear one by one */}
+          {REG_TREE_CURVES.map((curve, ti) => {
+            const showPhase = ti + 1; // phase 1,2,3
+            const visible = phase >= showPhase;
+            const isLastPhase = phase >= 7;
+            return (
+              <path
+                key={`tree-curve-${ti}`}
+                d={stepPath(curve)}
+                fill="none"
+                stroke={TREE_COLORS[ti]}
+                strokeWidth={isLastPhase ? 2 : 2.2}
+                strokeDasharray="6 3"
+                opacity={visible ? (isLastPhase ? 0.5 : 0.85) : 0}
+                style={{ transition: "opacity 0.5s" }}
+              />
+            );
+          })}
+
+          {/* Averaged curve (phase 7) */}
+          {phase >= 7 && (
+            <path
+              d={stepPath(avgCurve)}
+              fill="none"
+              stroke="#e91e63"
+              strokeWidth={3.5}
+              opacity={1}
+              style={{ transition: "opacity 0.6s" }}
+            />
+          )}
+
+          {/* Query vertical line (phase >= 4) */}
+          {phase >= 4 && (
+            <g style={{ opacity: 1, transition: "opacity 0.5s" }}>
+              <line x1={sx(QUERY_AGE)} y1={pad.t} x2={sx(QUERY_AGE)} y2={pad.t + chartH}
+                stroke="#e91e63" strokeWidth={2} strokeDasharray="5 3" />
+              <circle cx={sx(QUERY_AGE)} cy={pad.t + chartH - 4} r={5} fill="#e91e63" />
+              <text x={sx(QUERY_AGE) + 8} y={pad.t + 18} fontSize={10} fill="#e91e63" fontWeight="700">age={QUERY_AGE}</text>
+            </g>
+          )}
+
+          {/* Individual prediction drop lines from query to each tree curve (phase 5) */}
+          {phase >= 5 && predLabels.map((pl, ti) => {
+            const predY = sy(pl.val);
+            const qx = sx(QUERY_AGE);
+            return (
+              <g key={`pred-drop-${ti}`} style={{ opacity: 1, transition: "opacity 0.5s" }}>
+                <line x1={qx} y1={pad.t + chartH} x2={qx} y2={predY}
+                  stroke={pl.color} strokeWidth={1.5} strokeDasharray="3 2" opacity={0.7} />
+                <circle cx={qx} cy={predY} r={6} fill={pl.color} opacity={0.88} />
+                {/* Prediction label box */}
+                <rect x={qx + 10 + ti * 2} y={predY - 11 + ti * 22} width={120} height={18} rx={5}
+                  fill={pl.color + "22"} stroke={pl.color} strokeWidth={1} />
+                <text x={qx + 17 + ti * 2} y={predY + 1 + ti * 22} fontSize={9.5} fill={pl.color} fontWeight="700">
+                  {pl.label}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Average box (phase 6) */}
+          {phase >= 6 && (
+            <g style={{ opacity: 1, transition: "opacity 0.6s" }}>
+              {/* Arrow pointing to avg Y */}
+              <circle cx={sx(QUERY_AGE)} cy={sy(AVG_PRED)} r={9} fill="#e91e63" opacity={0.92} />
+              <text x={sx(QUERY_AGE)} y={sy(AVG_PRED) + 4} textAnchor="middle" fontSize={8} fill="#fff" fontWeight="900">avg</text>
+              {/* Average result box */}
+              <rect x={W - 190} y={pad.t + 10} width={168} height={phase >= 6 ? 74 : 0} rx={10}
+                fill="#fce4ec" stroke="#e91e63" strokeWidth={2} />
+              <text x={W - 106} y={pad.t + 30} textAnchor="middle" fontSize={10} fill="#b71c1c" fontWeight="700">AVERAGE PREDICTION</text>
+              <text x={W - 106} y={pad.t + 46} textAnchor="middle" fontSize={9.5} fill="#555">
+                ({TREE_PREDS_AT_QUERY.join(" + ")}) ÷ 3
+              </text>
+              <text x={W - 106} y={pad.t + 64} textAnchor="middle" fontSize={13} fill="#c62828" fontWeight="900">
+                ${AVG_PRED.toFixed(2)} × 100k
+              </text>
+            </g>
+          )}
+
+          {/* Phase 7 caption */}
+          {phase >= 7 && (
+            <text x={(pad.l + pad.l + chartW) / 2} y={pad.t + chartH + 45} textAnchor="middle" fontSize={11} fill="#555" fontStyle="italic">
+              Individual trees vary — their average is much more stable.
+            </text>
+          )}
+
+          {/* Phase description bar */}
+          <rect x={10} y={H - 46} width={W - 20} height={36} rx={8} fill="#f5f5f5" stroke="#e0e0e0" strokeWidth={1} />
+          <text x={W / 2} y={H - 29} textAnchor="middle" fontSize={12} fill="#333" fontWeight="600">
+            {REG_PHASE_LABELS[phase]}
+          </text>
+          <text x={W / 2} y={H - 14} textAnchor="middle" fontSize={10} fill="#888">
+            {[
+              "8 training houses plotted: age (years) vs price ($100k). Non-linear relationship visible.",
+              "Tree 1 (blue dashed): bootstrap sample → step function. Splits at age ≤ 10 and ≤ 25.",
+              "Tree 2 (green dashed): different bootstrap → different thresholds (≤ 8, ≤ 22).",
+              "Tree 3 (orange dashed): 3rd bootstrap sample → yet another curve (≤ 11, ≤ 28).",
+              `Query age = ${QUERY_AGE} years — vertical pink line drops from the top.`,
+              `Each tree's curve intersects the query line: T1=$${TREE_PREDS_AT_QUERY[0]}×100k, T2=$${TREE_PREDS_AT_QUERY[1]}×100k, T3=$${TREE_PREDS_AT_QUERY[2]}×100k`,
+              `Average = ($${TREE_PREDS_AT_QUERY[0]} + $${TREE_PREDS_AT_QUERY[1]} + $${TREE_PREDS_AT_QUERY[2]}) ÷ 3 = $${AVG_PRED.toFixed(2)} × 100k (pink dot on chart)`,
+              "All 3 individual curves + thick pink averaged curve. Averaging smooths out individual step jumps.",
+            ][phase]}
+          </text>
+        </svg>
+
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
+          {TREE_COLORS.map((c, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <svg width={22} height={6}><line x1={0} y1={3} x2={22} y2={3} stroke={c} strokeWidth={2.2} strokeDasharray="5 3" /></svg>
+              <span style={{ fontSize: 12, color: c, fontWeight: 600 }}>Tree {i + 1}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width={22} height={6}><line x1={0} y1={3} x2={22} y2={3} stroke="#e91e63" strokeWidth={3.5} /></svg>
+            <span style={{ fontSize: 12, color: "#e91e63", fontWeight: 700 }}>RF Avg (phase 7)</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width={10} height={10}><circle cx={5} cy={5} r={4.5} fill="#333" /></svg>
+            <span style={{ fontSize: 12, color: "#555" }}>Training house</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ════════════════════════════════════════
      STAGES
      ════════════════════════════════════════ */
   const STAGES = [
@@ -457,6 +737,14 @@
           </>
         );
       },
+    },
+
+    /* ── 3b. Forest Animation ── */
+    {
+      id: "forest-animation", group: "Training", title: "Watch 3 Trees Predict & Average",
+      map: "Forest Animation",
+      why: "Watching each tree's step-function grow and then seeing the three predictions merge into an average builds concrete intuition for how ensemble averaging reduces variance.",
+      render: () => <ForestRegAnim />,
     },
 
     /* ── 4. Averaging Predictions ── */

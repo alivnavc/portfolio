@@ -7,6 +7,7 @@ const { useState, useRef, createContext, useContext, useEffect } = React;
 
 /* ---------- number formatting ---------- */
 function fmt(x, p = 2) {
+  if (typeof x !== "number") return x == null ? "—" : String(x);
   if (x === Infinity) return "∞";
   if (x === -Infinity) return "−∞";
   if (!isFinite(x)) return "—";

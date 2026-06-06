@@ -385,6 +385,369 @@
   }
 
   /* ════════════════════════════════════════
+     FOREST BUILD ANIMATION
+     ════════════════════════════════════════ */
+
+  // Fixed training points for the animation scatter plot (subset of RF.data, 12 points)
+  const ANIM_POINTS = RF.data.map((pt, i) => ({ id: i, x: pt[0], y: pt[1], cls: pt[2] }));
+
+  // Bootstrap samples for each tree (indices into ANIM_POINTS)
+  const ANIM_BS = [
+    [0, 1, 3, 4, 5, 7, 7, 9, 10, 11, 11, 4],   // Tree 1 — 6 unique
+    [0, 2, 3, 5, 6, 8, 8, 9, 10, 11, 2, 6],    // Tree 2
+    [1, 2, 4, 5, 6, 7, 9, 10, 10, 11, 1, 3],   // Tree 3
+  ];
+
+  const TREE_VOTES_ANIM = [1, 1, 2]; // versicolor, versicolor, virginica
+  const VOTE_CLASS_NAMES = ["setosa", "versicolor", "virginica"];
+  const PHASE_LABELS = [
+    "Phase 0 — Training pool ready",
+    "Phase 1 — Bootstrap sampling for Tree 1",
+    "Phase 2 — Tree 1 grows from root",
+    "Phase 3 — Bootstrap sampling for Tree 2",
+    "Phase 4 — Tree 2 grows",
+    "Phase 5 — Query point appears",
+    "Phase 6 — Each tree votes",
+    "Phase 7 — Vote aggregation & final answer",
+  ];
+
+  function ForestBuildAnim() {
+    const [phase, setPhase] = React.useState(0);
+    const [playing, setPlaying] = React.useState(false);
+    const [speed, setSpeed] = React.useState(1000);
+
+    React.useEffect(() => {
+      if (!playing || phase >= 7) { setPlaying(false); return; }
+      const t = setTimeout(() => setPhase(p => p + 1), speed);
+      return () => clearTimeout(t);
+    }, [playing, phase, speed]);
+
+    function reset() { setPhase(0); setPlaying(false); }
+    function togglePlay() {
+      if (phase >= 7) { setPhase(0); setPlaying(true); }
+      else setPlaying(p => !p);
+    }
+
+    // SVG layout constants
+    const W = 920, H = 500;
+    const scatterX = 20, scatterY = 50, scatterW = 260, scatterH = 220;
+    const xMin = 1.0, xMax = 6.8, yMin = 0.0, yMax = 2.7;
+    const ssx = v => scatterX + 30 + ((v - xMin) / (xMax - xMin)) * (scatterW - 44);
+    const ssy = v => scatterY + scatterH - 20 - ((v - yMin) / (yMax - yMin)) * (scatterH - 34);
+
+    // Three tree columns (right area)
+    const treeColXs = [490, 650, 810];
+    const treeColY = 60;
+
+    // OOB sets per tree
+    const oobSets = ANIM_BS.map(bs => {
+      const bsSet = new Set(bs);
+      return ANIM_POINTS.filter(pt => !bsSet.has(pt.id)).map(pt => pt.id);
+    });
+
+    // Sampled unique indices per tree
+    const sampledSets = ANIM_BS.map(bs => Array.from(new Set(bs)));
+
+    // Query point (petal_len=4.8, petal_wid=1.4 — versicolor zone)
+    const QX = 4.8, QY = 1.4;
+
+    // Animate dots: phase 1 = tree1 bootstrap dots fly in; phase 3 = tree2; (no phase for tree3, it just appears)
+    function flyingDots(treeIdx, activePhase) {
+      if (phase < activePhase) return null;
+      const bs = ANIM_BS[treeIdx];
+      const uniqueBS = Array.from(new Set(bs));
+      const tx = treeColXs[treeIdx];
+      const appeared = phase >= activePhase;
+      return uniqueBS.map((origIdx, si) => {
+        const pt = ANIM_POINTS[origIdx];
+        const destX = tx - 22 + (si % 3) * 16;
+        const destY = treeColY + 10 + Math.floor(si / 3) * 14;
+        const srcX = ssx(pt.x);
+        const srcY = ssy(pt.y);
+        const animated = appeared;
+        return (
+          <circle
+            key={`fly-t${treeIdx}-${origIdx}-${si}`}
+            cx={animated ? destX : srcX}
+            cy={animated ? destY : srcY}
+            r={5}
+            fill={CLS_COLORS[pt.cls]}
+            opacity={0.88}
+            style={{
+              transition: `cx ${speed * 0.45}ms ease, cy ${speed * 0.45}ms ease`,
+            }}
+          />
+        );
+      });
+    }
+
+    // Simplified 3-node SVG tree for each column
+    function SimpleTreeSvg({ treeIdx, showVote }) {
+      const trees = [
+        { root: "petal_len", thresh: "≤ 2.4", leftCls: 0, rightCls: 1 },
+        { root: "petal_len", thresh: "≤ 2.6", leftCls: 0, rightCls: 1 },
+        { root: "petal_len", thresh: "≤ 2.5", leftCls: 0, rightCls: 2 },
+      ];
+      const t = trees[treeIdx];
+      const color = CLS_COLORS[treeIdx % 3];
+      const TW = 110, TH = 130;
+      const mx = TW / 2;
+      return (
+        <svg width={TW} height={TH} style={{ overflow: "visible" }}>
+          {/* root → leaf edges */}
+          <line x1={mx} y1={30} x2={22} y2={72} stroke="#ccc" strokeWidth={1.3} />
+          <line x1={mx} y1={30} x2={TW - 22} y2={72} stroke="#ccc" strokeWidth={1.3} />
+          {/* root */}
+          <rect x={mx - 34} y={8} width={68} height={26} rx={6} fill="#e8eaf6" stroke={color} strokeWidth={1.5} />
+          <text x={mx} y={20} textAnchor="middle" fontSize={8} fill="#283593" fontWeight="700">{t.root}</text>
+          <text x={mx} y={31} textAnchor="middle" fontSize={8} fill="#555">{t.thresh}</text>
+          {/* yes/no */}
+          <text x={32} y={60} textAnchor="middle" fontSize={7} fill="#aaa">yes</text>
+          <text x={TW - 32} y={60} textAnchor="middle" fontSize={7} fill="#aaa">no</text>
+          {/* left leaf */}
+          <rect x={4} y={72} width={36} height={22} rx={5} fill={CLS_COLORS[t.leftCls] + "33"} stroke={CLS_COLORS[t.leftCls]} strokeWidth={1.3} />
+          <text x={22} y={87} textAnchor="middle" fontSize={7.5} fill={CLS_COLORS[t.leftCls]} fontWeight="700">{["set.", "vers.", "virg."][t.leftCls]}</text>
+          {/* right leaf */}
+          <rect x={TW - 40} y={72} width={36} height={22} rx={5} fill={CLS_COLORS[t.rightCls] + "33"} stroke={CLS_COLORS[t.rightCls]} strokeWidth={1.3} />
+          <text x={TW - 22} y={87} textAnchor="middle" fontSize={7.5} fill={CLS_COLORS[t.rightCls]} fontWeight="700">{["set.", "vers.", "virg."][t.rightCls]}</text>
+          {/* vote badge */}
+          {showVote && (
+            <g style={{ opacity: 1, transition: "opacity 0.5s" }}>
+              <rect x={mx - 34} y={104} width={68} height={18} rx={6}
+                fill={CLS_COLORS[TREE_VOTES_ANIM[treeIdx]]} opacity={0.92} />
+              <text x={mx} y={117} textAnchor="middle" fontSize={8.5} fill="#fff" fontWeight="800">
+                VOTE: {VOTE_CLASS_NAMES[TREE_VOTES_ANIM[treeIdx]].slice(0, 6)}
+              </text>
+            </g>
+          )}
+        </svg>
+      );
+    }
+
+    // Vote aggregation box (phase 7)
+    const versicolorVotes = TREE_VOTES_ANIM.filter(v => v === 1).length;
+    const virginicaVotes = TREE_VOTES_ANIM.filter(v => v === 2).length;
+    const winnerCls = 1; // versicolor 2/3
+
+    return (
+      <div style={{ fontFamily: "inherit" }}>
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <button onClick={togglePlay} style={{
+            padding: "6px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+            background: playing ? "#ff9800" : "#4caf50", color: "#fff", fontWeight: 700, fontSize: 14,
+          }}>
+            {playing ? "⏸ Pause" : (phase >= 7 ? "⟳ Reset & Play" : "▶ Play")}
+          </button>
+          <button onClick={reset} style={{
+            padding: "6px 14px", borderRadius: 8, border: "1px solid #ccc", cursor: "pointer",
+            background: "#fafafa", fontWeight: 600, fontSize: 13,
+          }}>⟳ Reset</button>
+          <span style={{ fontSize: 12, color: "#555", background: "#f5f5f5", padding: "5px 12px", borderRadius: 8, fontWeight: 600 }}>
+            Phase {phase} of 7 — {PHASE_LABELS[phase]}
+          </span>
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "#777" }}>Speed:</span>
+            {[["Slow", 1800], ["Normal", 1000], ["Fast", 500]].map(([label, ms]) => (
+              <button key={label} onClick={() => setSpeed(ms)} style={{
+                padding: "4px 10px", borderRadius: 6, border: "1.5px solid",
+                borderColor: speed === ms ? "#1565c0" : "#ddd",
+                background: speed === ms ? "#e3f2fd" : "#fafafa",
+                color: speed === ms ? "#1565c0" : "#888",
+                cursor: "pointer", fontWeight: speed === ms ? 700 : 400, fontSize: 12,
+              }}>{label}</button>
+            ))}
+          </span>
+        </div>
+
+        {/* Main SVG */}
+        <svg width={W} height={H} style={{ display: "block", border: "1px solid #e8e8e8", borderRadius: 12, background: "#fefefe" }}>
+
+          {/* ── Left: Training scatter pool ── */}
+          <text x={scatterX + scatterW / 2} y={scatterY - 6} textAnchor="middle" fontSize={11} fill="#555" fontWeight="700">Training Pool (12 flowers)</text>
+          {/* axes */}
+          <line x1={scatterX + 30} y1={scatterY + scatterH - 20} x2={scatterX + scatterW} y2={scatterY + scatterH - 20} stroke="#ccc" strokeWidth={1} />
+          <line x1={scatterX + 30} y1={scatterY + 14} x2={scatterX + 30} y2={scatterY + scatterH - 20} stroke="#ccc" strokeWidth={1} />
+          <text x={scatterX + scatterW / 2 + 10} y={scatterY + scatterH + 10} textAnchor="middle" fontSize={9} fill="#aaa">petal_len</text>
+          <text x={scatterX + 10} y={scatterY + scatterH / 2} textAnchor="middle" fontSize={9} fill="#aaa"
+            transform={`rotate(-90,${scatterX + 10},${scatterY + scatterH / 2})`}>petal_wid</text>
+
+          {/* Training dots with pulse effect on phase 0 */}
+          {ANIM_POINTS.map((pt, i) => {
+            const cx = ssx(pt.x), cy = ssy(pt.y);
+            const isOOB_t1 = oobSets[0].includes(pt.id);
+            const isOOB_t2 = oobSets[1].includes(pt.id);
+            const isSampled1 = sampledSets[0].includes(pt.id) && phase >= 1;
+            const isSampled2 = sampledSets[1].includes(pt.id) && phase >= 3;
+            const dimmed = (phase >= 1 && isOOB_t1) || (phase >= 3 && isOOB_t2);
+            return (
+              <g key={`pool-${i}`}>
+                {phase === 0 && (
+                  <circle cx={cx} cy={cy} r={9} fill="none" stroke={CLS_COLORS[pt.cls]} strokeWidth={1}
+                    opacity={0.25} />
+                )}
+                <circle cx={cx} cy={cy} r={5.5}
+                  fill={CLS_COLORS[pt.cls]}
+                  opacity={dimmed ? 0.22 : 0.88}
+                  stroke={dimmed ? "#bbb" : "#fff"}
+                  strokeWidth={dimmed ? 0.5 : 1}
+                />
+                {dimmed && (
+                  <text x={cx + 7} y={cy + 3} fontSize={7} fill="#bbb" fontWeight="600">OOB</text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Query point (phase >= 5) */}
+          {phase >= 5 && (
+            <g style={{ opacity: phase >= 5 ? 1 : 0, transition: "opacity 0.6s" }}>
+              <circle cx={ssx(QX)} cy={ssy(QY)} r={11} fill="none" stroke="#e91e63" strokeWidth={2} strokeDasharray="4 2" />
+              <text x={ssx(QX)} y={ssy(QY) + 4} textAnchor="middle" fontSize={12} fill="#e91e63">★</text>
+              <text x={ssx(QX) + 14} y={ssy(QY) - 8} fontSize={9} fill="#e91e63" fontWeight="700">query</text>
+            </g>
+          )}
+
+          {/* ── Middle: Vote box + labels ── */}
+          <text x={330} y={44} textAnchor="middle" fontSize={11} fill="#555" fontWeight="700">Voting Area</text>
+
+          {/* Query travel lines to trees (phase 6) */}
+          {phase >= 6 && treeColXs.map((tx, ti) => (
+            <line key={`qline-${ti}`} x1={ssx(QX)} y1={ssy(QY)} x2={tx} y2={treeColY + 140}
+              stroke={CLS_COLORS[TREE_VOTES_ANIM[ti]]} strokeWidth={1.4} strokeDasharray="5 3" opacity={0.6}
+              style={{ opacity: 0.6, transition: "opacity 0.5s" }} />
+          ))}
+
+          {/* Vote aggregation (phase 7) */}
+          {phase >= 7 && (
+            <g style={{ opacity: 1, transition: "opacity 0.7s" }}>
+              {/* vote badges flying to center */}
+              {treeColXs.map((tx, ti) => (
+                <g key={`vbadge-${ti}`}>
+                  <circle cx={280} cy={180 + ti * 38} r={16}
+                    fill={CLS_COLORS[TREE_VOTES_ANIM[ti]]} opacity={0.9} />
+                  <text x={280} y={185 + ti * 38} textAnchor="middle" fontSize={8} fill="#fff" fontWeight="800">
+                    T{ti + 1}
+                  </text>
+                  <text x={300} y={185 + ti * 38} fontSize={9} fill={CLS_COLORS[TREE_VOTES_ANIM[ti]]} fontWeight="700">
+                    {VOTE_CLASS_NAMES[TREE_VOTES_ANIM[ti]]}
+                  </text>
+                </g>
+              ))}
+              {/* vote box */}
+              <rect x={220} y={290} width={160} height={64} rx={10}
+                fill="#fce4ec" stroke="#e91e63" strokeWidth={2} />
+              <text x={300} y={310} textAnchor="middle" fontSize={11} fill="#b71c1c" fontWeight="700">VOTE TALLY</text>
+              <text x={300} y={327} textAnchor="middle" fontSize={10} fill="#555">
+                Versicolor: {versicolorVotes} &nbsp; Virginica: {virginicaVotes}
+              </text>
+              {/* winner */}
+              <rect x={225} y={335} width={150} height={26} rx={8}
+                fill={CLS_COLORS[winnerCls]} opacity={0.92} />
+              <text x={300} y={352} textAnchor="middle" fontSize={10.5} fill="#fff" fontWeight="900">
+                FINAL: Versicolor (2/3) — 66.7%
+              </text>
+            </g>
+          )}
+
+          {/* ── Right area: 3 tree columns ── */}
+          {treeColXs.map((tx, ti) => {
+            const treePhaseShow = ti === 0 ? 2 : ti === 1 ? 4 : 4;
+            const bsPhaseShow = ti === 0 ? 1 : ti === 1 ? 3 : 4;
+            const showTree = phase >= treePhaseShow;
+            const showBS = phase >= bsPhaseShow;
+
+            return (
+              <g key={`treecol-${ti}`}>
+                {/* Tree label */}
+                <text x={tx} y={treeColY - 10} textAnchor="middle" fontSize={11}
+                  fill={CLS_COLORS[ti % 3]} fontWeight="700">Tree {ti + 1}</text>
+
+                {/* Bootstrap sample mini dots */}
+                {showBS && sampledSets[ti].map((origIdx, si) => {
+                  const pt = ANIM_POINTS[origIdx];
+                  return (
+                    <circle key={`bs-t${ti}-${origIdx}`}
+                      cx={tx - 24 + (si % 4) * 14}
+                      cy={treeColY + 6 + Math.floor(si / 4) * 14}
+                      r={4.5}
+                      fill={CLS_COLORS[pt.cls]}
+                      opacity={0.82}
+                      style={{ transition: "opacity 0.4s" }}
+                    />
+                  );
+                })}
+
+                {/* OOB label */}
+                {showBS && (
+                  <text x={tx} y={treeColY + 46} textAnchor="middle" fontSize={8.5} fill="#aaa">
+                    {oobSets[ti].length} OOB
+                  </text>
+                )}
+
+                {/* Tree SVG */}
+                <foreignObject x={tx - 55} y={treeColY + 56}
+                  width={110} height={140}
+                  style={{
+                    opacity: showTree ? 1 : 0,
+                    transition: "opacity 0.5s",
+                  }}>
+                  <div xmlns="http://www.w3.org/1999/xhtml">
+                    <SimpleTreeSvg treeIdx={ti} showVote={phase >= 6} />
+                  </div>
+                </foreignObject>
+              </g>
+            );
+          })}
+
+          {/* Phase description text */}
+          <rect x={10} y={H - 44} width={W - 20} height={34} rx={8} fill="#f5f5f5" stroke="#e0e0e0" strokeWidth={1} />
+          <text x={W / 2} y={H - 27} textAnchor="middle" fontSize={12} fill="#333" fontWeight="600">
+            {PHASE_LABELS[phase]}
+          </text>
+          <text x={W / 2} y={H - 13} textAnchor="middle" fontSize={10} fill="#888">
+            {[
+              "All 12 training flowers ready — points pulse, awaiting bootstrap sampling",
+              "6 points sampled with replacement → Bootstrap Sample 1. Gray points are OOB (out-of-bag).",
+              "Tree 1 grows: root split (petal_len ≤ 2.4) → left leaf setosa, right leaf versicolor/virginica",
+              "New bootstrap for Tree 2. Different sample → slightly different thresholds.",
+              "Tree 2 and Tree 3 grow. Each learned slightly different splits from their bootstrap.",
+              "A new flower (★) arrives at petal_len=4.8, petal_wid=1.4. Which species?",
+              "Query travels to each tree. Tree 1 → Versicolor. Tree 2 → Versicolor. Tree 3 → Virginica.",
+              "Votes fly to tally box: Versicolor 2, Virginica 1. Majority wins: VERSICOLOR (66.7% confidence).",
+            ][phase]}
+          </text>
+        </svg>
+
+        {/* Terminology chips */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          {[
+            ["#2196f3", "Bootstrap Sample", "Random sample with replacement — some points appear 2×, ~37% not selected"],
+            ["#9e9e9e", "OOB", "Out-of-bag: points not selected — used for free validation"],
+            ["#9c27b0", "Vote", "Each tree's class prediction for the query point"],
+            ["#e91e63", "Majority Vote", "The class with the most votes across all trees wins"],
+          ].map(([color, label, desc]) => (
+            <div key={label} style={{
+              display: "flex", alignItems: "flex-start", gap: 7, padding: "7px 12px",
+              border: `1.5px solid ${color}33`, borderRadius: 9,
+              background: color + "0d", maxWidth: 220,
+            }}>
+              <span style={{
+                display: "inline-block", width: 10, height: 10, borderRadius: "50%",
+                background: color, flexShrink: 0, marginTop: 3,
+              }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 11.5, color }}>{label}</div>
+                <div style={{ fontSize: 10.5, color: "#666", marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /* ════════════════════════════════════════
      STAGES
      ════════════════════════════════════════ */
   const STAGES = [
@@ -771,6 +1134,14 @@
           </>
         );
       },
+    },
+
+    /* ── 6b. Forest Animation ── */
+    {
+      id: "forest-animation", group: "Training", title: "Watch the Forest Grow — Animated",
+      map: "Forest Animation",
+      why: "Seeing bootstrap sampling, tree growth, and majority voting in motion builds intuition for how the forest assembles a collective decision from individual weak learners.",
+      render: () => <ForestBuildAnim />,
     },
 
     /* ── 7. Majority Vote ── */

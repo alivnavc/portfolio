@@ -234,6 +234,239 @@
   }
 
   // ════════════════════════════════════════════
+  // TREE BUILD ANIMATION — Regression
+  // ════════════════════════════════════════════
+  const REG_ANIM_NODES = [
+    { id:"root",  revealPhase:0, x:420, y:80,  w:148, h:78, label:"age ≤ 15",    sublabel:"n=8 · Var=5.20", badge:"ROOT",  badgeColor:"#2B5BFF", fill:"rgba(43,91,255,.12)",  stroke:"#2B5BFF", textColor:"#2B5BFF", isLeaf:false, predict:null   },
+    { id:"left",  revealPhase:1, x:220, y:230, w:148, h:78, label:"age ≤ 8",     sublabel:"n=4 · Var=0.90", badge:"SPLIT", badgeColor:"#7c3aed", fill:"rgba(124,58,237,.10)", stroke:"#7c3aed", textColor:"#7c3aed", isLeaf:false, predict:null   },
+    { id:"right", revealPhase:1, x:640, y:230, w:148, h:78, label:"Leaf",         sublabel:"n=4 · Var=0.55", badge:"LEAF",  badgeColor:"#1f9e6b", fill:"rgba(31,158,107,.22)", stroke:"#1f9e6b", textColor:"#1f9e6b", isLeaf:true,  predict:2.68   },
+    { id:"ll",    revealPhase:2, x:110, y:390, w:148, h:78, label:"Leaf",         sublabel:"n=2 · Var=0.12", badge:"LEAF",  badgeColor:"#1f9e6b", fill:"rgba(31,158,107,.22)", stroke:"#1f9e6b", textColor:"#1f9e6b", isLeaf:true,  predict:7.85   },
+    { id:"lr",    revealPhase:2, x:340, y:390, w:148, h:78, label:"Leaf",         sublabel:"n=2 · Var=0.30", badge:"LEAF",  badgeColor:"#1f9e6b", fill:"rgba(31,158,107,.22)", stroke:"#1f9e6b", textColor:"#1f9e6b", isLeaf:true,  predict:6.25   },
+  ];
+  const REG_ANIM_EDGES = [
+    { from:"root",  to:"left",  revealPhase:1, side:"left",  labelYes:true  },
+    { from:"root",  to:"right", revealPhase:1, side:"right", labelYes:false },
+    { from:"left",  to:"ll",    revealPhase:2, side:"left",  labelYes:true  },
+    { from:"left",  to:"lr",    revealPhase:2, side:"right", labelYes:false },
+  ];
+  const REG_ANIM_ANNOTATIONS = [
+    { x:420, y:26,  text:"Root: splits by highest Variance Reduction", color:"#2B5BFF" },
+    { x:640, y:174, text:"Var reduced 5.20 → 0.55 on right side",      color:"#7c3aed" },
+    { x:220, y:174, text:"Var reduced 0.90 → 0.12 / 0.30 on left",     color:"#1f9e6b" },
+    { x:420, y:450, text:"All leaves stable — tree complete!",           color:"#1f9e6b" },
+  ];
+  const REG_PHASE_LABELS = [
+    "Phase 0 of 3 — Root node appears",
+    "Phase 1 of 3 — Root splits at age ≤ 15",
+    "Phase 2 of 3 — Left node splits at age ≤ 8",
+    "Phase 3 of 3 — All leaves reached — tree complete",
+  ];
+
+  function RegTreeBuildAnim() {
+    const [phase, setPhase] = React.useState(0);
+    const [playing, setPlaying] = React.useState(false);
+    const [speed, setSpeed] = React.useState(1200);
+
+    React.useEffect(() => {
+      if (!playing) return;
+      if (phase >= 3) { setPlaying(false); return; }
+      const t = setTimeout(() => setPhase(p => p + 1), speed);
+      return () => clearTimeout(t);
+    }, [playing, phase, speed]);
+
+    function NodeBox({ n }) {
+      const visible = phase >= n.revealPhase;
+      const animStyle = {
+        opacity: visible ? 1 : 0,
+        transform: visible ? "scale(1)" : "scale(0.3)",
+        transformOrigin: `${n.x}px ${n.y}px`,
+        transition: "opacity 0.5s ease, transform 0.5s cubic-bezier(.34,1.56,.64,1)",
+      };
+      return (
+        <g style={animStyle}>
+          {n.isLeaf && visible && (
+            <rect x={n.x - n.w/2 - 5} y={n.y - n.h/2 - 5}
+              width={n.w + 10} height={n.h + 10} rx="14"
+              fill="none" stroke={n.stroke} strokeWidth="2" opacity="0.35"
+              style={{ animation:"regTreePulse 2s ease-in-out infinite" }}/>
+          )}
+          <rect x={n.x - n.w/2} y={n.y - n.h/2} width={n.w} height={n.h}
+            rx="10" fill={n.fill} stroke={n.stroke} strokeWidth="2"/>
+          <rect x={n.x - n.w/2 + 6} y={n.y - n.h/2 + 6}
+            width={n.badge.length * 7 + 8} height={16} rx="4"
+            fill={n.badgeColor} opacity="0.9"/>
+          <text x={n.x - n.w/2 + 10} y={n.y - n.h/2 + 17}
+            fontSize="9" fontWeight="800" fill="white">{n.badge}</text>
+          <text x={n.x} y={n.y - 10} textAnchor="middle"
+            fontSize="12" fontWeight="700" fill={n.textColor}>{n.label}</text>
+          <text x={n.x} y={n.y + 6} textAnchor="middle"
+            fontSize="10" fill="#888">{n.sublabel}</text>
+          {n.isLeaf && n.predict !== null && (
+            <>
+              <rect x={n.x - 46} y={n.y + 16} width="92" height="20" rx="5"
+                fill={n.badgeColor} opacity="0.18"/>
+              <text x={n.x} y={n.y + 30} textAnchor="middle"
+                fontSize="11" fontWeight="900" fill={n.badgeColor}>
+                PREDICT: ${n.predict}×100k
+              </text>
+            </>
+          )}
+        </g>
+      );
+    }
+
+    function EdgeLine({ e }) {
+      const fromNode = REG_ANIM_NODES.find(n => n.id === e.from);
+      const toNode   = REG_ANIM_NODES.find(n => n.id === e.to);
+      if (!fromNode || !toNode) return null;
+      const visible = phase >= e.revealPhase;
+      const x1 = fromNode.x, y1 = fromNode.y + fromNode.h/2;
+      const x2 = toNode.x,   y2 = toNode.y - toNode.h/2;
+      const len = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+      const mx = (x1+x2)/2, my = (y1+y2)/2;
+      const lx = e.side === "left" ? mx - 22 : mx + 22;
+      return (
+        <g>
+          <line x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke={e.labelYes ? "#1f9e6b" : "#e0492e"} strokeWidth="2"
+            strokeDasharray={len} strokeDashoffset={visible ? 0 : len}
+            style={{ transition:"stroke-dashoffset 0.6s ease" }}
+            opacity={visible ? 1 : 0}/>
+          {visible && (
+            <text x={lx} y={my + 4} textAnchor="middle"
+              fontSize="10" fontWeight="800"
+              fill={e.labelYes ? "#1f9e6b" : "#e0492e"}>
+              {e.labelYes ? "Yes ≤" : "No >"}
+            </text>
+          )}
+        </g>
+      );
+    }
+
+    const ann = REG_ANIM_ANNOTATIONS[phase] || null;
+
+    return (
+      <div style={{ fontFamily:"var(--body-font, sans-serif)" }}>
+        <style>{`
+          @keyframes regTreePulse {
+            0%, 100% { opacity: 0.3; }
+            50%       { opacity: 0.7; }
+          }
+        `}</style>
+        <div style={{ display:"flex", gap:18, flexWrap:"wrap", alignItems:"flex-start" }}>
+          <div style={{ flex:"1 1 480px" }}>
+            <svg viewBox="0 0 840 490" style={{ width:"100%", height:"auto",
+              border:"1px solid var(--line)", borderRadius:14,
+              background:"var(--panel-solid)", boxShadow:"var(--shadow)", display:"block" }}>
+              {ann && (
+                <g>
+                  <rect x={ann.x - 200} y={ann.y - 14} width="400" height="22"
+                    rx="6" fill={ann.color} opacity="0.10"/>
+                  <text x={ann.x} y={ann.y + 2} textAnchor="middle"
+                    fontSize="11" fontWeight="700" fill={ann.color}>{ann.text}</text>
+                </g>
+              )}
+              {REG_ANIM_EDGES.map((e, i) => <EdgeLine key={i} e={e}/>)}
+              {REG_ANIM_NODES.map(n => <NodeBox key={n.id} n={n}/>)}
+              {[["#2B5BFF","Root"], ["#7c3aed","Internal"], ["#1f9e6b","Leaf"]].map(([c,lbl], i) => (
+                <g key={i} transform={`translate(${30 + i*130}, 470)`}>
+                  <rect width="10" height="10" rx="3" fill={c}/>
+                  <text x="14" y="9" fontSize="9.5" fill="var(--muted)">{lbl}</text>
+                </g>
+              ))}
+            </svg>
+          </div>
+          <div style={{ flex:"0 0 190px", minWidth:170 }}>
+            <div style={{ fontWeight:800, fontSize:12, color:"var(--ink)", marginBottom:10 }}>Legend</div>
+            {[
+              { color:"#2B5BFF", label:"Root Node",     desc:"First split — max variance reduction" },
+              { color:"#7c3aed", label:"Internal Node", desc:"Still heterogeneous — splits further" },
+              { color:"#1f9e6b", label:"Leaf Node",     desc:"Returns mean as prediction (PREDICT)" },
+            ].map(({ color, label, desc }) => (
+              <div key={label} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:10 }}>
+                <div style={{ width:12, height:12, borderRadius:3, background:color, flexShrink:0, marginTop:2 }}/>
+                <div>
+                  <div style={{ fontSize:11, fontWeight:700, color:"var(--ink)" }}>{label}</div>
+                  <div style={{ fontSize:10, color:"var(--muted)" }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop:14, padding:"10px 12px", borderRadius:10,
+              background:"var(--line-soft)", border:"1px solid var(--line)" }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"var(--ink)", marginBottom:6 }}>Leaf predictions</div>
+              {[
+                { label:"age ≤ 8",      predict:"$785k" },
+                { label:"8 < age ≤ 15", predict:"$625k" },
+                { label:"age > 15",     predict:"$268k" },
+              ].map(({ label, predict }) => (
+                <div key={label} style={{ display:"flex", justifyContent:"space-between",
+                  alignItems:"center", marginBottom:5 }}>
+                  <span style={{ fontSize:10, color:"var(--muted)" }}>{label}</span>
+                  <span style={{ fontSize:11, fontWeight:800, color:"#1f9e6b" }}>{predict}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:10, alignItems:"center",
+          marginTop:16, padding:"12px 16px", borderRadius:12,
+          background:"var(--line-soft)", border:"1px solid var(--line)" }}>
+          <button onClick={() => { if (phase >= 3) { setPhase(0); setPlaying(false); } else setPlaying(true); }}
+            style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer",
+              background:"#2B5BFF", color:"white", fontWeight:700, fontSize:13 }}>
+            {phase >= 3 ? "⟳ Reset & Play" : "▶ Play"}
+          </button>
+          <button onClick={() => setPlaying(false)}
+            style={{ padding:"6px 14px", borderRadius:8, cursor:"pointer",
+              background:"var(--panel-solid)", border:"1px solid var(--line)",
+              fontWeight:700, fontSize:13, color:"var(--ink)" }}>
+            ⏸ Pause
+          </button>
+          <button onClick={() => { setPhase(0); setPlaying(false); }}
+            style={{ padding:"6px 14px", borderRadius:8, cursor:"pointer",
+              background:"var(--panel-solid)", border:"1px solid var(--line)",
+              fontWeight:700, fontSize:13, color:"var(--ink)" }}>
+            ⟳ Reset
+          </button>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:8 }}>
+            <span style={{ fontSize:11, color:"var(--muted)", fontWeight:700 }}>Speed:</span>
+            {[["Slow",2000],["Normal",1200],["Fast",500]].map(([lbl,ms]) => (
+              <button key={lbl} onClick={() => setSpeed(ms)}
+                style={{ padding:"4px 10px", borderRadius:6, cursor:"pointer",
+                  fontSize:11, fontWeight:700,
+                  background: speed === ms ? "#2B5BFF" : "var(--panel-solid)",
+                  color:      speed === ms ? "white"   : "var(--ink)",
+                  border:     speed === ms ? "none"    : "1px solid var(--line)" }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginLeft:"auto", fontSize:12, fontWeight:700,
+            color:"var(--accent-ink)", padding:"4px 12px", borderRadius:8,
+            background:"var(--accent-soft)" }}>
+            {REG_PHASE_LABELS[phase]}
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
+          {[0,1,2,3].map(p => (
+            <button key={p} onClick={() => { setPhase(p); setPlaying(false); }}
+              style={{ padding:"5px 12px", borderRadius:8, cursor:"pointer",
+                fontSize:11, fontWeight:700,
+                background: phase === p ? "#2B5BFF" : "var(--line-soft)",
+                color:      phase === p ? "white"   : "var(--muted)",
+                border:     phase === p ? "none"    : "1px solid var(--line)" }}>
+              Phase {p}
+            </button>
+          ))}
+          <span style={{ fontSize:11, color:"var(--faint)", alignSelf:"center", marginLeft:8 }}>
+            — or click a phase button to jump directly
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════
   // STAGES
   // ════════════════════════════════════════════
   const STAGES = [
@@ -636,6 +869,24 @@
             matter what its exact age — maps to one of these three step levels. For finer
             predictions, add more splits (deeper tree) or use an ensemble.
           </Note>
+        </>
+      ),
+    },
+
+    // ── 6b. Regression Tree Build Animation ──────────────
+    {
+      id:"tree-animation", group:"Training", title:"Watch the Regression Tree Build",
+      map:"Tree Animation",
+      why:"Seeing the regression tree grow level-by-level, with variance values decreasing at each split, makes the variance-reduction criterion concrete and memorable.",
+      render: () => (
+        <>
+          <Lead>
+            Watch the regression tree grow <b>level by level</b>, with each split revealing
+            how variance is reduced step by step. Leaf nodes display their <b>PREDICT</b>
+            badge showing the mean house price. Use Play, Pause, Reset, or the phase
+            buttons to control the animation.
+          </Lead>
+          <RegTreeBuildAnim/>
         </>
       ),
     },

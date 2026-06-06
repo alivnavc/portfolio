@@ -753,6 +753,487 @@
   };
 
   // ────────────────────────────────────────────────────────
+  //  STAGE 6b: Boost Animation (Classification)
+  // ────────────────────────────────────────────────────────
+
+  // Hardcoded trace data derived from BOOST_CLS / ml-boosting.js
+  const ANIM_CLS = {
+    data: [
+      [0.2, 0, 0],[0.3, 0, 0],[0.5, 0, 0],[0.4, 1, 0],
+      [0.6, 1, 1],[0.8, 1, 1],[0.7, 0, 1],[0.9, 1, 1],
+    ],
+    ys: [0, 0, 0, 0, 1, 1, 1, 1],
+    initLogOdds: 0.0,
+    initProb: 0.5,
+    // probs[round][pointIdx]
+    probs: [
+      [0.5000, 0.5000, 0.5000, 0.5000, 0.5000, 0.5000, 0.5000, 0.5000],
+      [0.3923, 0.3923, 0.3923, 0.3923, 0.6077, 0.6077, 0.6077, 0.6077],
+      [0.3572, 0.3572, 0.3572, 0.4286, 0.6428, 0.6428, 0.5714, 0.6428],
+      [0.3402, 0.3402, 0.3688, 0.4409, 0.6542, 0.6542, 0.5836, 0.6542],
+    ],
+    pseudoResiduals: [
+      [-0.5000, -0.5000, -0.5000, -0.5000,  0.5000,  0.5000,  0.5000,  0.5000],
+      [-0.3923, -0.3923, -0.3923, -0.3923,  0.3923,  0.3923,  0.3923,  0.3923],
+      [-0.3572, -0.3572, -0.3572, -0.4286,  0.3572,  0.3572,  0.4286,  0.3572],
+      [-0.3402, -0.3402, -0.3688, -0.4409,  0.3458,  0.3458,  0.4164,  0.3458],
+    ],
+    losses: [0.6931, 0.4981, 0.4714, 0.4606],
+    stumps: [
+      { feature: 0, threshold: 0.55, leftVal: -0.875, rightVal:  0.875, label: 'word_count ≤ 0.55' },
+      { feature: 1, threshold: 0.5,  leftVal: -0.3,   rightVal:  0.3,   label: 'has_link ≤ 0.5' },
+      { feature: 0, threshold: 0.35, leftVal: -0.15,  rightVal:  0.1,   label: 'word_count ≤ 0.35' },
+    ],
+    labels: ['ham', 'ham', 'ham', 'ham', 'spam', 'spam', 'spam', 'spam'],
+    // Decision boundary x for word_count (threshold of stump 1) shown in left panel
+    boundary: [0.55, 0.55, 0.55, 0.35],
+  };
+
+  function BoostingClsAnim() {
+    const [phase, setPhase] = useState(0);
+    const [playing, setPlaying] = useState(false);
+    const [speed, setSpeed] = useState(1200);
+    const MAX_PHASE = 8;
+
+    useEffect(() => {
+      if (!playing || phase >= MAX_PHASE) { setPlaying(false); return; }
+      const t = setTimeout(() => setPhase(p => p + 1), speed);
+      return () => clearTimeout(t);
+    }, [playing, phase, speed]);
+
+    // Map phase → round data index
+    // 0: init probs, 1: pseudo-residuals, 2: stump1, 3: after round1,
+    // 4: pseudo-resid2, 5: stump2+3, 6: after round2+3, 7: final, 8: boundary
+    const roundForPhase = [0, 0, 0, 1, 1, 2, 3, 3, 3];
+    const roundIdx = roundForPhase[phase] || 0;
+    const curProbs = ANIM_CLS.probs[roundIdx];
+    const curResids = ANIM_CLS.pseudoResiduals[roundIdx];
+    const curLoss = ANIM_CLS.losses[roundIdx];
+    const initLoss = ANIM_CLS.losses[0];
+    const finalLoss = ANIM_CLS.losses[3];
+
+    // SVG layout
+    const TW = 860, TH = 480;
+    const PW = 260, PH = 380;
+    const PY = 60;
+    const P1X = 20, P2X = 300, P3X = 580;
+    const CL = 44, CR = 10, CT = 30, CB = 40;
+    const CW = PW - CL - CR, CH = PH - CT - CB;
+
+    // Scatter plot coords (word_count × has_link)
+    const ssx = (v, ox) => ox + CL + v * CW;
+    const ssy = (v) => PY + CT + (1 - v) * CH;
+
+    // Prob bar panel: bar per email, y from 0 to 1
+    const barW2 = Math.max(8, CW / ANIM_CLS.data.length - 4);
+    const prx = (i, ox) => ox + CL + (i + 0.5) * (CW / ANIM_CLS.data.length);
+    const pry0 = PY + CT + CH; // y=0
+    const pry1 = PY + CT;      // y=1
+    const prH = (p) => Math.abs(p) * CH;
+
+    // Whether we show pseudo-residuals instead of probs in middle panel
+    const showPseudoResid = phase === 1 || phase === 4;
+    const rMin = -1, rMax = 1;
+    const rry = (v) => PY + CT + (1 - (v - rMin) / (rMax - rMin)) * CH;
+
+    // Active stump for right panel
+    const stumpPhaseMap = [null, null, 0, 0, 1, 1, 2, null, null];
+    const activeStumpIdx = stumpPhaseMap[phase];
+    const activeStump = activeStumpIdx !== null ? ANIM_CLS.stumps[activeStumpIdx] : null;
+
+    // Phase descriptions
+    const phaseDescs = [
+      "Phase 0 — All probabilities start at 0.5. F₀ = 0 (log-odds). No class separation yet.",
+      "Phase 1 — Computing pseudo-residuals: spam emails push P up (+0.5), ham emails push P down (−0.5).",
+      "Phase 2 — Stump 1 is being learned. Best split: word_count ≤ 0.55 separates most emails.",
+      "Phase 3 — After Round 1: spam probs rise to 0.61, ham probs fall to 0.39. Log-loss: 0.693 → 0.498.",
+      "Phase 4 — New pseudo-residuals computed. Magnitude shrinks — the model is improving.",
+      "Phase 5 — Stumps 2 & 3 target finer details: has_link and very-short-email patterns.",
+      "Phase 6 — After 3 rounds: probabilities sharpen. Most emails clearly lean toward correct class.",
+      "Phase 7 — Final state: confident predictions (closer to 0 or 1). Log-loss: 0.693 → 0.461.",
+      "Phase 8 — Decision boundary: bold line at word_count = 0.55. Misclassified points marked ✗.",
+    ];
+
+    // Log-loss progress bar
+    const lossPct = Math.max(0, Math.min(100,
+      ((initLoss - curLoss) / (initLoss - finalLoss)) * 100
+    ));
+
+    const btnStyle = (active) => ({
+      padding: '4px 11px', borderRadius: 6, border: '1.5px solid var(--line)',
+      background: active ? 'var(--accent)' : 'var(--panel-solid)',
+      color: active ? 'white' : 'var(--ink)', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+    });
+
+    return (
+      <div style={{ fontFamily: 'var(--ui-font)' }}>
+        {/* Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <button style={btnStyle(playing)} onClick={() => { if (phase >= MAX_PHASE) setPhase(0); setPlaying(true); }}>
+            ▶ Play
+          </button>
+          <button style={btnStyle(false)} onClick={() => setPlaying(false)}>⏸ Pause</button>
+          <button style={btnStyle(false)} onClick={() => { setPhase(0); setPlaying(false); }}>⟳ Reset</button>
+          <button style={btnStyle(false)} onClick={() => setPhase(p => Math.max(0, p - 1))}>← Prev</button>
+          <button style={btnStyle(false)} onClick={() => setPhase(p => Math.min(MAX_PHASE, p + 1))}>Next →</button>
+          <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 4 }}>
+            Phase {phase + 1} of {MAX_PHASE + 1}
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>Speed:</span>
+          {[[2000, 'Slow'], [1200, 'Normal'], [600, 'Fast']].map(([ms, lbl]) => (
+            <button key={ms} style={btnStyle(speed === ms)} onClick={() => setSpeed(ms)}>{lbl}</button>
+          ))}
+        </div>
+
+        {/* Log-Loss Progress Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>Log-Loss progress</span>
+          <div style={{ flex: 1, background: 'var(--line-soft)', borderRadius: 6, height: 14, overflow: 'hidden', maxWidth: 400 }}>
+            <div style={{
+              height: '100%', borderRadius: 6,
+              width: `${lossPct}%`,
+              background: `hsl(${130 + lossPct * 0.5}, 60%, 42%)`,
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+          <span style={{ fontSize: 12, fontFamily: 'var(--num-font)', color: 'var(--ink)', flexShrink: 0, minWidth: 100 }}>
+            Log-Loss = {curLoss.toFixed(4)}
+          </span>
+        </div>
+
+        {/* Main SVG — 3 panels */}
+        <svg viewBox={`0 0 ${TW} ${TH}`} style={{ width: '100%', maxWidth: TW, display: 'block' }}>
+          {/* Panel backgrounds */}
+          {[P1X, P2X, P3X].map((ox, pi) => (
+            <rect key={pi} x={ox} y={PY - 10} width={PW} height={PH + 20}
+              rx="8" fill="var(--panel-solid)" stroke="var(--line)" strokeWidth="1" opacity="0.6" />
+          ))}
+
+          {/* ─── Panel 1: Scatter plot with decision boundary ─── */}
+          {/* Axes */}
+          <line x1={ssx(0, P1X)} y1={ssy(0)} x2={ssx(1, P1X)} y2={ssy(0)} stroke="var(--line)" strokeWidth="1.2" />
+          <line x1={ssx(0, P1X)} y1={ssy(0)} x2={ssx(0, P1X)} y2={ssy(1)} stroke="var(--line)" strokeWidth="1.2" />
+          {[0, 0.25, 0.5, 0.75, 1.0].map(v => (
+            <g key={v}>
+              <text x={ssx(v, P1X)} y={ssy(0) + 14} textAnchor="middle" fontSize="9" fill="var(--muted)">{v.toFixed(2)}</text>
+            </g>
+          ))}
+          {[0, 0.5, 1.0].map(v => (
+            <g key={v}>
+              <text x={ssx(0, P1X) - 5} y={ssy(v) + 4} textAnchor="end" fontSize="9" fill="var(--muted)">{v.toFixed(1)}</text>
+            </g>
+          ))}
+          <text x={P1X + PW / 2} y={PY + PH + 16} textAnchor="middle" fontSize="10" fill="var(--muted)">word_count</text>
+          <text x={P1X + 10} y={PY + PH / 2} textAnchor="middle" fontSize="10" fill="var(--muted)"
+            transform={`rotate(-90,${P1X + 10},${PY + PH / 2})`}>has_link</text>
+
+          {/* Panel 1 title */}
+          <text x={P1X + PW / 2} y={PY - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">
+            {phase === 0 ? 'Initial: P(spam) = 0.5 for all' : phase >= 8 ? 'Final decision boundary' : `After Round ${roundIdx}`}
+          </text>
+
+          {/* Decision boundary line */}
+          {phase >= 3 && (
+            <line
+              x1={ssx(ANIM_CLS.stumps[0].threshold, P1X)}
+              y1={ssy(0)}
+              x2={ssx(ANIM_CLS.stumps[0].threshold, P1X)}
+              y2={ssy(1)}
+              stroke={phase >= 8 ? '#2B5BFF' : 'var(--accent)'}
+              strokeWidth={phase >= 8 ? 3 : 1.5}
+              strokeDasharray={phase >= 8 ? '' : '5 3'}
+              opacity={phase >= 8 ? 1 : 0.6}
+            />
+          )}
+          {phase >= 8 && (
+            <text x={ssx(ANIM_CLS.stumps[0].threshold, P1X) + 4} y={PY + CT + 12}
+              fontSize="10" fill="#2B5BFF" fontWeight="700">
+              boundary
+            </text>
+          )}
+
+          {/* Data points */}
+          {ANIM_CLS.data.map((d, i) => {
+            const predicted = phase >= 3 ? (curProbs[i] >= 0.5 ? 1 : 0) : null;
+            const correct = predicted !== null ? predicted === d[2] : true;
+            return (
+              <g key={i}>
+                <circle
+                  cx={ssx(d[0], P1X)}
+                  cy={ssy(d[1])}
+                  r="7"
+                  fill={d[2] === 1 ? SPAM_COL : HAM_COL}
+                  stroke={phase >= 8 && !correct ? '#333' : 'white'}
+                  strokeWidth={phase >= 8 && !correct ? 2.5 : 1.5}
+                  opacity="0.9"
+                />
+                {phase >= 8 && (
+                  <text x={ssx(d[0], P1X) + 9} y={ssy(d[1]) + 4} fontSize="11" fill={correct ? '#1f9e6b' : '#e0492e'} fontWeight="700">
+                    {correct ? '✓' : '✗'}
+                  </text>
+                )}
+                {phase >= 3 && phase < 8 && (
+                  <text x={ssx(d[0], P1X) + 9} y={ssy(d[1]) - 2} fontSize="9" fill="var(--muted)">
+                    {curProbs[i].toFixed(2)}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* ─── Panel 2: Probability or pseudo-residual bars ─── */}
+          {/* Panel 2 title + log-loss counter */}
+          <text x={P2X + PW / 2} y={PY - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">
+            {showPseudoResid ? 'Pseudo-residuals = y − P̂' : 'P(spam) probability bars'}
+          </text>
+          <text x={P2X + PW / 2} y={PY - 2} textAnchor="middle" fontSize="10"
+            fill={phase >= 3 ? '#1f9e6b' : 'var(--muted)'}>
+            Log-Loss = {curLoss.toFixed(4)}
+          </text>
+
+          {showPseudoResid ? (
+            <>
+              {/* Zero line */}
+              <line x1={P2X + CL} y1={rry(0)} x2={P2X + PW - CR} y2={rry(0)} stroke="var(--ink)" strokeWidth="1.5" />
+              {/* y-axis ticks */}
+              {[-1, -0.5, 0, 0.5, 1].map(v => (
+                <g key={v}>
+                  <line x1={P2X + CL - 3} y1={rry(v)} x2={P2X + CL} y2={rry(v)} stroke="var(--line)" strokeWidth="1" />
+                  <text x={P2X + CL - 5} y={rry(v) + 4} textAnchor="end" fontSize="9" fill="var(--muted)">{v.toFixed(1)}</text>
+                </g>
+              ))}
+              {/* Pseudo-residual bars */}
+              {curResids.map((r, i) => {
+                const barTop = rry(Math.max(0, r));
+                const barBot = rry(Math.min(0, r));
+                const barH2 = Math.max(1, Math.abs(barBot - barTop));
+                return (
+                  <g key={i}>
+                    <rect
+                      x={prx(i, P2X) - barW2 / 2}
+                      y={barTop}
+                      width={barW2}
+                      height={barH2}
+                      fill={r >= 0 ? SPAM_COL : HAM_COL}
+                      rx="2"
+                      opacity="0.8"
+                      style={{ transition: 'height 0.5s ease, y 0.5s ease' }}
+                    />
+                    <text x={prx(i, P2X)} y={pry0 + 14} textAnchor="middle" fontSize="9" fill="var(--muted)">{i + 1}</text>
+                  </g>
+                );
+              })}
+              <text x={P2X + CL - 5} y={rry(0) + 14} textAnchor="end" fontSize="9" fill="var(--muted)">0</text>
+            </>
+          ) : (
+            <>
+              {/* y=0 and y=1 lines */}
+              <line x1={P2X + CL} y1={pry0} x2={P2X + PW - CR} y2={pry0} stroke="var(--line)" strokeWidth="1.2" />
+              <line x1={P2X + CL} y1={pry1} x2={P2X + PW - CR} y2={pry1} stroke="var(--line)" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+              {/* Decision threshold line */}
+              <line x1={P2X + CL} y1={pry0 - CH / 2} x2={P2X + PW - CR} y2={pry0 - CH / 2}
+                stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+              <text x={P2X + PW - CR} y={pry0 - CH / 2 - 3} textAnchor="end" fontSize="9" fill="var(--accent)">0.5 threshold</text>
+              {/* y-axis */}
+              {[0, 0.25, 0.5, 0.75, 1.0].map(v => (
+                <g key={v}>
+                  <text x={P2X + CL - 5} y={pry0 - v * CH + 4} textAnchor="end" fontSize="9" fill="var(--muted)">{v.toFixed(2)}</text>
+                  <line x1={P2X + CL - 3} y1={pry0 - v * CH} x2={P2X + CL} y2={pry0 - v * CH} stroke="var(--line)" strokeWidth="1" />
+                </g>
+              ))}
+              {/* Probability bars */}
+              {curProbs.map((p, i) => {
+                const barH3 = p * CH;
+                const isSpam = ANIM_CLS.ys[i] === 1;
+                const correct = (p >= 0.5) === isSpam;
+                return (
+                  <g key={i}>
+                    <rect
+                      x={prx(i, P2X) - barW2 / 2}
+                      y={pry0 - barH3}
+                      width={barW2}
+                      height={Math.max(1, barH3)}
+                      fill={p >= 0.5 ? SPAM_COL : HAM_COL}
+                      rx="2"
+                      opacity={correct ? 0.85 : 0.5}
+                      style={{ transition: 'height 0.5s ease, y 0.5s ease' }}
+                    />
+                    <text x={prx(i, P2X)} y={pry0 + 14} textAnchor="middle" fontSize="9"
+                      fill={isSpam ? SPAM_COL : HAM_COL} fontWeight="700">
+                      {isSpam ? 'S' : 'H'}
+                    </text>
+                    <text x={prx(i, P2X)} y={pry0 - barH3 - 3} textAnchor="middle" fontSize="8" fill="var(--muted)">
+                      {p.toFixed(2)}
+                    </text>
+                  </g>
+                );
+              })}
+            </>
+          )}
+
+          {/* ─── Panel 3: Stump structure ─── */}
+          {/* Panel 3 title */}
+          <text x={P3X + PW / 2} y={PY - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">
+            {phase === 0 ? 'No tree yet'
+              : phase === 1 ? 'Computing pseudo-residuals'
+              : activeStump ? `Stump ${activeStumpIdx + 1}: ${activeStump.label}`
+              : phase >= 7 ? 'All 3 stumps ensemble'
+              : 'Stumps learned so far'}
+          </text>
+
+          {/* Phase 0: empty placeholder */}
+          {phase === 0 && (
+            <>
+              <rect x={P3X + 30} y={PY + 40} width={PW - 60} height={PH - 80} rx="8"
+                fill="none" stroke="var(--line)" strokeWidth="1" strokeDasharray="6 4" opacity="0.4" />
+              <text x={P3X + PW / 2} y={PY + PH / 2 - 10} textAnchor="middle" fontSize="13" fill="var(--faint)">
+                Tree 1
+              </text>
+              <text x={P3X + PW / 2} y={PY + PH / 2 + 8} textAnchor="middle" fontSize="11" fill="var(--faint)">
+                not yet trained
+              </text>
+            </>
+          )}
+
+          {/* Phase 1: pseudo-residual formula */}
+          {phase === 1 && (
+            <>
+              <rect x={P3X + 20} y={PY + 40} width={PW - 40} height={60} rx="8"
+                fill="rgba(245,158,11,.12)" stroke="#f59e0b" strokeWidth="1.5" />
+              <text x={P3X + PW / 2} y={PY + 68} textAnchor="middle" fontSize="12" fill="var(--ink)">
+                r = y − P̂
+              </text>
+              <text x={P3X + PW / 2} y={PY + 88} textAnchor="middle" fontSize="10" fill="var(--muted)">
+                spam (y=1): 1 − 0.5 = +0.5
+              </text>
+              <text x={P3X + PW / 2} y={PY + 108} textAnchor="middle" fontSize="10" fill="var(--muted)">
+                ham (y=0): 0 − 0.5 = −0.5
+              </text>
+              <text x={P3X + PW / 2} y={PY + 140} textAnchor="middle" fontSize="11" fill="var(--ink)" fontWeight="700">
+                All equal magnitude:
+              </text>
+              <text x={P3X + PW / 2} y={PY + 158} textAnchor="middle" fontSize="11" fill="var(--muted)">
+                +0.5 for spam, −0.5 for ham
+              </text>
+              <text x={P3X + PW / 2} y={PY + 180} textAnchor="middle" fontSize="10" fill="var(--muted)">
+                Tree 1 will learn this pattern
+              </text>
+            </>
+          )}
+
+          {/* Active single stump (phases 2, 3, 4, 5) */}
+          {activeStump && (() => {
+            const midX = P3X + PW / 2;
+            const rootY = PY + 60;
+            const childY = PY + 160;
+            const leftX = P3X + 65;
+            const rightX = P3X + PW - 65;
+            const feat = ANIM_CLS.stumps[activeStumpIdx].label;
+            return (
+              <>
+                <line x1={midX} y1={rootY + 16} x2={leftX} y2={childY - 16} stroke="var(--line)" strokeWidth="1.5" />
+                <line x1={midX} y1={rootY + 16} x2={rightX} y2={childY - 16} stroke="var(--line)" strokeWidth="1.5" />
+                <text x={(midX + leftX) / 2 - 8} y={(rootY + childY) / 2} fontSize="10" fill="var(--muted)" fontStyle="italic">yes</text>
+                <text x={(midX + rightX) / 2 + 10} y={(rootY + childY) / 2} fontSize="10" fill="var(--muted)" fontStyle="italic">no</text>
+                <rect x={midX - 78} y={rootY - 18} width={156} height={36} rx="8"
+                  fill="var(--panel-solid)" stroke="var(--accent)" strokeWidth="2" />
+                <text x={midX} y={rootY + 6} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">
+                  {activeStump.label}?
+                </text>
+                <rect x={leftX - 38} y={childY - 16} width={76} height={32} rx="8"
+                  fill={activeStump.leftVal >= 0 ? 'rgba(224,73,46,.12)' : 'rgba(31,158,107,.12)'}
+                  stroke={activeStump.leftVal >= 0 ? SPAM_COL : HAM_COL} strokeWidth="1.5" />
+                <text x={leftX} y={childY - 1} textAnchor="middle" fontSize="11" fontWeight="700"
+                  fill={activeStump.leftVal >= 0 ? SPAM_COL : HAM_COL}>
+                  {activeStump.leftVal.toFixed(3)}
+                </text>
+                <text x={leftX} y={childY + 13} textAnchor="middle" fontSize="9" fill="var(--muted)">
+                  {activeStump.leftVal >= 0 ? '→ spam signal' : '→ ham signal'}
+                </text>
+                <rect x={rightX - 38} y={childY - 16} width={76} height={32} rx="8"
+                  fill={activeStump.rightVal >= 0 ? 'rgba(224,73,46,.12)' : 'rgba(31,158,107,.12)'}
+                  stroke={activeStump.rightVal >= 0 ? SPAM_COL : HAM_COL} strokeWidth="1.5" />
+                <text x={rightX} y={childY - 1} textAnchor="middle" fontSize="11" fontWeight="700"
+                  fill={activeStump.rightVal >= 0 ? SPAM_COL : HAM_COL}>
+                  {activeStump.rightVal.toFixed(3)}
+                </text>
+                <text x={rightX} y={childY + 13} textAnchor="middle" fontSize="9" fill="var(--muted)">
+                  {activeStump.rightVal >= 0 ? '→ spam signal' : '→ ham signal'}
+                </text>
+                {/* Loss reduction below stump */}
+                {phase >= 3 && (
+                  <>
+                    <text x={midX} y={childY + 52} textAnchor="middle" fontSize="10" fill="var(--muted)">
+                      Loss after T{activeStumpIdx + 1}: {ANIM_CLS.losses[activeStumpIdx + 1].toFixed(4)}
+                    </text>
+                    <text x={midX} y={childY + 66} textAnchor="middle" fontSize="10" fill="#1f9e6b">
+                      ↓ {((1 - ANIM_CLS.losses[activeStumpIdx + 1] / ANIM_CLS.losses[0]) * 100).toFixed(1)}% reduction
+                    </text>
+                  </>
+                )}
+              </>
+            );
+          })()}
+
+          {/* Phase 7-8: all 3 stumps stacked compact */}
+          {(phase === 7 || phase === 8) && (
+            <>
+              {ANIM_CLS.stumps.map((s, t) => {
+                const sy0 = PY + 20 + t * 110;
+                const smidX = P3X + PW / 2;
+                return (
+                  <g key={t}>
+                    <rect x={smidX - 68} y={sy0} width={136} height={26} rx="6"
+                      fill="var(--panel-solid)" stroke="var(--accent)" strokeWidth="1.5" />
+                    <text x={smidX} y={sy0 + 13} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--ink)">
+                      T{t + 1}: {s.label}
+                    </text>
+                    <line x1={smidX} y1={sy0 + 26} x2={smidX - 28} y2={sy0 + 46} stroke="var(--line)" strokeWidth="1" />
+                    <line x1={smidX} y1={sy0 + 26} x2={smidX + 28} y2={sy0 + 46} stroke="var(--line)" strokeWidth="1" />
+                    <text x={smidX - 28} y={sy0 + 58} textAnchor="middle" fontSize="10" fontWeight="700"
+                      fill={s.leftVal >= 0 ? SPAM_COL : HAM_COL}>
+                      {s.leftVal > 0 ? '+' : ''}{s.leftVal.toFixed(3)}
+                    </text>
+                    <text x={smidX + 28} y={sy0 + 58} textAnchor="middle" fontSize="10" fontWeight="700"
+                      fill={s.rightVal >= 0 ? SPAM_COL : HAM_COL}>
+                      {s.rightVal > 0 ? '+' : ''}{s.rightVal.toFixed(3)}
+                    </text>
+                  </g>
+                );
+              })}
+              <text x={P3X + PW / 2} y={PY + 370} textAnchor="middle" fontSize="11" fill="var(--ink)" fontWeight="700">
+                Log-Loss: {ANIM_CLS.losses[0].toFixed(4)} → {ANIM_CLS.losses[3].toFixed(4)}
+              </text>
+              <text x={P3X + PW / 2} y={PY + 388} textAnchor="middle" fontSize="10" fill="var(--muted)">
+                ({((1 - ANIM_CLS.losses[3] / ANIM_CLS.losses[0]) * 100).toFixed(1)}% reduction)
+              </text>
+            </>
+          )}
+        </svg>
+
+        {/* Floating annotation box */}
+        <div style={{
+          marginTop: 8, padding: '10px 14px', borderRadius: 8,
+          background: 'var(--accent-soft)', border: '1.5px solid var(--accent)',
+          fontSize: 13, color: 'var(--ink)', lineHeight: 1.6,
+        }}>
+          <span style={{ fontWeight: 700, color: 'var(--accent-ink)', marginRight: 8 }}>
+            Phase {phase + 1}/{MAX_PHASE + 1}:
+          </span>
+          {phaseDescs[phase]}
+        </div>
+      </div>
+    );
+  }
+
+  const stageBoostClsAnim = {
+    id: "boost-animation", group: "Training", title: "Watch Probabilities Sharpen — Animated",
+    map: "Boost Animation",
+    why: "This animation shows HOW classification boosting works: each stump adjusts log-odds, pseudo-residuals shrink each round, and probability bars visibly sharpen toward 0 or 1.",
+    render: () => <BoostingClsAnim />,
+  };
+
+  // ────────────────────────────────────────────────────────
   //  STAGE 7: Full Ensemble & Prediction
   // ────────────────────────────────────────────────────────
   const stageEnsemble = {
@@ -1195,6 +1676,7 @@
     stagePseudoResid,
     stageTree1,
     stageMoreTrees,
+    stageBoostClsAnim,
     stageEnsemble,
     stageLogLoss,
     stageMissing,

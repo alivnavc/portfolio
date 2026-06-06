@@ -670,7 +670,7 @@
             <Matrix
               data={testXs.map(tx => {
                 const tp = REG.w * tx + REG.b;
-                return [tx, fmt(tp, 3), fmt(tp - REG.epsilon, 3), fmt(tp + REG.epsilon, 3)];
+                return [tx, tp, tp - REG.epsilon, tp + REG.epsilon];
               })}
               rowLabels={["Test₁","Test₂","Test₃"]}
               colLabels={["x", "ŷ", "tube lo", "tube hi"]}

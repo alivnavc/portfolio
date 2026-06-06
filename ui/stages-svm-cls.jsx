@@ -783,7 +783,7 @@
                 const fv = (1/3)*px + (1/3)*py - 10/3;
                 const cls = fv >= 0 ? +1 : -1;
                 const d = fv / NORM_W;
-                return [px, py, fmt(fv,3), fmt(d,3), cls > 0 ? "+1 (B)" : "−1 (A)"];
+                return [px, py, fv, d, cls > 0 ? "+1 (B)" : "−1 (A)"];
               })}
               rowLabels={["Test₁","Test₂","Test₃"]}
               colLabels={["x₁","x₂","f(x)","dist","class"]}

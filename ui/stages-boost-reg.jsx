@@ -789,6 +789,425 @@
   };
 
   // ────────────────────────────────────────────────────────
+  //  STAGE 6b: Boost Animation
+  // ────────────────────────────────────────────────────────
+
+  // Hardcoded trace data derived from BOOST_REG / ml-boosting.js
+  const ANIM_REG = {
+    xs:      [5,    7,    10,   12,   20,   28,   35,   42  ],
+    ys:      [8.2,  7.5,  6.8,  5.7,  3.8,  2.9,  2.2,  1.8 ],
+    initPred: 4.8625,
+    // preds[round][pointIdx]  (round 0 = after F0, rounds 1-3 after each stump)
+    preds: [
+      [4.8625, 4.8625, 4.8625, 4.8625, 4.8625, 4.8625, 4.8625, 4.8625],
+      [5.8375, 5.8375, 5.8375, 5.8375, 3.6500, 3.6500, 3.6500, 3.6500],
+      [6.0500, 6.0500, 6.0500, 5.6000, 3.4125, 3.4125, 3.4125, 3.4125],
+      [6.1100, 6.1100, 6.1100, 5.6600, 3.4725, 3.4725, 3.2225, 3.2225],
+    ],
+    residuals: [
+      [ 3.3375,  2.6375,  1.9375,  0.8375, -1.0625, -1.9625, -2.6625, -3.0625],
+      [ 2.3625,  1.6625,  0.9625, -0.1375,  0.1500, -0.7500, -1.4500, -1.8500],
+      [ 2.1500,  1.4500,  0.7500,  0.1000,  0.3875, -0.5125, -1.2125, -1.6125],
+      [ 2.0900,  1.3900,  0.6900,  0.0400,  0.3275, -0.5725, -1.0225, -1.4225],
+    ],
+    mses: [5.4998, 1.9251, 1.4726, 1.2852],
+    stumps: [
+      { threshold: 16, leftVal: 1.95,  rightVal: -2.425 },
+      { threshold: 10, leftVal: 0.425, rightVal: -0.475 },
+      { threshold: 30, leftVal: 0.12,  rightVal: -0.38  },
+    ],
+  };
+
+  // Extra fast-forward rounds simulated by continuing shrinkage
+  (function buildExtraRounds() {
+    // Simulate rounds 4-10 with decaying residuals (approximation for animation)
+    for (let t = 3; t < 10; t++) {
+      const prevPreds = ANIM_REG.preds[t];
+      const factor = 0.88; // ~12% shrink per extra round
+      const newPreds = prevPreds.map((p, i) => {
+        const r = ANIM_REG.ys[i] - p;
+        return p + 0.5 * r * 0.18; // small step toward truth
+      });
+      const newRes = ANIM_REG.ys.map((y, i) => y - newPreds[i]);
+      const mse = ANIM_REG.ys.reduce((s, y, i) => s + (y - newPreds[i]) ** 2, 0) / ANIM_REG.ys.length;
+      ANIM_REG.preds.push(newPreds);
+      ANIM_REG.residuals.push(newRes);
+      ANIM_REG.mses.push(mse);
+    }
+  })();
+
+  function BoostingAnim() {
+    const [phase, setPhase] = useState(0);
+    const [playing, setPlaying] = useState(false);
+    const [speed, setSpeed] = useState(1200);
+    const MAX_PHASE = 7;
+
+    useEffect(() => {
+      if (!playing || phase >= MAX_PHASE) { setPlaying(false); return; }
+      const t = setTimeout(() => setPhase(p => p + 1), speed);
+      return () => clearTimeout(t);
+    }, [playing, phase, speed]);
+
+    // Which round's data to show in each phase
+    // Phase 0: round 0 data, phase 2: round 1, phase 4: round 2, phase 6: round 3
+    const roundForPhase = [0, 0, 1, 1, 2, 2, 3, 3];
+    const roundIdx = Math.min(roundForPhase[phase] || 0, ANIM_REG.preds.length - 1);
+    const curPreds = ANIM_REG.preds[roundIdx];
+    const curResids = ANIM_REG.residuals[roundIdx];
+    const curMSE = ANIM_REG.mses[roundIdx];
+    const initMSE = ANIM_REG.mses[0];
+    const finalMSE3 = ANIM_REG.mses[3];
+
+    // SVG panel layout: 860 × 480 total, 3 horizontal panels
+    const TW = 860, TH = 480;
+    const PW = 260, PH = 380;
+    const PY = 60;
+    const P1X = 20, P2X = 300, P3X = 580;
+    // Internal chart coords within each panel
+    const CL = 40, CR = 10, CT = 30, CB = 40;
+    const CW = PW - CL - CR, CH = PH - CT - CB;
+    const xMin = 0, xMax = 46, yMin = 0, yMax = 10;
+    const px = (v, ox) => ox + CL + ((v - xMin) / (xMax - xMin)) * CW;
+    const py2 = v => PY + CT + (1 - (v - yMin) / (yMax - yMin)) * CH;
+
+    // Residual bar chart: each bar's center x, height = residual value
+    // Use a sub-chart inside middle panel with y-axis from -4 to +4
+    const rMin = -4, rMax = 4;
+    const ry = v => PY + CT + (1 - (v - rMin) / (rMax - rMin)) * CH;
+    const rx = (i, ox) => ox + CL + (i + 0.5) * (CW / ANIM_REG.xs.length);
+    const barW = Math.max(8, CW / ANIM_REG.xs.length - 4);
+
+    // Build step-function polyline points for left panel
+    function stepPoints(predsArr, ox) {
+      const sorted = ANIM_REG.xs.map((x, i) => ({ x, p: predsArr[i] })).sort((a, b) => a.x - b.x);
+      const pts = [];
+      for (let i = 0; i < sorted.length; i++) {
+        const x0 = i === 0 ? xMin : (sorted[i - 1].x + sorted[i].x) / 2;
+        const x1 = i === sorted.length - 1 ? xMax : (sorted[i].x + sorted[i + 1].x) / 2;
+        const yv = Math.max(yMin, Math.min(yMax, sorted[i].p));
+        pts.push(`${px(x0, ox)},${py2(yv)}`);
+        pts.push(`${px(x1, ox)},${py2(yv)}`);
+      }
+      return pts.join(' ');
+    }
+
+    // Phase descriptions
+    const phaseDescs = [
+      "Phase 0 — Start: predict mean ȳ = 4.863 for everyone. Residuals = true − prediction.",
+      "Phase 1 — Stump 1 is being learned. It splits at age ≤ 16 to reduce the big errors.",
+      "Phase 2 — Stump 1 applied: F₁ = F₀ + η·T₁. Residual bars shrink. MSE: 5.50 → 1.93.",
+      "Phase 3 — Stump 2 is being learned. It now splits at age ≤ 10 for finer corrections.",
+      "Phase 4 — Stump 2 applied: F₂ = F₁ + η·T₂. Bars shrink further. MSE: 1.93 → 1.47.",
+      "Phase 5 — Stump 3 is being learned. Tiny leaf values ±0.12–0.38 for final fine-tuning.",
+      "Phase 6 — Stump 3 applied: F₃ = F₀ + η·T₁ + η·T₂ + η·T₃. MSE: 5.50 → 1.29.",
+      "Phase 7 — More rounds: error keeps falling as each stump corrects the remaining residuals.",
+    ];
+
+    // Stump display for right panel
+    const stumpPhaseMap = [null, 0, 0, 1, 1, 2, 2, null];
+    const activeStump = stumpPhaseMap[phase] !== null ? ANIM_REG.stumps[stumpPhaseMap[phase]] : null;
+    const stumpLabel = phase >= 1 && phase <= 6 ? `Stump ${stumpPhaseMap[phase] + 1}` : null;
+    const stumpApplied = [false, false, true, true, true, true, true, true][phase];
+
+    // Fast-forward round for phase 7
+    const [ff, setFf] = useState(3);
+    useEffect(() => {
+      if (phase !== 7) { setFf(3); return; }
+      if (ff >= 9) return;
+      const t = setTimeout(() => setFf(f => f + 1), 320);
+      return () => clearTimeout(t);
+    }, [phase, ff]);
+
+    const displayRound = phase === 7 ? ff : roundIdx;
+    const displayPreds = ANIM_REG.preds[Math.min(displayRound, ANIM_REG.preds.length - 1)];
+    const displayResids = ANIM_REG.residuals[Math.min(displayRound, ANIM_REG.residuals.length - 1)];
+    const displayMSE = ANIM_REG.mses[Math.min(displayRound, ANIM_REG.mses.length - 1)];
+
+    // MSE progress bar fill % — 0 = initMSE, 100 = final low MSE
+    const msePct = Math.max(0, Math.min(100,
+      ((initMSE - displayMSE) / (initMSE - (ANIM_REG.mses[ANIM_REG.mses.length - 1] || 0.5))) * 100
+    ));
+
+    const btnStyle = (active) => ({
+      padding: '4px 11px', borderRadius: 6, border: '1.5px solid var(--line)',
+      background: active ? 'var(--accent)' : 'var(--panel-solid)',
+      color: active ? 'white' : 'var(--ink)', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+    });
+
+    return (
+      <div style={{ fontFamily: 'var(--ui-font)' }}>
+        {/* Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <button style={btnStyle(playing)} onClick={() => { if (phase >= MAX_PHASE) setPhase(0); setPlaying(true); }}>
+            ▶ Play
+          </button>
+          <button style={btnStyle(false)} onClick={() => setPlaying(false)}>⏸ Pause</button>
+          <button style={btnStyle(false)} onClick={() => { setPhase(0); setPlaying(false); setFf(3); }}>⟳ Reset</button>
+          <button style={btnStyle(false)} onClick={() => setPhase(p => Math.max(0, p - 1))}>← Prev</button>
+          <button style={btnStyle(false)} onClick={() => setPhase(p => Math.min(MAX_PHASE, p + 1))}>Next →</button>
+          <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 4 }}>
+            Phase {phase + 1} of {MAX_PHASE + 1}
+            {phase === 7 ? ` — Round ${displayRound + 1}` : phase <= 6 ? ` — ${['initial prediction','learning stump','applying stump'][Math.floor(phase / 2) < 3 ? (phase === 0 ? 0 : phase % 2 === 1 ? 1 : 2) : 2]}` : ''}
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>Speed:</span>
+          {[[2000, 'Slow'], [1200, 'Normal'], [600, 'Fast']].map(([ms, lbl]) => (
+            <button key={ms} style={btnStyle(speed === ms)} onClick={() => setSpeed(ms)}>{lbl}</button>
+          ))}
+        </div>
+
+        {/* MSE Progress Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>MSE progress</span>
+          <div style={{ flex: 1, background: 'var(--line-soft)', borderRadius: 6, height: 14, overflow: 'hidden', maxWidth: 400 }}>
+            <div style={{
+              height: '100%', borderRadius: 6,
+              width: `${msePct}%`,
+              background: `hsl(${130 + msePct * 0.5}, 60%, 42%)`,
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+          <span style={{ fontSize: 12, fontFamily: 'var(--num-font)', color: 'var(--ink)', flexShrink: 0, minWidth: 80 }}>
+            MSE = {displayMSE.toFixed(4)}
+          </span>
+        </div>
+
+        {/* Main SVG — 3 panels */}
+        <svg viewBox={`0 0 ${TW} ${TH}`} style={{ width: '100%', maxWidth: TW, display: 'block' }}>
+          {/* ─── Panel backgrounds ─── */}
+          {[P1X, P2X, P3X].map((ox, pi) => (
+            <rect key={pi} x={ox} y={PY - 10} width={PW} height={PH + 20}
+              rx="8" fill="var(--panel-solid)" stroke="var(--line)" strokeWidth="1" opacity="0.6" />
+          ))}
+
+          {/* ─── Panel 1: scatter + step function ─── */}
+          {/* Axes */}
+          <line x1={px(xMin, P1X)} y1={py2(yMin)} x2={px(xMax, P1X)} y2={py2(yMin)} stroke="var(--line)" strokeWidth="1.2" />
+          <line x1={px(xMin, P1X)} y1={py2(yMin)} x2={px(xMin, P1X)} y2={py2(yMax)} stroke="var(--line)" strokeWidth="1.2" />
+          {[0, 2, 4, 6, 8, 10].map(v => (
+            <g key={v}>
+              <line x1={px(xMin, P1X) - 3} y1={py2(v)} x2={px(xMin, P1X)} y2={py2(v)} stroke="var(--line)" strokeWidth="1" />
+              <text x={px(xMin, P1X) - 5} y={py2(v) + 4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
+            </g>
+          ))}
+          {[0, 10, 20, 30, 40].map(v => (
+            <g key={v}>
+              <text x={px(v, P1X)} y={py2(yMin) + 14} textAnchor="middle" fontSize="9" fill="var(--muted)">{v}</text>
+            </g>
+          ))}
+          <text x={P1X + PW / 2} y={PY + PH + 16} textAnchor="middle" fontSize="10" fill="var(--muted)">age</text>
+          <text x={P1X + 10} y={PY + PH / 2} textAnchor="middle" fontSize="10" fill="var(--muted)"
+            transform={`rotate(-90,${P1X + 10},${PY + PH / 2})`}>price</text>
+
+          {/* Panel 1 title */}
+          <text x={P1X + PW / 2} y={PY - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">
+            {phase === 0 ? 'Start: predict mean = ȳ' : `F${displayRound}: step function prediction`}
+          </text>
+
+          {/* Flat mean line (shown faded after phase 0) */}
+          {phase === 0 && (
+            <line x1={px(xMin, P1X)} y1={py2(ANIM_REG.initPred)} x2={px(xMax, P1X)} y2={py2(ANIM_REG.initPred)}
+              stroke="#94A2BC" strokeWidth="2.5" strokeDasharray="6 3" />
+          )}
+          {phase > 0 && (
+            <line x1={px(xMin, P1X)} y1={py2(ANIM_REG.initPred)} x2={px(xMax, P1X)} y2={py2(ANIM_REG.initPred)}
+              stroke="#94A2BC" strokeWidth="1.5" strokeDasharray="5 4" opacity="0.35" />
+          )}
+
+          {/* Step function */}
+          {phase >= 2 && (
+            <polyline points={stepPoints(displayPreds, P1X)}
+              fill="none"
+              stroke={displayRound >= 3 ? '#1f9e6b' : displayRound === 2 ? '#2B5BFF' : '#f59e0b'}
+              strokeWidth="2.5" strokeLinejoin="round" />
+          )}
+
+          {/* Data points */}
+          {ANIM_REG.xs.map((x, i) => (
+            <circle key={i} cx={px(x, P1X)} cy={py2(ANIM_REG.ys[i])} r="5"
+              fill="#2B5BFF" stroke="white" strokeWidth="1.2" opacity="0.9" />
+          ))}
+
+          {/* F0 label */}
+          {phase === 0 && (
+            <text x={px(xMax, P1X) - 4} y={py2(ANIM_REG.initPred) - 5} textAnchor="end"
+              fontSize="10" fill="#94A2BC" fontWeight="700">F₀ = 4.86</text>
+          )}
+
+          {/* ─── Panel 2: residual bars ─── */}
+          {/* Zero line */}
+          <line x1={rx(-0.5, P2X)} y1={ry(0)} x2={rx(ANIM_REG.xs.length - 0.5, P2X)} y2={ry(0)}
+            stroke="var(--ink)" strokeWidth="1.5" />
+          {/* Axis ticks */}
+          {[-3, -2, -1, 0, 1, 2, 3].map(v => (
+            <g key={v}>
+              <line x1={P2X + CL - 3} y1={ry(v)} x2={P2X + CL} y2={ry(v)} stroke="var(--line)" strokeWidth="1" />
+              <text x={P2X + CL - 5} y={ry(v) + 4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
+            </g>
+          ))}
+          <text x={P2X + PW / 2} y={PY + PH + 16} textAnchor="middle" fontSize="10" fill="var(--muted)">training point</text>
+          <text x={P2X + 10} y={PY + PH / 2} textAnchor="middle" fontSize="10" fill="var(--muted)"
+            transform={`rotate(-90,${P2X + 10},${PY + PH / 2})`}>residual</text>
+
+          {/* Panel 2 title */}
+          <text x={P2X + PW / 2} y={PY - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">
+            {phase <= 1 ? 'Residuals = true − prediction' : `Residuals after Round ${displayRound}`}
+          </text>
+          {phase >= 2 && (
+            <text x={P2X + PW / 2} y={PY - 2} textAnchor="middle" fontSize="10" fill="var(--muted)">
+              MSE = {displayMSE.toFixed(4)}
+            </text>
+          )}
+
+          {/* Residual bars */}
+          {displayResids.map((r, i) => {
+            const barTop = ry(Math.max(0, r));
+            const barBot = ry(Math.min(0, r));
+            const barH = Math.abs(barBot - barTop);
+            return (
+              <rect key={i}
+                x={rx(i, P2X) - barW / 2}
+                y={barTop}
+                width={barW}
+                height={Math.max(1, barH)}
+                fill={r >= 0 ? '#1f9e6b' : '#e0492e'}
+                opacity="0.8"
+                rx="2"
+                style={{ transition: 'y 0.5s ease, height 0.5s ease' }}
+              />
+            );
+          })}
+
+          {/* ─── Panel 3: stump display ─── */}
+          {/* Panel 3 title */}
+          <text x={P3X + PW / 2} y={PY - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">
+            {phase === 0 ? 'No stump yet'
+              : phase === 7 ? 'Stumps 1–3 repeating'
+              : activeStump ? `${stumpLabel}: ${stumpApplied ? 'applied ✓' : 'being learned…'}`
+              : 'Ensemble accumulated'}
+          </text>
+
+          {/* Stump SVG nodes rendered inside right panel */}
+          {activeStump && (() => {
+            const midX = P3X + PW / 2;
+            const rootY = PY + 60;
+            const childY = PY + 150;
+            const leftX = P3X + 65;
+            const rightX = P3X + PW - 65;
+            return (
+              <>
+                <line x1={midX} y1={rootY + 16} x2={leftX} y2={childY - 16} stroke="var(--line)" strokeWidth="1.5" />
+                <line x1={midX} y1={rootY + 16} x2={rightX} y2={childY - 16} stroke="var(--line)" strokeWidth="1.5" />
+                <text x={(midX + leftX) / 2 - 8} y={(rootY + childY) / 2} fontSize="10" fill="var(--muted)" fontStyle="italic">yes</text>
+                <text x={(midX + rightX) / 2 + 10} y={(rootY + childY) / 2} fontSize="10" fill="var(--muted)" fontStyle="italic">no</text>
+                <rect x={midX - 68} y={rootY - 16} width={136} height={32} rx="8"
+                  fill="var(--panel-solid)" stroke="var(--accent)" strokeWidth="2" />
+                <text x={midX} y={rootY + 5} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink)">
+                  age ≤ {activeStump.threshold}?
+                </text>
+                <rect x={leftX - 38} y={childY - 16} width={76} height={32} rx="8"
+                  fill={activeStump.leftVal >= 0 ? 'rgba(31,158,107,.15)' : 'rgba(224,73,46,.12)'}
+                  stroke={activeStump.leftVal >= 0 ? '#1f9e6b' : '#e0492e'} strokeWidth="1.5" />
+                <text x={leftX} y={childY - 1} textAnchor="middle" fontSize="11" fontWeight="700"
+                  fill={activeStump.leftVal >= 0 ? '#1f9e6b' : '#e0492e'}>
+                  {activeStump.leftVal.toFixed(3)}
+                </text>
+                <text x={leftX} y={childY + 12} textAnchor="middle" fontSize="9" fill="var(--muted)">age ≤ {activeStump.threshold}</text>
+                <rect x={rightX - 38} y={childY - 16} width={76} height={32} rx="8"
+                  fill={activeStump.rightVal >= 0 ? 'rgba(31,158,107,.15)' : 'rgba(224,73,46,.12)'}
+                  stroke={activeStump.rightVal >= 0 ? '#1f9e6b' : '#e0492e'} strokeWidth="1.5" />
+                <text x={rightX} y={childY - 1} textAnchor="middle" fontSize="11" fontWeight="700"
+                  fill={activeStump.rightVal >= 0 ? '#1f9e6b' : '#e0492e'}>
+                  {activeStump.rightVal.toFixed(3)}
+                </text>
+                <text x={rightX} y={childY + 12} textAnchor="middle" fontSize="9" fill="var(--muted)">age &gt; {activeStump.threshold}</text>
+              </>
+            );
+          })()}
+
+          {/* Phase 0: empty stump placeholder */}
+          {phase === 0 && (
+            <>
+              <rect x={P3X + 30} y={PY + 40} width={PW - 60} height={PH - 80} rx="8"
+                fill="none" stroke="var(--line)" strokeWidth="1" strokeDasharray="6 4" opacity="0.4" />
+              <text x={P3X + PW / 2} y={PY + PH / 2 - 10} textAnchor="middle" fontSize="13" fill="var(--faint)">
+                Stump 1
+              </text>
+              <text x={P3X + PW / 2} y={PY + PH / 2 + 8} textAnchor="middle" fontSize="11" fill="var(--faint)">
+                not yet trained
+              </text>
+            </>
+          )}
+
+          {/* Phase 7 fast-forward: show all 3 stumps stacked small */}
+          {phase === 7 && (
+            <>
+              {ANIM_REG.stumps.map((s, t) => {
+                const sy0 = PY + 20 + t * 110;
+                const smidX = P3X + PW / 2;
+                const active7 = true;
+                return (
+                  <g key={t} opacity={active7 ? 1 : 0.3}>
+                    <rect x={smidX - 58} y={sy0} width={116} height={26} rx="6"
+                      fill="var(--panel-solid)" stroke="var(--accent)" strokeWidth="1.5" />
+                    <text x={smidX} y={sy0 + 13} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--ink)">
+                      T{t + 1}: age ≤ {s.threshold}
+                    </text>
+                    <text x={smidX - 28} y={sy0 + 55} textAnchor="middle" fontSize="10" fontWeight="700"
+                      fill={s.leftVal >= 0 ? '#1f9e6b' : '#e0492e'}>
+                      {s.leftVal > 0 ? '+' : ''}{s.leftVal.toFixed(3)}
+                    </text>
+                    <text x={smidX + 28} y={sy0 + 55} textAnchor="middle" fontSize="10" fontWeight="700"
+                      fill={s.rightVal >= 0 ? '#1f9e6b' : '#e0492e'}>
+                      {s.rightVal > 0 ? '+' : ''}{s.rightVal.toFixed(3)}
+                    </text>
+                    <line x1={smidX} y1={sy0 + 26} x2={smidX - 28} y2={sy0 + 44} stroke="var(--line)" strokeWidth="1" />
+                    <line x1={smidX} y1={sy0 + 26} x2={smidX + 28} y2={sy0 + 44} stroke="var(--line)" strokeWidth="1" />
+                  </g>
+                );
+              })}
+              <text x={P3X + PW / 2} y={PY + 360} textAnchor="middle" fontSize="11" fontWeight="700"
+                fill="var(--accent-ink)">
+                Round {displayRound + 1} of 10
+              </text>
+            </>
+          )}
+
+          {/* MSE annotation on right panel for phase 6+ */}
+          {phase >= 6 && (
+            <>
+              <text x={P3X + PW / 2} y={PY + PH - 50} textAnchor="middle" fontSize="11" fill="var(--ink)">
+                MSE: {ANIM_REG.mses[0].toFixed(2)} → {displayMSE.toFixed(4)}
+              </text>
+              <text x={P3X + PW / 2} y={PY + PH - 32} textAnchor="middle" fontSize="10" fill="var(--muted)">
+                reduction: {((1 - displayMSE / ANIM_REG.mses[0]) * 100).toFixed(1)}%
+              </text>
+            </>
+          )}
+        </svg>
+
+        {/* Floating annotation box */}
+        <div style={{
+          marginTop: 8, padding: '10px 14px', borderRadius: 8,
+          background: 'var(--accent-soft)', border: '1.5px solid var(--accent)',
+          fontSize: 13, color: 'var(--ink)', lineHeight: 1.6,
+        }}>
+          <span style={{ fontWeight: 700, color: 'var(--accent-ink)', marginRight: 8 }}>
+            Phase {phase + 1}/{MAX_PHASE + 1}:
+          </span>
+          {phaseDescs[phase]}
+        </div>
+      </div>
+    );
+  }
+
+  const stageBoostAnim = {
+    id: "boost-animation", group: "Training", title: "Watch Boosting Correct Residuals — Animated",
+    map: "Boost Animation",
+    why: "This animation shows HOW gradient boosting actually works step by step: each stump targets the residual errors of the previous ensemble, and residual bars visibly shrink each round.",
+    render: () => <BoostingAnim />,
+  };
+
+  // ────────────────────────────────────────────────────────
   //  STAGE 7: Full Ensemble
   // ────────────────────────────────────────────────────────
   const stageEnsemble = {
@@ -1179,6 +1598,7 @@
     stageTree1,
     stageTree2,
     stageTree3,
+    stageBoostAnim,
     stageEnsemble,
     stageEta,
     stageMissing,
