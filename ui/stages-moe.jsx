@@ -803,6 +803,7 @@
       { label: "Distillation",  href: "Knowledge-Distillation.html", active: false },
       { label: "Embeddings",    href: "Embedding-Models.html",       active: false },
       { label: "Reasoning",     href: "Reasoning-Models.html",       active: false },
+      { label: "Inference",     href: "Inference-Serving.html",     active: false },
       { label: "Production",    href: "Production-Safety.html",       active: false },
     ]
   };
