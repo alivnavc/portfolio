@@ -136,7 +136,7 @@
             query attends to every key, so "{t.tokens[0]}" is informed by the words after it too.
           </Lead>
           <Formula label="encoder attention">
-            <V>A</V> = softmax( <V>Q·K<Sup>T</Sup></V> / √d )&nbsp;&nbsp;— no <V>−∞</V>, nothing removed
+            <V>A</V> = softmax( <V>Q·K<Sup>T</Sup></V> / √d )  — no <V>−∞</V>, nothing removed
           </Formula>
           {both ? (
             <Row>

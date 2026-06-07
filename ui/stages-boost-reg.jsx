@@ -525,7 +525,7 @@
                 <div className="nn-calc-row">
                   avg = {fmt(leftAvg, 3)} ≈ <b style={{ color: "#1f9e6b" }}>{fmt(stump.leftVal, 3)}</b>
                 </div>
-                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right leaf: age &gt; {stump.threshold} (n={rightResids.length})</div>
+                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right leaf: age > {stump.threshold} (n={rightResids.length})</div>
                 <div className="nn-calc-row" style={{ fontSize: 11 }}>
                   residuals: [{rightResids.map(r => fmt(r, 2)).join(", ")}]
                 </div>
@@ -631,7 +631,7 @@
                 <div className="nn-calc-row">
                   avg ≈ <b style={{ color: stump2.leftVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(stump2.leftVal, 3)}</b>
                 </div>
-                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right leaf: age &gt; {stump2.threshold} (n={rightResids2.length})</div>
+                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right leaf: age > {stump2.threshold} (n={rightResids2.length})</div>
                 <div className="nn-calc-row" style={{ fontSize: 11 }}>
                   [{rightResids2.map(r => fmt(r, 2)).join(", ")}]
                 </div>
@@ -732,8 +732,8 @@
                       <div className="nn-calc-h" style={t > 0 ? { marginTop: 6 } : {}}>Tree {t + 1} leaves</div>
                       <div className="nn-calc-row" style={{ fontSize: 11 }}>
                         left: <b style={{ color: s.leftVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(s.leftVal, 3)}</b>
-                        &nbsp; right: <b style={{ color: s.rightVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(s.rightVal, 3)}</b>
-                        &nbsp; <span style={{ color: "var(--muted)" }}>(magnitude ~{fmt(Math.max(Math.abs(s.leftVal), Math.abs(s.rightVal)), 2)})</span>
+                          right: <b style={{ color: s.rightVal >= 0 ? "#1f9e6b" : "#e0492e" }}>{fmt(s.rightVal, 3)}</b>
+                          <span style={{ color: "var(--muted)" }}>(magnitude ~{fmt(Math.max(Math.abs(s.leftVal), Math.abs(s.rightVal)), 2)})</span>
                       </div>
                     </div>
                   );
@@ -874,7 +874,7 @@
           <text x={(midX + leftX) / 2 - 16} y={(rootY + childY) / 2 + 2}
             fontSize="11" fill={col} fontStyle="italic" fontWeight="600">Yes, ≤</text>
           <text x={(midX + rightX) / 2 + 10} y={(rootY + childY) / 2 + 2}
-            fontSize="11" fill={col} fontStyle="italic" fontWeight="600">No, &gt;</text>
+            fontSize="11" fill={col} fontStyle="italic" fontWeight="600">No, ></text>
           {/* root node */}
           <rect x={midX - 80} y={rootY - 18} width={160} height={36}
             rx="8" fill="white" stroke={col} strokeWidth="2.5" />
@@ -899,7 +899,7 @@
             predict: {stump.rightVal >= 0 ? "+" : ""}{stump.rightVal.toFixed(3)}
           </text>
           <text x={rightX} y={childY + 13} textAnchor="middle"
-            fontSize="9.5" fill="#666">age &gt; {stump.threshold}</text>
+            fontSize="9.5" fill="#666">age > {stump.threshold}</text>
         </>
       );
     }
@@ -982,7 +982,7 @@
           {/* Arrow */}
           <text x={BAR_AREA_X + BAR_AREA_W / 2} y={topY + 38}
             textAnchor="middle" fontSize="11" fill={col} fontWeight="700">
-            ↓ new residuals = old − η·T(x) &nbsp;
+            ↓ new residuals = old − η·T(x)  
             (MSE reduced by {(((maxAbs**2) - Math.max(...residAfter.map(r=>r*r), 0.01))/maxAbs**2 * 100).toFixed(0)}% avg |r|)
           </text>
           {/* After label */}
@@ -1049,7 +1049,7 @@
         </text>
         <text x={430} y={FIN_Y + 37} textAnchor="middle"
           fontSize="11" fill="#555">
-          = {fmt(initPred, 3)} + 0.5·T₁(x) + 0.5·T₂(x) + 0.5·T₃(x) &nbsp;|&nbsp; MSE: 5.500 → 1.925 → 1.473 → 1.285
+          = {fmt(initPred, 3)} + 0.5·T₁(x) + 0.5·T₂(x) + 0.5·T₃(x)  |  MSE: 5.500 → 1.925 → 1.473 → 1.285
         </text>
       </svg>
     );
@@ -1418,7 +1418,7 @@
                   fill={activeStump.rightVal >= 0 ? '#1f9e6b' : '#e0492e'}>
                   {activeStump.rightVal.toFixed(3)}
                 </text>
-                <text x={rightX} y={childY + 12} textAnchor="middle" fontSize="9" fill="var(--muted)">age &gt; {activeStump.threshold}</text>
+                <text x={rightX} y={childY + 12} textAnchor="middle" fontSize="9" fill="var(--muted)">age > {activeStump.threshold}</text>
               </>
             );
           })()}
@@ -1839,7 +1839,7 @@
 
           <div className="tf-subhead">XGBoost leaf value formula</div>
           <Formula label="XGBoost leaf">
-            w* = −ΣGᵢ / (ΣHᵢ + λ) &nbsp;where G = ∂L/∂F (gradient), H = ∂²L/∂F² (Hessian), λ = L2 regularization
+            w* = −ΣGᵢ / (ΣHᵢ + λ)  where G = ∂L/∂F (gradient), H = ∂²L/∂F² (Hessian), λ = L2 regularization
           </Formula>
           <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.7, marginBottom: 12 }}>
             For MSE loss: Gᵢ = Fᵢ − yᵢ (residual), Hᵢ = 1. So XGBoost leaf = −Σ(Fᵢ−yᵢ)/(n+λ),
@@ -2020,7 +2020,7 @@
         </label>
         <span style={{ fontSize: 12, color: "var(--muted)", paddingLeft: 4 }}>
           pred: <b style={{ color: "var(--accent-ink)" }}>{fmt(trace.queryPred, 2)} $100k</b>
-          &nbsp;|&nbsp;MSE: <b>{fmt(trace.mse, 4)}</b>
+           | MSE: <b>{fmt(trace.mse, 4)}</b>
         </span>
       </>
     ),

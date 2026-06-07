@@ -475,11 +475,11 @@
               <V>P</V>(<V>C</V> | <V>x</V>) ={' '}
               <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
                 <span style={{ borderBottom: '2px solid var(--ink)', paddingBottom: 2 }}>
-                  <V>P</V>(<V>x</V> | <V>C</V>) &nbsp;×&nbsp; <V>P</V>(<V>C</V>)
+                  <V>P</V>(<V>x</V> | <V>C</V>)  ×  <V>P</V>(<V>C</V>)
                 </span>
                 <span style={{ paddingTop: 4 }}><V>P</V>(<V>x</V>)</span>
               </span>
-              &nbsp;&nbsp;=&nbsp;&nbsp;
+                =  
               <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle' }}>
                 <span style={{ borderBottom: '2px solid var(--accent)', paddingBottom: 2, color: 'var(--accent)' }}>
                   likelihood × prior
@@ -709,7 +709,7 @@
                 </span>
                 <span style={{ paddingTop: 4 }}>count(<V>C</V>) + 2α</span>
               </span>
-              &nbsp; where α = 1 (Laplace)
+                where α = 1 (Laplace)
             </Formula>
 
             <div className="tf-subhead">Step-by-step: P(has_link=1 | spam)</div>

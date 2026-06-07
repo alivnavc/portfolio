@@ -138,7 +138,7 @@
     {
       id: "why_use",
       group: "Overview",
-      title: "Why We Need Them &amp; When to Use",
+      title: "Why We Need Them & When to Use",
       map: "Use cases",
       why: "Keyword search matches exact words; it fails on synonyms, paraphrases, and meaning. Embeddings unlock matching by meaning, which is the basis of nearly every modern retrieval and recommendation system.",
       render: () => (
@@ -585,7 +585,7 @@
               <thead><tr>{th("Source")}{th("Anchor → positive pairing")}</tr></thead>
               <tbody>
                 <tr>{td("Web / articles")}{td("Title → body, or summary → article")}</tr>
-                <tr>{td("Q&amp;A forums")}{td("Question → accepted answer")}</tr>
+                <tr>{td("Q&A forums")}{td("Question → accepted answer")}</tr>
                 <tr>{td("Scientific papers")}{td("Citation pairs (citing → cited)")}</tr>
                 <tr>{td("Search logs")}{td("Query → clicked document")}</tr>
                 <tr>{td("Code")}{td("Docstring → function, or comment → code")}</tr>
@@ -674,7 +674,7 @@
     {
       id: "advanced",
       group: "Advanced",
-      title: "Matryoshka, Instructions &amp; Long Context",
+      title: "Matryoshka, Instructions & Long Context",
       map: "Advanced",
       why: "Recent techniques make embeddings cheaper (truncatable vectors, quantization), more flexible (instruction tuning), and capable of whole-document understanding (long context).",
       render: () => (

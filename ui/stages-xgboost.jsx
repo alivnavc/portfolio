@@ -402,8 +402,8 @@
             <div className="nn-calc-row">L(F + Δ) ≈ L(F) + gᵢ·Δ + ½·hᵢ·Δ²</div>
             <div className="nn-calc-row">Optimal step (no regularization): Δ* = −gᵢ / hᵢ</div>
             <div className="nn-calc-row">For MSE: L = ½(y−F)²</div>
-            <div className="nn-calc-row">gᵢ = ∂L/∂F = F − y &nbsp;(sign-flipped residual)</div>
-            <div className="nn-calc-row">hᵢ = ∂²L/∂F² = 1 &nbsp;(constant for MSE)</div>
+            <div className="nn-calc-row">gᵢ = ∂L/∂F = F − y  (sign-flipped residual)</div>
+            <div className="nn-calc-row">hᵢ = ∂²L/∂F² = 1  (constant for MSE)</div>
           </div>
 
           <div className="tf-subhead" style={{ marginTop: 16 }}>Gradients and hessians for our 6 houses</div>
@@ -542,7 +542,7 @@
                   <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)", fontWeight: 700, color: "#1f9e6b" }}>{fmt(ssLeft, 4)}</td>
                 </tr>
                 <tr style={{ borderBottom: "1px solid var(--line-soft)", background: "rgba(224,73,46,.04)" }}>
-                  <td style={{ padding: "5px 10px", fontWeight: 600, color: "#e0492e" }}>Right (&gt; 12.5)</td>
+                  <td style={{ padding: "5px 10px", fontWeight: 600, color: "#e0492e" }}>Right (> 12.5)</td>
                   <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)", fontSize: 12 }}>{rightIdx.map(i => `h${i + 1}`).join(", ")}</td>
                   <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)" }}>{fmt(GR, 4)}</td>
                   <td style={{ padding: "5px 10px", fontFamily: "var(--num-font)" }}>{HR}</td>
@@ -623,7 +623,7 @@
           </div>
 
           <div className="nn-calc" style={{ margin: "10px 0" }}>
-            <div className="nn-calc-h">Right leaf (age &gt; 12.5): houses {rightIdx.map(i => i + 1).join(", ")}</div>
+            <div className="nn-calc-h">Right leaf (age > 12.5): houses {rightIdx.map(i => i + 1).join(", ")}</div>
             <div className="nn-calc-row">ΣGᵢ = {rightIdx.map(i => fmt(gradients[i], 3)).join(" + ")} = {fmt(GR, 4)}</div>
             <div className="nn-calc-row">ΣHᵢ = {HR}</div>
             <div className="nn-calc-row">GBM:  w = mean(residuals) = {fmt(gbmRight, 4)}</div>
@@ -948,7 +948,7 @@
             <div className="nn-calc-h">XGBoost missing value algorithm for split threshold = 12.5</div>
             <div className="nn-calc-row">Option A: route missing → LEFT (treat house 3 as age ≤ 12.5)</div>
             <div className="nn-calc-row">  Left group = houses 1, 2, 3 → Gain_A = SS(1,2,3) + SS(4,5,6) − SS(all) − γ</div>
-            <div className="nn-calc-row">Option B: route missing → RIGHT (treat house 3 as age &gt; 12.5)</div>
+            <div className="nn-calc-row">Option B: route missing → RIGHT (treat house 3 as age > 12.5)</div>
             <div className="nn-calc-row">  Right group = houses 3, 4, 5, 6 → Gain_B = SS(1,2) + SS(3,4,5,6) − SS(all) − γ</div>
             <div className="nn-calc-row">Choose: whichever of Gain_A, Gain_B is higher</div>
             <div className="nn-calc-row">Remember direction: all future NaN ages route the same way</div>

@@ -1740,7 +1740,7 @@ optimal_params = total_flops / (6 * optimal_tokens)`
                 Perplexity is the exponential of the cross-entropy loss measured on a
                 held-out set; lower is better. Intuitively it is the average branching
                 factor — how many tokens the model is effectively "choosing between" at
-                each step. A good English language model scores roughly 10&ndash;20.
+                each step. A good English language model scores roughly 10–20.
               </p>
               {codeBlock("perplexity = exp(mean(cross_entropy_per_token))")}
               <p style={{ margin:"8px 0 0" }}>
@@ -1821,7 +1821,7 @@ optimal_params = total_flops / (6 * optimal_tokens)`
               <p style={{ margin:"0 0 8px" }}>
                 pass@k is the probability that at least one of k sampled completions
                 passes the unit tests. To estimate it with low variance you generate
-                n &gt; k samples, count how many are correct, and use the unbiased
+                n > k samples, count how many are correct, and use the unbiased
                 estimator:
               </p>
               {codeBlock("pass@k = 1 - C(n-c, k) / C(n, k)")}

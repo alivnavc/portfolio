@@ -1115,7 +1115,7 @@
           <div style={{ background: "#f5f5f5", borderRadius: 10, padding: "16px 22px", fontFamily: "monospace", fontSize: 14, margin: "12px 0", border: "1px solid #e0e0e0" }}>
             <div style={{ marginBottom: 10 }}><b>Single tree:</b>   Var(T) = σ²</div>
             <div style={{ marginBottom: 10 }}><b>Independent forest (ρ=0):</b>   Var = σ²/B</div>
-            <div style={{ marginBottom: 10, color: "#e91e63" }}><b>RF (correlated, ρ&gt;0):</b>   Var = ρ·σ² + (1−ρ)·σ²/B</div>
+            <div style={{ marginBottom: 10, color: "#e91e63" }}><b>RF (correlated, ρ>0):</b>   Var = ρ·σ² + (1−ρ)·σ²/B</div>
             <div style={{ fontSize: 11, color: "#888", fontFamily: "sans-serif" }}>
               ρ = average pairwise correlation between tree predictions. Typical value: 0.3–0.5.
             </div>

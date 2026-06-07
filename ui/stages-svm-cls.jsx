@@ -327,7 +327,7 @@
             </Lead>
 
             <Formula label="Decision rule">
-              f(x) = <b>w·x + b</b> = w₁x₁ + w₂x₂ + b &nbsp;→&nbsp; class = sign(f(x))
+              f(x) = <b>w·x + b</b> = w₁x₁ + w₂x₂ + b  →  class = sign(f(x))
             </Formula>
 
             <ScatterBase>
@@ -353,11 +353,11 @@
 
             <div className="nn-calc" style={{ marginTop: 12 }}>
               <div className="nn-calc-h">Our hyperplane: w = [1/3, 1/3], b = −10/3</div>
-              <div className="nn-calc-row">Equation: (1/3)x₁ + (1/3)x₂ − 10/3 = 0 &nbsp;→&nbsp; x₁ + x₂ = 10</div>
-              <div className="nn-calc-row">Class +1 side: x₁ + x₂ &gt; 10 &nbsp; (w·x+b &gt; 0)</div>
-              <div className="nn-calc-row">Class −1 side: x₁ + x₂ &lt; 10 &nbsp; (w·x+b &lt; 0)</div>
+              <div className="nn-calc-row">Equation: (1/3)x₁ + (1/3)x₂ − 10/3 = 0  →  x₁ + x₂ = 10</div>
+              <div className="nn-calc-row">Class +1 side: x₁ + x₂ &gt; 10   (w·x+b &gt; 0)</div>
+              <div className="nn-calc-row">Class −1 side: x₁ + x₂ &lt; 10   (w·x+b &lt; 0)</div>
               <div className="nn-calc-row" style={{ borderTop: "1px solid var(--line)", paddingTop: 6 }}>
-                For ★ = ({fmt(x1)}, {fmt(x2)}): &nbsp; f(x) = ({fmt(x1)}+{fmt(x2)}−10)/3 = <b>{fmt(dist,4)}</b>
+                For ★ = ({fmt(x1)}, {fmt(x2)}):   f(x) = ({fmt(x1)}+{fmt(x2)}−10)/3 = <b>{fmt(dist,4)}</b>
               </div>
               <div className="nn-calc-row">
                 → Predicted class: <b style={{ color: label > 0 ? COL_POS : COL_NEG }}>{label > 0 ? "+1 (Class B)" : "−1 (Class A)"}</b>
@@ -398,7 +398,7 @@
           </Lead>
 
           <Formula label="Margin width">margin = <b>2 / ‖w‖</b> = 2 / (√2/3) = 6/√2 = 3√2 ≈ <b>{fmt(MARGIN, 4)}</b></Formula>
-          <Formula label="Optimisation">Maximise margin &nbsp;↔&nbsp; Minimise <b>½ ‖w‖²</b> subject to yᵢ(w·xᵢ + b) ≥ 1 for all i</Formula>
+          <Formula label="Optimisation">Maximise margin  ↔  Minimise <b>½ ‖w‖²</b> subject to yᵢ(w·xᵢ + b) ≥ 1 for all i</Formula>
 
           <ScatterBase>
             {marginBand(MARGIN_NEG_C, MARGIN_POS_C)}
@@ -549,8 +549,8 @@
             the margin — its slack value ξ is the distance it intrudes.
           </Lead>
 
-          <Formula label="Primal (soft margin)">min<Sub>w,b,ξ</Sub>&nbsp; ½‖w‖² + C · Σξᵢ</Formula>
-          <Formula label="Constraints">yᵢ(w·xᵢ + b) ≥ 1 − ξᵢ &nbsp;&nbsp; ξᵢ ≥ 0 &nbsp;&nbsp; ∀i = 1…n</Formula>
+          <Formula label="Primal (soft margin)">min<Sub>w,b,ξ</Sub>  ½‖w‖² + C · Σξᵢ</Formula>
+          <Formula label="Constraints">yᵢ(w·xᵢ + b) ≥ 1 − ξᵢ    ξᵢ ≥ 0    ∀i = 1…n</Formula>
 
           <ScatterBase>
             {marginBand(MARGIN_NEG_C, MARGIN_POS_C)}
@@ -1054,7 +1054,7 @@
           </div>
 
           <Note icon="🔍">
-            <b>Recommended grid search:</b> <code>param_grid = {"{"}{'C': [0.01, 0.1, 1, 10, 100], 'gamma': ['scale', 0.001, 0.01, 0.1]}{"}"}</code>.
+            <b>Recommended grid search:</b> <code>param_grid = {"{'C': [0.01, 0.1, 1, 10, 100], 'gamma': ['scale', 0.001, 0.01, 0.1]}"}</code>.
             Use GridSearchCV or RandomizedSearchCV. This 5×4 = 20-combination grid with 5-fold CV = 100 model fits.
           </Note>
 

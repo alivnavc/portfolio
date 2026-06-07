@@ -173,13 +173,13 @@
             <div className="tf-arch">
               <div className="tf-arch-io">Training data: (house size, true price) pairs<span>given — we don't choose these</span></div>
               <div className="tf-arch-f"><b>Step 1 — pick a line</b>: start with random w and b</div>
-              <div className="tf-arch-row">ŷ = w·x + b &nbsp;→&nbsp; current predictions (probably wrong)</div>
+              <div className="tf-arch-row">ŷ = w·x + b  →  current predictions (probably wrong)</div>
               <div className="tf-arch-f"><b>Step 2 — measure error</b>: how far off are we?</div>
-              <div className="tf-arch-row">Loss = MSE = average of (ŷ − y)² &nbsp;→&nbsp; one number summarising all mistakes</div>
+              <div className="tf-arch-row">Loss = MSE = average of (ŷ − y)²  →  one number summarising all mistakes</div>
               <div className="tf-arch-f"><b>Step 3 — compute gradients</b>: which way should w and b move?</div>
-              <div className="tf-arch-row">∂Loss/∂w and ∂Loss/∂b &nbsp;→&nbsp; the slope of the error surface</div>
+              <div className="tf-arch-row">∂Loss/∂w and ∂Loss/∂b  →  the slope of the error surface</div>
               <div className="tf-arch-f"><b>Step 4 — update</b>: take a small step downhill</div>
-              <div className="tf-arch-row">w ← w − η·∂L/∂w &nbsp;&nbsp; b ← b − η·∂L/∂b</div>
+              <div className="tf-arch-row">w ← w − η·∂L/∂w    b ← b − η·∂L/∂b</div>
               <div className="tf-arch-f"><b>Repeat steps 2–4 until loss stops improving</b></div>
               <div className="tf-arch-io tf-arch-io--out">Learned w* and b* — the best-fit line<span>now use these to predict on new data</span></div>
             </div>
@@ -519,7 +519,7 @@
               <div className="nn-calc-row">÷ n = {cfg.xs.length}</div>
               <div className="nn-calc-row"><b>Current MSE = {fmt(mse,4)}</b></div>
               <div className="nn-calc-row" style={{borderTop:"1px solid var(--line)",paddingTop:6}}>Best achievable MSE ≈ {fmt(mseOpt,4)}</div>
-              <div className="nn-calc-row">Gap to close = {fmt(Math.max(0,mse-mseOpt),4)} &nbsp;{mse-mseOpt<0.001?"✓ at optimum!":""}</div>
+              <div className="nn-calc-row">Gap to close = {fmt(Math.max(0,mse-mseOpt),4)}  {mse-mseOpt<0.001?"✓ at optimum!":""}</div>
             </div>
 
             <Note>
@@ -557,19 +557,19 @@
 
             <Formula label="Loss">
               <V>L</V> = <sup>1</sup>/<sub>n</sub> Σ (ŷ⁽ⁱ⁾ − y⁽ⁱ⁾)²
-              &nbsp;&nbsp;where&nbsp;&nbsp;
+                where  
               ŷ⁽ⁱ⁾ = <V>w</V>·x⁽ⁱ⁾ + <V>b</V>
             </Formula>
             <Formula label="Chain rule for ∂L/∂w">
               <sup>∂L</sup>/<sub>∂ŷ</sub> = <sup>2</sup>/<sub>n</sub> (ŷ − y)
-              &nbsp;&nbsp;and&nbsp;&nbsp;
+                and  
               <sup>∂ŷ</sup>/<sub>∂w</sub> = x
-              &nbsp;&nbsp;→&nbsp;&nbsp;
+                →  
               <sup>∂L</sup>/<sub>∂w</sub> = <sup>2</sup>/<sub>n</sub> Σ (ŷ⁽ⁱ⁾ − y⁽ⁱ⁾) · x⁽ⁱ⁾
             </Formula>
             <Formula label="Chain rule for ∂L/∂b">
               <sup>∂ŷ</sup>/<sub>∂b</sub> = 1
-              &nbsp;&nbsp;→&nbsp;&nbsp;
+                →  
               <sup>∂L</sup>/<sub>∂b</sub> = <sup>2</sup>/<sub>n</sub> Σ (ŷ⁽ⁱ⁾ − y⁽ⁱ⁾)
             </Formula>
 
@@ -660,7 +660,7 @@
 
             <Formula label="Update rule">
               <V>w</V> ← <V>w</V> − <V>η</V> · <sup>∂L</sup>/<sub>∂w</sub>
-              &nbsp;&nbsp;&nbsp;&nbsp;
+                  
               <V>b</V> ← <V>b</V> − <V>η</V> · <sup>∂L</sup>/<sub>∂b</sub>
             </Formula>
 
@@ -787,7 +787,7 @@
             </Lead>
             <Formula label="Optimal w*">
               <V>w*</V> = Σ(x⁽ⁱ⁾ − x̄)(y⁽ⁱ⁾ − ȳ) / Σ(x⁽ⁱ⁾ − x̄)²
-              &nbsp;= SS<Sub>xy</Sub> / SS<Sub>xx</Sub>
+               = SS<Sub>xy</Sub> / SS<Sub>xx</Sub>
             </Formula>
             <Formula label="Optimal b*">
               <V>b*</V> = ȳ − <V>w*</V> · x̄
@@ -810,7 +810,7 @@
               </div>
               <div className="nn-calc-row"><b>b* = {fmt(yMean,4)} − {fmt(wNorm,4)} × {fmt(xMean,4)} = {fmt(bNorm,4)}</b></div>
               <div className="nn-calc-row" style={{borderTop:"1px solid var(--line)",paddingTop:6}}>
-                Optimal MSE = <b>{fmt(mseNorm,4)}</b> &nbsp;(minimum possible)
+                Optimal MSE = <b>{fmt(mseNorm,4)}</b>  (minimum possible)
               </div>
             </div>
 
@@ -1006,10 +1006,10 @@
             </Lead>
             <Formula label="R²">
               <V>R²</V> = 1 − SS<Sub>res</Sub>/SS<Sub>tot</Sub>
-              &nbsp;=&nbsp; 1 − {fmt(ssRes,3)}/{fmt(ssTot,3)}
-              &nbsp;=&nbsp;
+               =  1 − {fmt(ssRes,3)}/{fmt(ssTot,3)}
+               = 
               <b style={{color:r2>0.9?"#1f9e6b":r2>0.6?"var(--ink)":"rgba(226,76,96,1)"}}>{fmt(Math.max(0,r2),4)}</b>
-              &nbsp; ({r2Pct}% of price variation explained)
+                ({r2Pct}% of price variation explained)
             </Formula>
 
             <Row>

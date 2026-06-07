@@ -679,7 +679,7 @@
             <div className="nn-calc-row">p₂ = 4/12 = 0.333 → p₂² = 0.111</div>
             <div className="nn-calc-row">Σ pᵢ² = 0.111 + 0.111 + 0.111 = 0.333</div>
             <div className="nn-calc-row" style={{ fontSize:14, color:"var(--accent-ink)" }}>
-              <b>Gini(root) = 1 − 0.333 = 0.665</b> &nbsp;(high impurity — 3 classes equally mixed)
+              <b>Gini(root) = 1 − 0.333 = 0.665</b>  (high impurity — 3 classes equally mixed)
             </div>
           </div>)}
           {subhead("Weighted Gini after a candidate split")}
@@ -759,7 +759,7 @@
               <div className="nn-calc-h">Step 1 — Entropy of parent</div>
               <div className="nn-calc-row">H(root) = −(0.333·log₂0.333)×3 = −3×(−0.528) = <b>{fmt(H_root,3)}</b></div>
               <div className="nn-calc-h" style={{marginTop:8}}>Step 2 — Entropy of children</div>
-              <div className="nn-calc-row">H(left)  = 0.000 &nbsp;(all Setosa, no surprise)</div>
+              <div className="nn-calc-row">H(left)  = 0.000  (all Setosa, no surprise)</div>
               <div className="nn-calc-row">H(right) = −2×(0.5·log₂0.5) = −2×(−0.5) = <b>{fmt(H_right,3)}</b></div>
               <div className="nn-calc-h" style={{marginTop:8}}>Step 3 — Weighted entropy of split</div>
               <div className="nn-calc-row">wH = (4/12)×0 + (8/12)×1.000 = <b>{fmt(wH_split,3)}</b></div>

@@ -1699,9 +1699,9 @@
           <p style={{ fontSize:13, lineHeight:1.8, color:"var(--ink)", marginBottom:10 }}>
             MFU is achieved FLOPs divided by peak hardware FLOPs — what fraction of the GPU's
             theoretical compute you are actually using. Per step, the model FLOPs for a dense
-            model are approximately <b>6 &times; N &times; tokens</b> (N = number of parameters):
+            model are approximately <b>6 × N × tokens</b> (N = number of parameters):
             roughly 2 for the forward pass and 4 for the backward pass, per parameter per token.
-            Divide observed FLOPs by (num_gpus &times; peak_flops &times; step_time) to get MFU.
+            Divide observed FLOPs by (num_gpus × peak_flops × step_time) to get MFU.
             Good large-scale runs hit <b>40-55% MFU</b>.
           </p>
           {codeBlock(

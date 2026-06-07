@@ -377,11 +377,11 @@
 
         <div className="nn-calc">
           <div className="nn-calc-h">Live computation for x = {trace.x.toFixed(1)} h (current query)</div>
-          <div className="nn-calc-row">Step 1 — linear combination:&nbsp;
+          <div className="nn-calc-row">Step 1 — linear combination: 
             z = {fmt(trace.w)} · {trace.x.toFixed(1)} + ({fmt(trace.b)}) = <b>{fmt(trace.z)}</b></div>
-          <div className="nn-calc-row">Step 2 — apply sigmoid:&nbsp;
+          <div className="nn-calc-row">Step 2 — apply sigmoid: 
             σ({fmt(trace.z)}) = 1 / (1 + e<sup>−({fmt(trace.z)})</sup>) = <b className="nn-calc-res">{(trace.prob * 100).toFixed(3)}%</b></div>
-          <div className="nn-calc-row">Interpretation:&nbsp;
+          <div className="nn-calc-row">Interpretation: 
             <span style={{ color: trace.pred === 1 ? "rgba(31,158,107,1)" : "rgba(224,73,46,1)", fontWeight: 700 }}>
               {(trace.prob * 100).toFixed(1)}% probability of passing
             </span>
@@ -488,7 +488,7 @@
           </div>
           <div className="tf-life tf-life--infer">
             <div className="tf-life-h"><span>→</span> Right of x* (predict pass)</div>
-            <p>P(pass) &gt; 0.5. At 4 h: P = {fmt(sigmoid(w * 4 + b))}. At 6 h: P = {fmt(sigmoid(w * 6 + b))}.
+            <p>P(pass) > 0.5. At 4 h: P = {fmt(sigmoid(w * 4 + b))}. At 6 h: P = {fmt(sigmoid(w * 6 + b))}.
               The further right, the closer to 1 — the model becomes increasingly certain.</p>
           </div>
         </div>

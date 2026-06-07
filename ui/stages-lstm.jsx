@@ -50,7 +50,7 @@
                 <div className="tf-arch-io">x₁ → x₂ → x₃ → x₄<span>input sequence</span></div>
                 <div className="tf-arch-f"><b>forget gate</b> — drop old memory</div>
                 <div className="tf-arch-f"><b>input gate + candidate</b> — add new memory</div>
-                <div className="tf-arch-row">{sym("c_t")} = f·c_t₋₁ + i·g &nbsp; (updated cell state)</div>
+                <div className="tf-arch-row">{sym("c_t")} = f·c_t₋₁ + i·g   (updated cell state)</div>
                 <div className="tf-arch-f"><b>output gate</b> — what to reveal</div>
                 <div className="tf-arch-io tf-arch-io--out">{sym("h_t")} = o · tanh(c_t)<span>hidden output → prediction</span></div>
               </div>

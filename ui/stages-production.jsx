@@ -245,7 +245,7 @@
           <p style={{fontSize:14, color:"var(--ink)"}}>
             The softmax output layer converts logits into a probability distribution over all
             tokens in the vocabulary. This distribution <b>always sums to 1</b> — it always
-            picks something. There is no &quot;I don't know&quot; token. Even when the model has
+            picks something. There is no &quot;I don't know" token. Even when the model has
             no genuine knowledge about a topic, the softmax still produces high probability
             for the most plausible-sounding continuation.
           </p>
@@ -269,8 +269,8 @@
 
           {subhead("Root Cause 4 — No Grounding Mechanism")}
           <p style={{fontSize:14, color:"var(--ink)"}}>
-            Base LLMs have no internal mechanism to distinguish &quot;I was trained on reliable
-            data about this topic&quot; from &quot;I am extrapolating.&quot; The model has no
+            Base LLMs have no internal mechanism to distinguish "I was trained on reliable
+            data about this topic" from "I am extrapolating." The model has no
             epistemics — no model of its own knowledge gaps. This is the deepest structural cause,
             and it motivates RAG (stage 3) and calibration training (stage 4).
           </p>
@@ -333,7 +333,7 @@
             {/* Query box */}
             <rect x="5" y="60" width="80" height="40" rx="7" fill="#e8f0ff" stroke="#2B5BFF" strokeWidth="1.5" />
             <text x="45" y="76" textAnchor="middle" fontSize="10" fontWeight="700" fill="#2B5BFF">User Query</text>
-            <text x="45" y="91" textAnchor="middle" fontSize="9" fill="#2B5BFF">&quot;What is RAG?&quot;</text>
+            <text x="45" y="91" textAnchor="middle" fontSize="9" fill="#2B5BFF">"What is RAG?"</text>
 
             {/* Arrow */}
             <line x1="85" y1="80" x2="108" y2="80" stroke="#2B5BFF" strokeWidth="1.8" markerEnd="url(#arrowRAG)" />
@@ -396,7 +396,7 @@
           {subhead("Component 1 — Embedding Model")}
           <p style={{fontSize:14, color:"var(--ink)"}}>
             The query and every document chunk are encoded into dense vectors using a text
-            embedding model (e.g., OpenAI&apos;s <code style={{fontSize:12}}>text-embedding-3-small</code>,
+            embedding model (e.g., OpenAI\'s <code style={{fontSize:12}}>text-embedding-3-small</code>,
             producing 1536-dimensional vectors). Semantic similarity is measured by cosine
             distance between query and document vectors, allowing the retriever to find
             conceptually related content even when exact keywords do not match.
@@ -495,7 +495,7 @@
             A perfectly calibrated model that says it is 80% confident is right exactly 80% of
             the time. Most base LLMs are systematically overconfident — they express certainty
             about things they do not reliably know. Calibration is the alignment between a
-            model&apos;s expressed confidence and its actual accuracy.
+            model\'s expressed confidence and its actual accuracy.
           </Lead>
 
           {subhead("What Calibration Means")}
@@ -504,7 +504,7 @@
               <div>
                 <div style={{fontWeight:700, fontSize:13, color:"#c0392b", marginBottom:6}}>Overconfident (Uncalibrated)</div>
                 <p style={{fontSize:13, color:"var(--ink)", margin:0}}>
-                  Model says &quot;definitely&quot; and is right only 60% of the time.
+                  Model says "definitely" and is right only 60% of the time.
                   Expressed confidence: 95%. Actual accuracy: 60%.
                   Expected Calibration Error (ECE) is high.
                 </p>
@@ -512,7 +512,7 @@
               <div>
                 <div style={{fontWeight:700, fontSize:13, color:"#059669", marginBottom:6}}>Well-Calibrated</div>
                 <p style={{fontSize:13, color:"var(--ink)", margin:0}}>
-                  When model says &quot;I'm about 80% sure,&quot; it is right ~80% of the time.
+                  When model says "I'm about 80% sure,&quot; it is right ~80% of the time.
                   ECE approaches 0. Reliability diagram shows near-diagonal alignment.
                 </p>
               </div>
@@ -524,16 +524,16 @@
             Standard RLHF trains on human preference data. Calibration-focused RLHF adds a
             specific signal: human raters are trained to prefer responses that express appropriate
             uncertainty. A response that says &quot;I'm not certain, but I believe X — you should
-            verify this&quot; is preferred over a response that confidently asserts X when X is
+            verify this" is preferred over a response that confidently asserts X when X is
             uncertain. Over thousands of preference pairs, the model learns epistemic humility.
           </p>
 
           {subhead("Constitutional AI (Anthropic)")}
           <p style={{fontSize:14, color:"var(--ink)"}}>
-            Anthropic&apos;s Constitutional AI trains models to critique their own outputs
+            Anthropic\'s Constitutional AI trains models to critique their own outputs
             against a set of written principles before responding. One such principle is
-            epistemic accuracy: &quot;Does this response claim certainty that is not warranted
-            by the available information?&quot; The model generates a draft, critiques it
+            epistemic accuracy: "Does this response claim certainty that is not warranted
+            by the available information?" The model generates a draft, critiques it
             for overconfidence, then revises toward a more accurate epistemic stance.
             This self-critique loop can be run multiple times before the final response.
           </p>
@@ -562,7 +562,7 @@
               <tr>{td("0.0 (greedy)")}{td("Always picks highest-probability token")}{td("Critical factual QA, code generation")}</tr>
               <tr>{td("0.3 - 0.7")}{td("Mild diversity, reduced hallucination risk")}{td("Factual tasks, document summarization")}</tr>
               <tr>{td("0.8 - 1.0")}{td("Higher diversity, more creative")}{td("Brainstorming, creative writing")}</tr>
-              <tr>{td("&gt;1.0")}{td("Very high entropy, often incoherent")}{td("Not recommended for production")}</tr>
+              <tr>{td(">1.0")}{td("Very high entropy, often incoherent")}{td("Not recommended for production")}</tr>
             </tbody>
           </>)}
 
@@ -590,7 +590,7 @@
 
           {info(<>
             <b>Practical tip:</b> The cheapest calibration improvement requires no training.
-            Adding &quot;if you don't know, say so — do not guess&quot; to the system prompt
+            Adding &quot;if you don't know, say so — do not guess" to the system prompt
             measurably reduces hallucination rate in most production deployments.
             Combine with temperature=0.3 for factual tasks and RAG for high-stakes domains.
           </>)}
@@ -620,11 +620,11 @@
             <p style={{fontSize:13, color:"var(--ink)", marginBottom:8}}>
               Certain groups, languages, dialects, or perspectives are over- or under-represented
               in training data. English-language, Western, and majority-demographic content
-              dominates web crawls. The model&apos;s &quot;world model&quot; is skewed toward
+              dominates web crawls. The model\'s "world model" is skewed toward
               the perspective of those groups.
             </p>
             <div style={{fontStyle:"italic", fontSize:13, color:"#555", borderLeft:"3px solid var(--accent)", paddingLeft:10}}>
-              Example: Word embeddings trained on news corpora show &quot;engineer&quot; clustering
+              Example: Word embeddings trained on news corpora show "engineer" clustering
               significantly closer to male names than female names — not because engineers
               are male, but because the <i>coverage</i> of female engineers in news is lower.
             </div>
@@ -1083,14 +1083,14 @@
               {th("Alert Trigger")}
             </tr></thead>
             <tbody>
-              <tr>{td("TTFT")}{td("Time to First Token — latency from request to first streamed token")}{td("200ms – 2s")}{td("P95 &gt; 3s")}</tr>
-              <tr>{td("TPOT")}{td("Time Per Output Token — inverse of generation speed")}{td("&lt;50ms/token")}{td("&gt;100ms/token sustained")}</tr>
-              <tr>{td("TPS")}{td("Tokens Per Second — throughput across all concurrent requests")}{td("50 – 2000 tok/s")}{td("&lt;50% of baseline for &gt;5 min")}</tr>
-              <tr>{td("GPU Utilization")}{td("Fraction of GPU compute capacity actively used")}{td("&gt;80%")}{td("&lt;60% (waste) or &gt;95% (saturation)")}</tr>
-              <tr>{td("KV Cache Hit Rate")}{td("Fraction of prompt tokens reusing cached attention states")}{td("Maximize")}{td("Drop &gt;20% from baseline")}</tr>
-              <tr>{td("Cost per 1M tokens")}{td("Infrastructure cost including GPU, memory, networking")}{td("$0.10 – $30")}{td("&gt;150% of budget projection")}</tr>
-              <tr>{td("Hallucination rate")}{td("Via automated fact-checking probes against known ground truth")}{td("Track trend")}{td("&gt;2% increase week-over-week")}</tr>
-              <tr>{td("Refusal rate")}{td("% of requests refused by safety filters")}{td("Establish baseline")}{td("&gt;25% change from baseline")}</tr>
+              <tr>{td("TTFT")}{td("Time to First Token — latency from request to first streamed token")}{td("200ms – 2s")}{td("P95 > 3s")}</tr>
+              <tr>{td("TPOT")}{td("Time Per Output Token — inverse of generation speed")}{td("<50ms/token")}{td(">100ms/token sustained")}</tr>
+              <tr>{td("TPS")}{td("Tokens Per Second — throughput across all concurrent requests")}{td("50 – 2000 tok/s")}{td("<50% of baseline for >5 min")}</tr>
+              <tr>{td("GPU Utilization")}{td("Fraction of GPU compute capacity actively used")}{td(">80%")}{td("<60% (waste) or >95% (saturation)")}</tr>
+              <tr>{td("KV Cache Hit Rate")}{td("Fraction of prompt tokens reusing cached attention states")}{td("Maximize")}{td("Drop >20% from baseline")}</tr>
+              <tr>{td("Cost per 1M tokens")}{td("Infrastructure cost including GPU, memory, networking")}{td("$0.10 – $30")}{td(">150% of budget projection")}</tr>
+              <tr>{td("Hallucination rate")}{td("Via automated fact-checking probes against known ground truth")}{td("Track trend")}{td(">2% increase week-over-week")}</tr>
+              <tr>{td("Refusal rate")}{td("% of requests refused by safety filters")}{td("Establish baseline")}{td(">25% change from baseline")}</tr>
             </tbody>
           </>)}
 
@@ -1126,7 +1126,7 @@
             <thead><tr>{th("Format")}{th("Memory Savings")}{th("Quality Impact")}{th("Use Case")}</tr></thead>
             <tbody>
               <tr>{td("FP16 (baseline)")}{td("—")}{td("—")}{td("Reference")}</tr>
-              <tr>{td("INT8")}{td("~50% vs FP16")}{td("Minimal (&lt;1% benchmark drop)")}{td("Most production deployments")}</tr>
+              <tr>{td("INT8")}{td("~50% vs FP16")}{td("Minimal (<1% benchmark drop)")}{td("Most production deployments")}</tr>
               <tr>{td("FP8")}{td("~50% vs FP16")}{td("Minimal, hardware-native on H100")}{td("H100 GPU deployments")}</tr>
               <tr>{td("INT4 (GPTQ/AWQ)")}{td("~75% vs FP16")}{td("Small (1-3% benchmark drop)")}{td("Edge / cost-sensitive serving")}</tr>
             </tbody>
@@ -1168,9 +1168,9 @@
             <thead><tr>{th("Alert")}{th("First Response")}{th("Escalation")}</tr></thead>
             <tbody>
               <tr>{td("TTFT spike")}{td("Check GPU utilization, KV cache hit rate, batch queue depth")}{td("Scale serving replicas or reduce batch size")}</tr>
-              <tr>{td("Refusal rate jump &gt;25%")}{td("Check for new input patterns triggering classifier false positives")}{td("Review classifier threshold, inspect flagged samples")}</tr>
+              <tr>{td("Refusal rate jump >25%")}{td("Check for new input patterns triggering classifier false positives")}{td("Review classifier threshold, inspect flagged samples")}</tr>
               <tr>{td("Hallucination rate increase")}{td("Check recent model or prompt changes, knowledge base freshness")}{td("Rollback model version or update RAG knowledge base")}</tr>
-              <tr>{td("GPU utilization &lt;60%")}{td("Check for traffic drop, autoscaling misconfiguration")}{td("Reduce replica count to reduce cost")}</tr>
+              <tr>{td("GPU utilization <60%")}{td("Check for traffic drop, autoscaling misconfiguration")}{td("Reduce replica count to reduce cost")}</tr>
             </tbody>
           </>)}
         </>
@@ -1289,9 +1289,9 @@
               <thead><tr>{th("Item")}{th("How to Verify")}{th("Pass Criteria")}</tr></thead>
               <tbody>
                 <tr>{td("Safety benchmarks")}{td("Run HELM, BBQ, CrowS-Pairs evaluations")}{td("No regression vs. previous version; threshold met per category")}</tr>
-                <tr>{td("Red-team evaluation")}{td("Manual + automated adversarial prompts across all risk categories")}{td("Refusal rate on harmful categories &gt;95%")}</tr>
+                <tr>{td("Red-team evaluation")}{td("Manual + automated adversarial prompts across all risk categories")}{td("Refusal rate on harmful categories >95%")}</tr>
                 <tr>{td("Hallucination rate baseline")}{td("Factual probe set with ground-truth answers")}{td("Rate established; acceptance threshold defined")}</tr>
-                <tr>{td("Latency profile")}{td("Load test at 2x expected peak traffic")}{td("P95 TTFT &lt;3s, P99 TTFT &lt;5s")}</tr>
+                <tr>{td("Latency profile")}{td("Load test at 2x expected peak traffic")}{td("P95 TTFT <3s, P99 TTFT <5s")}</tr>
                 <tr>{td("Cost estimate")}{td("Measure tokens/request at expected traffic volume")}{td("Cost per user within budget with 30% margin")}</tr>
                 <tr>{td("Fallback model configured")}{td("Smaller/faster model ready to serve if primary fails")}{td("Failover tested and latency acceptable")}</tr>
               </tbody>
@@ -1334,7 +1334,7 @@
                 <tr>{td("TTFT / TPS dashboards live")}{td("Real-time metrics visible in observability platform (Grafana, Datadog)")}</tr>
                 <tr>{td("Hallucination probes scheduled")}{td("Nightly factual probe suite running; results in dashboard")}</tr>
                 <tr>{td("Refusal rate baseline established")}{td("7-day rolling average recorded pre-launch as alerting baseline")}</tr>
-                <tr>{td("GPU utilization monitoring")}{td("Alert on &lt;60% (waste) and &gt;95% (saturation)")}</tr>
+                <tr>{td("GPU utilization monitoring")}{td("Alert on <60% (waste) and >95% (saturation)")}</tr>
                 <tr>{td("Cost alerts")}{td("Daily spend alert at 80% of budget; hard limit at 120%")}</tr>
               </tbody>
             </>)}
@@ -1346,8 +1346,8 @@
               <thead><tr>{th("Item")}{th("Required State")}</tr></thead>
               <tbody>
                 <tr>{td("On-call runbook")}{td("Documented steps for TTFT spike, refusal rate change, safety incident")}</tr>
-                <tr>{td("Escalation path")}{td("Clear chain: on-call engineer &rarr; ML lead &rarr; safety team &rarr; legal (if incident)")}</tr>
-                <tr>{td("Rollback procedure")}{td("Tested: revert to previous model version in &lt;10 minutes")}</tr>
+                <tr>{td("Escalation path")}{td("Clear chain: on-call engineer → ML lead → safety team → legal (if incident)")}</tr>
+                <tr>{td("Rollback procedure")}{td("Tested: revert to previous model version in <10 minutes")}</tr>
                 <tr>{td("Fallback activated")}{td("Smaller/safer model serving while primary is under investigation")}</tr>
                 <tr>{td("User notification plan")}{td("Template for notifying users if a safety incident affects them")}</tr>
               </tbody>

@@ -611,7 +611,7 @@
                 <div className="nn-calc-row">
                   mean ≈ <b style={{ color: HAM_COL }}>{fmt(stump.leftVal, 3)}</b> → push P(spam) down
                 </div>
-                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right (word_count &gt; {stump.threshold}, n={rightResids.length})</div>
+                <div className="nn-calc-h" style={{ marginTop: 8 }}>Right (word_count > {stump.threshold}, n={rightResids.length})</div>
                 <div className="nn-calc-row" style={{ fontSize: 11 }}>
                   pseudo-resids: [{rightResids.map(r => fmt(r, 2)).join(", ")}]
                 </div>

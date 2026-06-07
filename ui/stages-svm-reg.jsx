@@ -275,7 +275,7 @@
             </Lead>
 
             <Formula label="ε-insensitive loss">L(y, ŷ) = max(0, |y − ŷ| − ε) = max(0, |residual| − {eps})</Formula>
-            <Formula label="Tube bounds at x">ŷ − ε ≤ y ≤ ŷ + ε &nbsp;→&nbsp; loss = 0</Formula>
+            <Formula label="Tube bounds at x">ŷ − ε ≤ y ≤ ŷ + ε  →  loss = 0</Formula>
 
             <RegBase>
               <EpsilonTube w={REG.w} b={REG.b} eps={eps} />
@@ -312,7 +312,7 @@
                   const inside = res <= eps;
                   return (
                     <div className="nn-calc-row" key={i}>
-                      x={x}: |{fmt(REG.ys[i],1)}−{fmt(yp,2)}|={fmt(res,3)} →&nbsp;
+                      x={x}: |{fmt(REG.ys[i],1)}−{fmt(yp,2)}|={fmt(res,3)} → 
                       <b style={{ color: inside ? "var(--pos,green)" : COL_SV }}>
                         {inside ? "inside ✓" : "outside ✗"}
                       </b>
@@ -436,13 +436,13 @@
           </Lead>
 
           <div className="tf-subhead">Primal formulation</div>
-          <Formula label="Objective">min<Sub>w,b,ξ,ξ*</Sub> &nbsp; ½‖w‖² + C · Σᵢ(ξᵢ + ξᵢ*)</Formula>
-          <Formula label="Constraints above">yᵢ − (w·xᵢ + b) ≤ ε + ξᵢ &nbsp;&nbsp; ξᵢ ≥ 0</Formula>
-          <Formula label="Constraints below">(w·xᵢ + b) − yᵢ ≤ ε + ξᵢ* &nbsp;&nbsp; ξᵢ* ≥ 0</Formula>
+          <Formula label="Objective">min<Sub>w,b,ξ,ξ*</Sub>   ½‖w‖² + C · Σᵢ(ξᵢ + ξᵢ*)</Formula>
+          <Formula label="Constraints above">yᵢ − (w·xᵢ + b) ≤ ε + ξᵢ    ξᵢ ≥ 0</Formula>
+          <Formula label="Constraints below">(w·xᵢ + b) − yᵢ ≤ ε + ξᵢ*    ξᵢ* ≥ 0</Formula>
 
           <div className="tf-subhead">Dual (kernelized) form</div>
           <Formula label="Dual objective">
-            max &nbsp; −½ ΣΣ (αᵢ − αᵢ*)(αⱼ − αⱼ*)(xᵢ·xⱼ) − ε Σ(αᵢ + αᵢ*) + Σyᵢ(αᵢ − αᵢ*)
+            max   −½ ΣΣ (αᵢ − αᵢ*)(αⱼ − αⱼ*)(xᵢ·xⱼ) − ε Σ(αᵢ + αᵢ*) + Σyᵢ(αᵢ − αᵢ*)
           </Formula>
           <Formula label="Kernel prediction">ŷ = Σᵢ (αᵢ − αᵢ*) K(xᵢ, x) + b</Formula>
 

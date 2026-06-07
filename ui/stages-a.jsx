@@ -217,7 +217,7 @@
             is the token's first meaning. Similar words learn similar vectors.
           </Lead>
           <Formula label="embedding">
-            <V>x<Sub>i</Sub></V> = <V>E</V>[ id<Sub>i</Sub> ]&nbsp;&nbsp;→&nbsp;&nbsp;a {C.dModel}-number vector per token
+            <V>x<Sub>i</Sub></V> = <V>E</V>[ id<Sub>i</Sub> ]  →  a {C.dModel}-number vector per token
           </Formula>
           <Row>
             <Matrix data={t.emb} rowLabels={tokLabels(t)} colLabels={dimCols(C.dModel)}
@@ -290,7 +290,7 @@
                   <div className="tf-tip-title">X₀[ {i} ][ d{j} ] = embedding + position</div>
                   <div className="tf-tip-sum">
                     <span className="tf-fac">{fmt(t.emb[i][j])}</span> <span className="tf-op">(embed)</span>
-                    &nbsp;+&nbsp;
+                     + 
                     <span className="tf-fac">{fmt(t.pe[i][j])}</span> <span className="tf-op">(PE)</span>
                   </div>
                   <div className="tf-tip-sum tf-tip-eq">= {fmt(v)}</div>
@@ -322,8 +322,8 @@
               <b> Key</b> (what do I offer?) and a <b>Value</b> (what will I pass on?).
             </Lead>
             <Formula label="projections">
-              <V>Q</V> = <V>X·W<Sub>Q</Sub></V>&nbsp;&nbsp;·&nbsp;&nbsp;
-              <V>K</V> = <V>X·W<Sub>K</Sub></V>&nbsp;&nbsp;·&nbsp;&nbsp;
+              <V>Q</V> = <V>X·W<Sub>Q</Sub></V>  ·  
+              <V>K</V> = <V>X·W<Sub>K</Sub></V>  ·  
               <V>V</V> = <V>X·W<Sub>V</Sub></V>
             </Formula>
 
@@ -333,7 +333,7 @@
               Wq, Wk, Wv. Rather than run one big attention, we run {C.nHeads} smaller ones
               <b> in parallel</b>, each working on its own {C.dHead}-dimension slice of every vector.
               The reason: a single head can really only track one kind of relationship at a time —
-              head&nbsp;1 might follow the previous word while head&nbsp;2 follows the subject of the
+              head 1 might follow the previous word while head 2 follows the subject of the
               sentence. Several heads let the model watch several patterns at once, then merge them.
               Use the <b>Head 1 / Head 2 / Both</b> toggle above to compare.
             </Lead>
@@ -459,7 +459,7 @@
               <i> later</i> than the query by setting it to <V>−∞</V> (which becomes 0 after softmax).
             </Lead>
             <Formula label="masking">
-              <V>S<Sub>ij</Sub></V> = <V>−∞</V>&nbsp;&nbsp;if&nbsp;&nbsp;<V>j &gt; i</V>&nbsp;&nbsp;
+              <V>S<Sub>ij</Sub></V> = <V>−∞</V>  if  <V>j > i</V>  
               (key position after query position)
             </Formula>
             {both ? (
@@ -614,7 +614,7 @@
             </div>
             <Formula label="head output">
               <V>head<Sub>i</Sub></V> = Σ<Sub>j</Sub> <V>A<Sub>ij</Sub></V> · <V>V<Sub>j</Sub></V>
-              &nbsp;&nbsp;&nbsp;(each row of A weights the rows of V)
+                 (each row of A weights the rows of V)
             </Formula>
             {both ? (
               <>
@@ -710,7 +710,7 @@
                 cellTip={mmTip(b.concat, window.TF_WO, "Z = concat · Wo")} />
             </Row>
             <Note>That's the complete <b>masked multi-head self-attention</b> layer. Its output
-              <V> Z</V> now flows into the "Add &amp; Norm" step. Hover any cell of Wₒ, concat or Z
+              <V> Z</V> now flows into the "Add & Norm" step. Hover any cell of Wₒ, concat or Z
               to trace it.</Note>
           </>
         );

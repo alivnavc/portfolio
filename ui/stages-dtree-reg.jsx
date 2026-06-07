@@ -1037,7 +1037,7 @@
           </Lead>
           <Lead>
             <b>Outliers in input features</b>: trees are robust. An outlier at age=200 simply
-            creates a new split region ("age &gt; 100 → isolated leaf") without disturbing the
+            creates a new split region ("age > 100 → isolated leaf") without disturbing the
             rest of the tree. The remaining 7 houses are completely unaffected.
           </Lead>
           <Lead>

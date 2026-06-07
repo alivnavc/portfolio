@@ -88,8 +88,8 @@
             <div className="tf-life tf-life--train">
               <div className="tf-life-h"><span>+</span> A third sublayer: cross-attention</div>
               <p>Each decoder block has <b>three</b> sublayers, not two: masked self-attention, then
-                <b> cross-attention</b> (queries from the decoder, keys &amp; values from the encoder
-                memory), then the FFN — each wrapped in Add &amp; Norm.</p>
+                <b> cross-attention</b> (queries from the decoder, keys & values from the encoder
+                memory), then the FFN — each wrapped in Add & Norm.</p>
             </div>
             <div className="tf-life tf-life--infer">
               <div className="tf-life-h"><span>2</span> Two sequences, two roles</div>
@@ -142,7 +142,7 @@
           every generation step — the decoder never re-reads the raw source, only this memory.
         </Lead>
         <Formula label="memory">
-          <V>mem</V> = Encoder(source)&nbsp;&nbsp;— {t.srcTokens.length} vectors of width {C.dModel}
+          <V>mem</V> = Encoder(source)  — {t.srcTokens.length} vectors of width {C.dModel}
         </Formula>
         <Row>
           <Matrix data={t.memory} rowLabels={t.srcTokens} colLabels={dimCols(C.dModel)} caption="mem" sub="encoder memory · K,V source for cross-attn" accent />
@@ -193,7 +193,7 @@
             position <i>i</i> only sees positions ≤ <i>i</i>. (Showing head 1.)
           </Lead>
           <Formula label="masked self-attention">
-            <V>A</V> = softmax( mask( <V>Q·K<Sup>T</Sup></V> / √d ) ),&nbsp;&nbsp; out = <V>A·V</V>
+            <V>A</V> = softmax( mask( <V>Q·K<Sup>T</Sup></V> / √d ) ),   out = <V>A·V</V>
           </Formula>
           <Row>
             <Matrix data={h.masked} rowLabels={t.tgtTokens} colLabels={t.tgtTokens} caption="S′" sub="masked scores" dimMask />
@@ -232,11 +232,11 @@
             decoder may look at the <i>whole</i> source.
           </Lead>
           <Formula label="cross-attention">
-            <V>Q</V> = X<Sup>dec</Sup>·<V>W<Sub>Q</Sub></V>&nbsp;&nbsp;·&nbsp;&nbsp;
-            <V>K</V> = mem·<V>W<Sub>K</Sub></V>&nbsp;&nbsp;·&nbsp;&nbsp;
+            <V>Q</V> = X<Sup>dec</Sup>·<V>W<Sub>Q</Sub></V>  ·  
+            <V>K</V> = mem·<V>W<Sub>K</Sub></V>  ·  
             <V>V</V> = mem·<V>W<Sub>V</Sub></V>
           </Formula>
-          <div className="tf-subhead">Queries from the decoder · Keys &amp; Values from the encoder</div>
+          <div className="tf-subhead">Queries from the decoder · Keys & Values from the encoder</div>
           <Row>
             <Matrix data={Xq} rowLabels={t.tgtTokens} colLabels={dimCols(C.dModel)} caption="X′ᵈ" sub="decoder state (target)" />
             <Arrow label="×Wq" />
@@ -246,7 +246,7 @@
             <Matrix data={cr.K} rowLabels={t.srcTokens} colLabels={dimCols(C.dHead)} caption="K" sub="from source" accent cellTip={mmTip(mem, Wk1, "K = mem·Wk")} />
             <Matrix data={cr.V} rowLabels={t.srcTokens} colLabels={dimCols(C.dHead)} caption="V" sub="from source" accent cellTip={mmTip(mem, Wv1, "V = mem·Wv")} />
           </Row>
-          <div className="tf-subhead">Scores &amp; weights are TARGET × SOURCE — this is alignment</div>
+          <div className="tf-subhead">Scores & weights are TARGET × SOURCE — this is alignment</div>
           <Row>
             <Matrix data={cr.rawScores} rowLabels={t.tgtTokens} colLabels={t.srcTokens} caption="S" sub="rows=target, cols=source" accent
               cellTip={(i, j, v) => (

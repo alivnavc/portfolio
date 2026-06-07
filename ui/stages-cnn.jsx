@@ -203,7 +203,7 @@
               <b> shrinks</b> every layer (you'd run out), and <b>edge pixels</b> get covered by fewer
               windows than centre pixels, so borders are under-used.
             </Lead>
-            <Formula label="output size">out = (N − K)/stride + 1&nbsp;&nbsp;→ (6 − 3) + 1 = 4 (no padding)</Formula>
+            <Formula label="output size">out = (N − K)/stride + 1  → (6 − 3) + 1 = 4 (no padding)</Formula>
             <div className="cnn-viz-row">
               <div>
                 <div className="cnn-cap">"valid" — no padding · output 4×4</div>
@@ -333,7 +333,7 @@
             one block is the input to the next. Because each layer looks at the <i>previous</i>
             layer's features, the network builds a <b>hierarchy</b>.
           </Lead>
-          <Formula label="one block, repeated">block(x) = pool( ReLU( conv(x) ) ),&nbsp;&nbsp;stack ℓ = 1…N</Formula>
+          <Formula label="one block, repeated">block(x) = pool( ReLU( conv(x) ) ),  stack ℓ = 1…N</Formula>
           <window.CNNArchViz />
           <div className="tf-subhead">Why depth matters in a CNN</div>
           <div className="tf-legend">
@@ -402,15 +402,15 @@
             <b> backward</b> through every layer; here's how it passes each CNN-specific step:
           </Lead>
           <div className="cnn-back">
-            <div className="cnn-back-step"><span className="cnn-back-n">1</span><div><b>Loss &amp; FFN</b> — cross-entropy gives ∂L/∂z = P − y at the output; standard dense backprop finds the FFN weight gradients (exactly the ANN explainer's step 8).</div></div>
+            <div className="cnn-back-step"><span className="cnn-back-n">1</span><div><b>Loss & FFN</b> — cross-entropy gives ∂L/∂z = P − y at the output; standard dense backprop finds the FFN weight gradients (exactly the ANN explainer's step 8).</div></div>
             <div className="cnn-back-step"><span className="cnn-back-n">2</span><div><b>Through flatten</b> — just reshape the gradient vector back into the 2×2 feature-map shape. No math, only re-arranging.</div></div>
             <div className="cnn-back-step"><span className="cnn-back-n">3</span><div><b>Through max-pool</b> — the gradient is <b>routed only to the pixel that was the max</b> in each 2×2 block (the others contributed nothing, so they get 0). Pooling has no weights to update.</div></div>
-            <div className="cnn-back-step"><span className="cnn-back-n">4</span><div><b>Through ReLU</b> — multiply by ReLU′: pass the gradient where the feature map was &gt; 0, zero it elsewhere.</div></div>
+            <div className="cnn-back-step"><span className="cnn-back-n">4</span><div><b>Through ReLU</b> — multiply by ReLU′: pass the gradient where the feature map was > 0, zero it elsewhere.</div></div>
             <div className="cnn-back-step"><span className="cnn-back-n">5</span><div><b>Through convolution</b> — the kernel's gradient is itself a <b>convolution</b> of the input with the incoming gradient. Because the <b>same kernel was used at every position</b>, its gradient is the <b>sum</b> of contributions from all positions.</div></div>
           </div>
           <Formula label="shared-weight gradient">∂L/∂K<Sub>a,b</Sub> = Σ<Sub>all positions (i,j)</Sub> image<Sub>i+a,j+b</Sub> · ∂L/∂fm<Sub>i,j</Sub></Formula>
           <div className="tf-subhead">Then the same update as everywhere</div>
-          <Formula label="gradient descent"><V>K</V> ← K − η·∂L/∂K&nbsp;&nbsp;·&nbsp;&nbsp;<V>W_ffn</V> ← W − η·∂L/∂W</Formula>
+          <Formula label="gradient descent"><V>K</V> ← K − η·∂L/∂K  ·  <V>W_ffn</V> ← W − η·∂L/∂W</Formula>
           <Note icon="!">Key CNN insight: <b>weight sharing</b> means one kernel gets gradient signal
             from the <i>whole</i> image at once, so it learns a general pattern detector. Our toy
             kernel is hand-set; a trained CNN discovers these filters automatically. The full loop —

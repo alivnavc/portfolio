@@ -986,7 +986,7 @@
           )}
 
           {info(<span><b>The irreducible noise floor:</b> &sigma;&sup2; is the absolute minimum possible error — even
-            a perfect model that knows f(x) exactly can't do better than &sigma;&sup2; because the data
+            a perfect model that knows f(x) exactly can't do better than σ&sup2; because the data
             itself is noisy. This is why 100% accuracy on a real dataset is a red flag — you
             have likely overfit the noise.</span>)}
 

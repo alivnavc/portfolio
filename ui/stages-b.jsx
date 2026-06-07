@@ -208,7 +208,7 @@
               learn surface patterns; deeper blocks build abstract meaning.
             </Lead>
             <Formula label="the stack">
-              <V>X<Sub>ℓ+1</Sub></V> = Block<Sub>ℓ</Sub>(<V>X<Sub>ℓ</Sub></V>),&nbsp;&nbsp;for ℓ = 0 … N−1
+              <V>X<Sub>ℓ+1</Sub></V> = Block<Sub>ℓ</Sub>(<V>X<Sub>ℓ</Sub></V>),  for ℓ = 0 … N−1
             </Formula>
 
             <div className="tf-note" style={{ marginTop: 4 }}>

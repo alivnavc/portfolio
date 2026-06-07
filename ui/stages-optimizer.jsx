@@ -234,7 +234,7 @@
             frequent gradients get <b>smaller</b> steps; rare ones get <b>larger</b> steps — great
             for sparse features.
           </Lead>
-          <Formula label="AdaGrad"><V>G</V> ← G + g²,&nbsp;&nbsp;<V>θ</V> ← θ − η·g / (√G + ε)</Formula>
+          <Formula label="AdaGrad"><V>G</V> ← G + g²,  <V>θ</V> ← θ − η·g / (√G + ε)</Formula>
           <OptViz paths={one(t, "adagrad", true)} />
           {worked("adagrad", t)}
           {proscons(
@@ -256,7 +256,7 @@
             forgotten (decay ρ ≈ 0.9), so the effective learning rate <b>stays alive</b> and adapts
             to the recent landscape.
           </Lead>
-          <Formula label="RMSProp"><V>G</V> ← ρ·G + (1−ρ)·g²,&nbsp;&nbsp;<V>θ</V> ← θ − η·g / (√G + ε)</Formula>
+          <Formula label="RMSProp"><V>G</V> ← ρ·G + (1−ρ)·g²,  <V>θ</V> ← θ − η·g / (√G + ε)</Formula>
           <OptViz paths={one(t, "rmsprop", true)} />
           {worked("rmsprop", t)}
           {proscons(
@@ -277,8 +277,8 @@
             A bias correction fixes the cold-start (m, v begin at 0). The result is fast, stable, and
             works out-of-the-box on almost anything.
           </Lead>
-          <Formula label="moments"><V>m</V> ← β₁m + (1−β₁)g,&nbsp;&nbsp;<V>v</V> ← β₂v + (1−β₂)g²</Formula>
-          <Formula label="bias-corrected step">m̂ = m/(1−β₁ᵗ),&nbsp; v̂ = v/(1−β₂ᵗ),&nbsp;&nbsp;<V>θ</V> ← θ − η·m̂/(√v̂ + ε)</Formula>
+          <Formula label="moments"><V>m</V> ← β₁m + (1−β₁)g,  <V>v</V> ← β₂v + (1−β₂)g²</Formula>
+          <Formula label="bias-corrected step">m̂ = m/(1−β₁ᵗ),  v̂ = v/(1−β₂ᵗ),  <V>θ</V> ← θ − η·m̂/(√v̂ + ε)</Formula>
           <OptViz paths={one(t, "adam", true)} />
           {worked("adam", t)}
           {proscons(
@@ -300,7 +300,7 @@
             <b> decouples</b> the decay — applying it directly to the weights, separate from the
             gradient step — so regularization works as intended.
           </Lead>
-          <Formula label="AdamW"><V>θ</V> ← θ − η·m̂/(√v̂ + ε) <b>− η·λ·θ</b>&nbsp;&nbsp;(decoupled decay)</Formula>
+          <Formula label="AdamW"><V>θ</V> ← θ − η·m̂/(√v̂ + ε) <b>− η·λ·θ</b>  (decoupled decay)</Formula>
           <OptViz paths={one(t, "adamw", true)} />
           {worked("adamw", t)}
           {proscons(

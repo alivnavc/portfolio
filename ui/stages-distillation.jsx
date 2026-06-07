@@ -153,7 +153,7 @@
           <Lead>
             This is the key insight from Hinton, Vinyals &amp; Dean (2015). A <b>hard label</b>
             says &quot;this image is a dog (1.0), everything else 0.0&quot;. But the teacher's full
-            softmax says &quot;dog 0.90, wolf 0.08, cat 0.02&quot;. The <b>relative probabilities of the
+            softmax says "dog 0.90, wolf 0.08, cat 0.02". The <b>relative probabilities of the
             wrong classes</b> encode the teacher's learned similarity structure — a dog looks much
             more like a wolf than like a cat. Hinton called this the <b>dark knowledge</b>, and the
             hard label throws all of it away.
@@ -407,7 +407,7 @@
             called <b>synthetic-data distillation</b>: it is just supervised fine-tuning on
             teacher-written data (see the <i>Post-Training</i> article). This is how most modern
             small chat / instruct models are actually built. Formally this is <b>sequence-level KD
-            (Kim &amp; Rush, 2016)</b> — training the student on the teacher's generated sequences
+            (Kim & Rush, 2016)</b> — training the student on the teacher's generated sequences
             rather than its per-token distribution.
           </p>
 

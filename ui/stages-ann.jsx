@@ -470,7 +470,7 @@
             </div>
             <div className="tf-life tf-life--infer">
               <div className="tf-life-h"><span>✗</span> Too big / too small</div>
-              <p>Large weights → activations &amp; gradients <b>explode</b>; tiny weights → they
+              <p>Large weights → activations & gradients <b>explode</b>; tiny weights → they
                 <b> vanish</b>. Either way deep nets won't train.</p>
             </div>
           </div>

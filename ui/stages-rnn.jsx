@@ -100,7 +100,7 @@
             <b> overwritten</b> with a new summary. The final hidden state is a compressed memory of
             the whole sequence.
           </Lead>
-          <Formula label="start"><V>h₀</V> = [0, 0, 0]&nbsp;&nbsp;(empty memory)</Formula>
+          <Formula label="start"><V>h₀</V> = [0, 0, 0]  (empty memory)</Formula>
           <Row>
             <Matrix data={[[0, 0, 0]]} rowLabels={["h₀"]} colLabels={hcols} caption="h₀" sub="initial memory" />
             <Arrow label="updates each step" />
