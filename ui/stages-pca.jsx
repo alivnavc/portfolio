@@ -6,7 +6,7 @@
    ============================================================ */
 (function () {
   const { V, Sub, Sup, Formula, Lead, Note, Row, Arrow, Tag, fmt } = window;
-  const { useState } = React;
+  // const { useState } = React;  // unused after removing showFormula state
   const { DATA, runPCA } = window.ML_PCA;
 
   // Pre-compute PCA trace once at load time
@@ -361,7 +361,6 @@
     map: "Step 1",
     why: "Standardization is the most commonly skipped step — and the source of many PCA bugs. A feature measured in thousands will dominate PCA simply because of its scale.",
     render: () => {
-      const [showFormula, setShowFormula] = useState(false);
       return (
         <>
           <Lead>

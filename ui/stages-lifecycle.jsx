@@ -71,6 +71,7 @@
       id: "overview",
       group: "Overview",
       title: "The ML Lifecycle — end to end",
+      map: "Overview",
       why: "Start here to understand the full pipeline before diving into individual steps.",
       render: (_trace, _ctx) => (
         <>
@@ -161,6 +162,7 @@
       id: "ingestion",
       group: "Data",
       title: "Step 1 · Data Ingestion",
+      map: "Ingestion",
       why: "Data must be collected and validated before any analysis. Garbage in, garbage out.",
       render: (_trace, _ctx) => (
         <>
@@ -250,6 +252,7 @@
       id: "eda-explore",
       group: "EDA",
       title: "Step 2a · EDA — Understanding Your Data",
+      map: "EDA",
       why: "Before touching a model, you need to understand what you're working with.",
       render: (_trace, _ctx) => (
         <>
@@ -350,6 +353,7 @@
       id: "eda-missing",
       group: "EDA",
       title: "Step 2b · Missing Values — Detect & Handle",
+      map: "Missing",
       why: "Missing data is the most common data quality problem; WHY data is missing determines HOW to fix it.",
       render: (_trace, _ctx) => (
         <>
@@ -386,7 +390,7 @@
                 {td("Missing Not At Random")}
                 {td("Missingness depends on the MISSING value itself")}
                 {td("Users with very low income skip the income field")}
-                {td("MICE + add a binary "was_missing" indicator feature")}
+                {td("MICE + add a binary 'was_missing' indicator feature")}
               </tr>
             </tbody>
           </>)}
@@ -467,6 +471,7 @@
       id: "eda-outliers",
       group: "EDA",
       title: "Step 2c · Outliers — Detect & Handle",
+      map: "Outliers",
       why: "Outliers can be errors, rare events, or the most important signals — never blindly remove them.",
       render: (_trace, _ctx) => (
         <>
@@ -568,6 +573,7 @@
       id: "eda-imbalance",
       group: "EDA",
       title: "Step 2d · Class Imbalance — Handle Skewed Targets",
+      map: "Imbalance",
       why: "Accuracy is useless for imbalanced problems — a model predicting 'not fraud' always achieves 99.7% accuracy.",
       render: (_trace, _ctx) => (
         <>
@@ -677,6 +683,7 @@
       id: "feat-eng",
       group: "Features",
       title: "Step 3 · Feature Engineering",
+      map: "Features",
       why: "The most impactful single action a data scientist can take — often more impactful than model selection.",
       render: (_trace, _ctx) => (
         <>
@@ -784,6 +791,7 @@
       id: "feat-scale",
       group: "Features",
       title: "Step 4 · Feature Scaling",
+      map: "Scaling",
       why: "Distance-based and gradient-descent algorithms are dominated by high-magnitude features without scaling.",
       render: (_trace, _ctx) => (
         <>
@@ -888,6 +896,7 @@
       id: "dim-reduce",
       group: "Features",
       title: "Step 5 · Dimensionality Reduction",
+      map: "Dim.Reduce",
       why: "High-dimensional data causes overfitting and makes distances meaningless — compression preserves signal.",
       render: (_trace, _ctx) => (
         <>
@@ -987,6 +996,7 @@
       id: "splitting",
       group: "Training",
       title: "Step 6 · Splitting Data — Train / Validation / Test",
+      map: "Split",
       why: "The train/test split is the fundamental guarantee of honest evaluation — breaking it breaks your results.",
       render: (_trace, _ctx) => (
         <>
@@ -1113,6 +1123,7 @@
       id: "feat-select",
       group: "Training",
       title: "Step 7 · Feature Selection",
+      map: "Selection",
       why: "More features ≠ better model — irrelevant features add noise; redundant features slow training.",
       render: (_trace, _ctx) => (
         <>
@@ -1195,6 +1206,7 @@
       id: "model-select",
       group: "Training",
       title: "Step 8 · Model Selection — Choosing the Right Algorithm",
+      map: "Model",
       why: "There is no universally best model — only the right model for your data, constraints, and goals.",
       render: (_trace, _ctx) => (
         <>
@@ -1287,6 +1299,7 @@
       id: "training",
       group: "Training",
       title: "Step 9 · Model Training & Diagnosing Fit",
+      map: "Training",
       why: "Training is where parameters are fitted — the key challenge is finding the sweet spot between underfitting and overfitting.",
       render: (_trace, _ctx) => (
         <>
@@ -1391,6 +1404,7 @@
       id: "eval-reg",
       group: "Evaluation",
       title: "Step 10a · Evaluation — Regression Metrics",
+      map: "Eval(Reg)",
       why: "For regression, the right metric depends on error tolerance — are large errors catastrophically worse?",
       render: (_trace, _ctx) => (
         <>
@@ -1520,6 +1534,7 @@
       id: "eval-cls",
       group: "Evaluation",
       title: "Step 10b · Evaluation — Classification Metrics",
+      map: "Eval(Cls)",
       why: "Accuracy is often the wrong metric — the right one depends on the cost of false positives vs false negatives.",
       render: (_trace, _ctx) => (
         <>
@@ -1685,6 +1700,7 @@
       id: "hparam-tune",
       group: "Evaluation",
       title: "Step 11 · Hyperparameter Tuning",
+      map: "HPO",
       why: "Hyperparameters are not learned during training — they must be set before training and tuned on validation data.",
       render: (_trace, _ctx) => (
         <>
@@ -1792,6 +1808,7 @@ print(study.best_params)
       id: "pipeline",
       group: "Production",
       title: "Step 12 · ML Pipeline & Production Readiness",
+      map: "Production",
       why: "A model that works in a notebook but fails in production is worth nothing — production adds concerns research ignores.",
       render: (_trace, _ctx) => (
         <>
