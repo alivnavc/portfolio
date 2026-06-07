@@ -16,9 +16,10 @@ window.SITE = {
       title: "LLM Training",
       kicker: "From raw text to production-ready LLMs",
       desc:
-        "A nine-part deep-dive into how large language models are built — pre-training on trillions " +
-        "of tokens, scaling across GPU clusters, quantization, mixture-of-experts, fine-tuning and " +
-        "alignment, distillation, embeddings, reasoning models, and keeping them safe in production.",
+        "A ten-part deep-dive into how large language models are built and run — pre-training on " +
+        "trillions of tokens, scaling across GPU clusters, quantization, mixture-of-experts, " +
+        "fine-tuning and alignment, distillation, embeddings, reasoning models, inference & serving, " +
+        "and keeping them safe in production.",
       icon:
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.4"/><circle cx="5" cy="6" r="1.6"/><circle cx="19" cy="6" r="1.6"/><circle cx="5" cy="18" r="1.6"/><circle cx="19" cy="18" r="1.6"/><path d="M6.6 7 10 10.4M17.4 7 14 10.4M6.6 17 10 13.6M17.4 17 14 13.6"/></svg>',
       articles: [
@@ -92,6 +93,15 @@ window.SITE = {
           desc: "Standard vs. reasoning LLMs, OpenAI o1 architecture, DeepSeek-R1 MoE design, GRPO algorithm, process vs. outcome reward models, test-time compute scaling, and pass@1/maj@k evaluation.",
           tags: ["o1", "DeepSeek-R1", "GRPO", "chain-of-thought", "reasoning", "PRM"],
           steps: 11,
+          status: "live",
+        },
+        {
+          title: "Inference & Serving",
+          sub: "Serving LLMs in production — vLLM, TensorRT-LLM, Triton, scale",
+          href: "Inference-Serving.html",
+          desc: "Prefill vs decode, the KV cache, continuous batching, PagedAttention, vLLM/TensorRT-LLM/SGLang/Triton/ONNX, embedding serving, request-flow, TTFT/TPOT metrics, Kubernetes autoscaling and disaggregated serving, plus common pitfalls.",
+          tags: ["inference", "vLLM", "TensorRT-LLM", "Triton", "KV cache", "batching", "Kubernetes"],
+          steps: 14,
           status: "live",
         },
         {
