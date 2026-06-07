@@ -1,11 +1,14 @@
 /* ============================================================
-   Hierarchical Clustering — stages-hierarchical.jsx (10 stages)
+   Hierarchical Clustering — stages-hierarchical.jsx (11 stages)
    Requires: window.ML_HIER (from model/ml-hierarchical.js)
              window.{ V, Sub, Sup, Formula, Lead, Note,
                       Row, Tag, fmt } (from matrix.jsx)
    ============================================================ */
 (function () {
   var useState = React.useState;
+  var useRef = React.useRef;
+  var useEffect = React.useEffect;
+  var useMemo = React.useMemo;
   var V = window.V, Sub = window.Sub, Sup = window.Sup, Formula = window.Formula,
       Lead = window.Lead, Note = window.Note, Row = window.Row, Tag = window.Tag,
       fmt = window.fmt;
@@ -300,6 +303,221 @@
   }
 
   // ────────────────────────────────────────────────────────
+  //  HIERARCHICAL ANIMATION HELPERS
+  // ────────────────────────────────────────────────────────
+
+  function euclidDist(i, j) {
+    return Math.sqrt((DATA[i][0]-DATA[j][0])*(DATA[i][0]-DATA[j][0]) + (DATA[i][1]-DATA[j][1])*(DATA[i][1]-DATA[j][1]));
+  }
+
+  function buildHierFrames(linkage) {
+    var merges = agglomerate(linkage);
+    var n = DATA.length;
+    var frames = [];
+
+    // Cluster tracking: array of {points:[...], colorId:number}
+    var clusters = DATA.map(function(_, i) { return { points: [i], colorId: i }; });
+
+    function getPointColors() {
+      var cols = new Array(n).fill("#94A2BC");
+      clusters.forEach(function(c) {
+        var col = CLUSTER_COLORS[c.colorId % CLUSTER_COLORS.length];
+        c.points.forEach(function(pi) { cols[pi] = col; });
+      });
+      return cols;
+    }
+
+    function centroidOf(c) {
+      var cx = 0, cy = 0;
+      c.points.forEach(function(pi) { cx += DATA[pi][0]; cy += DATA[pi][1]; });
+      return [cx / c.points.length, cy / c.points.length];
+    }
+
+    frames.push({
+      type: "raw",
+      title: "Start: " + n + " singleton clusters — one per point",
+      desc: "Each point begins as its own cluster. Agglomerative (bottom-up) hierarchical clustering will repeatedly find the two closest clusters and merge them until the desired number remains.",
+      pointColors: getPointColors(),
+      highlights: [],
+      connLine: null,
+    });
+
+    merges.forEach(function(m, step) {
+      // Match clusters by sorted member set
+      var aSetStr = m.a.slice().sort(function(x,y){ return x-y; }).join(",");
+      var bSetStr = m.b.slice().sort(function(x,y){ return x-y; }).join(",");
+      var aIdx = -1, bIdx = -1;
+      clusters.forEach(function(c, ci) {
+        var s = c.points.slice().sort(function(x,y){ return x-y; }).join(",");
+        if (s === aSetStr) aIdx = ci;
+        if (s === bSetStr) bIdx = ci;
+      });
+
+      if (aIdx < 0 || bIdx < 0) {
+        // Fallback: do the merge silently
+        var newId = clusters.length > 0 ? clusters[0].colorId : 0;
+        clusters = [{ points: m.merged.slice(), colorId: newId }];
+        return;
+      }
+
+      var ca = centroidOf(clusters[aIdx]);
+      var cb = centroidOf(clusters[bIdx]);
+      var hlA = { pts: clusters[aIdx].points, color: "#2B5BFF" };
+      var hlB = { pts: clusters[bIdx].points, color: "#e0492e" };
+
+      frames.push({
+        type: "pre_merge",
+        title: "Step " + (step+1) + " — closest pair (distance=" + fmt(m.distance, 3) + ")",
+        desc: "Under " + linkage + " linkage, these two groups (blue ring = " + clusters[aIdx].points.map(function(i){ return LABELS[i]; }).join(", ") + "; red ring = " + clusters[bIdx].points.map(function(i){ return LABELS[i]; }).join(", ") + ") are closest. Distance = " + fmt(m.distance, 3) + ".",
+        pointColors: getPointColors(),
+        highlights: [hlA, hlB],
+        connLine: { from: ca, to: cb },
+      });
+
+      var newColorId = Math.min(clusters[aIdx].colorId, clusters[bIdx].colorId);
+      var newCluster = { points: m.merged.slice(), colorId: newColorId };
+      clusters = clusters.filter(function(_, ci) { return ci !== aIdx && ci !== bIdx; });
+      clusters.push(newCluster);
+
+      frames.push({
+        type: "merged",
+        title: "After merge: " + clusters.length + " cluster" + (clusters.length !== 1 ? "s" : "") + " remaining",
+        desc: clusters.length > 1
+          ? "Merged into one group. " + clusters.length + " clusters remain. Finding the next closest pair..."
+          : "All " + n + " points are now in one cluster. Dendrogram is complete.",
+        pointColors: getPointColors(),
+        highlights: [],
+        connLine: null,
+      });
+    });
+
+    frames.push({
+      type: "converged",
+      title: "Full dendrogram built — cut to any k",
+      desc: "All " + (n-1) + " merges recorded. The n_clusters slider above cuts the dendrogram at the right height. Ward linkage produces the most compact clusters; single linkage is prone to chaining.",
+      pointColors: getPointColors(),
+      highlights: [],
+      connLine: null,
+    });
+
+    return frames;
+  }
+
+  var HIER_FRAME_COLORS = { raw:"#94A2BC", pre_merge:"#2B5BFF", merged:"#1f9e6b", converged:"#d97706" };
+
+  function HierAnimSVG({ frame }) {
+    return (
+      <svg width={W} height={H} style={{ maxWidth:"100%", display:"block", margin:"0 auto",
+        border:"1px solid var(--line)", borderRadius:10, background:"var(--panel-solid)" }}>
+        {[2,4,6,8].map(function(v) {
+          return <line key={v} x1={PAD.l} y1={sy(v)} x2={W-PAD.r} y2={sy(v)}
+            stroke="var(--line)" strokeWidth="0.5" strokeDasharray="3 3" />;
+        })}
+        <line x1={PAD.l} y1={H-PAD.b} x2={W-PAD.r} y2={H-PAD.b} stroke="var(--ink)" strokeWidth="1.2" />
+        <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={H-PAD.b} stroke="var(--ink)" strokeWidth="1.2" />
+
+        {frame.connLine && (
+          <line x1={sx(frame.connLine.from[0])} y1={sy(frame.connLine.from[1])}
+            x2={sx(frame.connLine.to[0])} y2={sy(frame.connLine.to[1])}
+            stroke="#d97706" strokeWidth="2.2" strokeDasharray="6 3" opacity="0.85" />
+        )}
+
+        {(frame.highlights || []).map(function(hl, hi) {
+          return hl.pts.map(function(pi) {
+            return <circle key={"hl"+hi+"-"+pi} cx={sx(DATA[pi][0])} cy={sy(DATA[pi][1])}
+              r="15" fill={hl.color + "18"} stroke={hl.color} strokeWidth="1.8" strokeDasharray="3 2" />;
+          });
+        })}
+
+        {DATA.map(function(p, i) {
+          var col = (frame.pointColors || [])[i] || "#94A2BC";
+          return (
+            <g key={i}>
+              <circle cx={sx(p[0])} cy={sy(p[1])} r="7" fill={col} opacity="0.87"
+                stroke="white" strokeWidth="1.5" />
+              <text x={sx(p[0])+10} y={sy(p[1])+4} fontSize="10.5" fill="var(--ink)" fontWeight="600">
+                {LABELS[i]}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+
+  function HierAnimator({ trace }) {
+    var linkage = trace.linkage || "ward";
+    var frames = useMemo(function() { return buildHierFrames(linkage); }, [linkage]);
+    var [frameIdx, setFrameIdx] = useState(0);
+    var [playing, setPlaying] = useState(false);
+    var timerRef = useRef(null);
+
+    useEffect(function() { setFrameIdx(0); setPlaying(false); }, [linkage]);
+
+    useEffect(function() {
+      if (playing) {
+        timerRef.current = setInterval(function() {
+          setFrameIdx(function(f) {
+            if (f >= frames.length - 1) { setPlaying(false); return f; }
+            return f + 1;
+          });
+        }, 1500);
+      } else {
+        clearInterval(timerRef.current);
+      }
+      return function() { clearInterval(timerRef.current); };
+    }, [playing, frames.length]);
+
+    var cf = frames[Math.min(frameIdx, frames.length - 1)] || frames[0];
+    var col = HIER_FRAME_COLORS[cf.type] || "var(--accent)";
+    var btnBase = { padding:"8px 15px", borderRadius:8, border:"1px solid var(--line)",
+      fontWeight:700, fontSize:13, cursor:"pointer", background:"var(--panel-solid)", color:"var(--ink)", transition:"all .15s" };
+
+    return (
+      <>
+        <HierAnimSVG frame={cf} />
+
+        <div style={{ background:"rgba(43,91,255,.06)", border:"1px solid rgba(43,91,255,.2)",
+          borderRadius:10, padding:"12px 16px", margin:"10px 0" }}>
+          <div style={{ fontWeight:800, fontSize:13, color:col, marginBottom:5 }}>{cf.title}</div>
+          <div style={{ fontSize:13, color:"var(--ink)", lineHeight:1.65 }}>{cf.desc}</div>
+        </div>
+
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap", margin:"8px 0", justifyContent:"center" }}>
+          {frames.map(function(f, i) {
+            var fc = HIER_FRAME_COLORS[f.type] || "var(--accent)";
+            return (
+              <div key={i} onClick={function() { setFrameIdx(i); setPlaying(false); }}
+                title={f.title}
+                style={{ width:10, height:10, borderRadius:"50%", cursor:"pointer",
+                  background: i === frameIdx ? fc : i < frameIdx ? fc+"55" : "var(--line)",
+                  transition:"all .15s", transform: i === frameIdx ? "scale(1.5)" : "scale(1)" }} />
+            );
+          })}
+        </div>
+
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6, flexWrap:"wrap", justifyContent:"center" }}>
+          <button onClick={function() { setFrameIdx(0); setPlaying(false); }} style={btnBase}>&#9198; Reset</button>
+          <button onClick={function() { setFrameIdx(Math.max(0, frameIdx-1)); setPlaying(false); }}
+            style={{ ...btnBase, opacity: frameIdx === 0 ? 0.4 : 1 }} disabled={frameIdx === 0}>&#9664; Prev</button>
+          <button onClick={function() { setPlaying(function(p) { return !p; }); }}
+            style={{ ...btnBase, background: playing ? "var(--line)" : "var(--accent)", color: playing ? "var(--ink)" : "#fff", minWidth:80 }}>
+            {playing ? "⏸ Pause" : "▶ Play"}
+          </button>
+          <button onClick={function() { setFrameIdx(Math.min(frames.length-1, frameIdx+1)); setPlaying(false); }}
+            style={{ ...btnBase, opacity: frameIdx >= frames.length-1 ? 0.4 : 1 }} disabled={frameIdx >= frames.length-1}>Next &#9654;</button>
+          <span style={{ fontSize:12, color:"var(--muted)" }}>{frameIdx+1}&nbsp;/&nbsp;{frames.length}</span>
+        </div>
+
+        <Note>
+          <b>Blue ring</b> = first cluster being merged. <b>Red ring</b> = second cluster.
+          <b> Orange dashed line</b> = linkage connection. Change the linkage dropdown to see how Ward vs single vs complete reorders the merges.
+        </Note>
+      </>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────
   //  STAGE 1: Overview
   // ────────────────────────────────────────────────────────
   var stageOverview = {
@@ -446,7 +664,29 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 3: Distance Matrix
+  //  STAGE 3: Playable Animation
+  // ────────────────────────────────────────────────────────
+  var stageAnimation = {
+    id: "animation", group: "Algorithm", title: "Watch Clusters Merge — Step by Step",
+    map: "Animate",
+    why: "Seeing each merge happen frame-by-frame makes the bottom-up process concrete.",
+    render: function(trace) {
+      return (
+        <>
+          <Lead>
+            Watch the algorithm start with <b>8 singleton clusters</b> and greedily merge
+            the closest pair one step at a time. <b>Blue ring</b> and <b>red ring</b> show
+            the pair being merged. Press <b>▶ Play</b> or step through manually.
+            Change the linkage dropdown above to see how Ward vs single vs complete reorders the merges.
+          </Lead>
+          <HierAnimator trace={trace} />
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 4: Distance Matrix
   // ────────────────────────────────────────────────────────
   var stageDistances = {
     id: "distances", group: "Algorithm", title: "Distance Matrix — The Foundation",
@@ -484,7 +724,7 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 4: Linkage
+  //  STAGE 5: Linkage
   // ────────────────────────────────────────────────────────
   var stageLinkage = {
     id: "linkage", group: "Algorithm", title: "Linkage Criteria — How to Measure Cluster Distance",
@@ -537,7 +777,7 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 5: Dendrogram
+  //  STAGE 6: Dendrogram
   // ────────────────────────────────────────────────────────
   var stageDendrogram = {
     id: "dendrogram", group: "Visualization", title: "Reading the Dendrogram",
@@ -575,7 +815,7 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 6: Cutting the Tree
+  //  STAGE 7: Cutting the Tree
   // ────────────────────────────────────────────────────────
   var stageCut = {
     id: "cut", group: "Visualization", title: "Cutting the Dendrogram — Choosing k",
@@ -647,7 +887,7 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 7: Linkage Compare
+  //  STAGE 8: Linkage Compare
   // ────────────────────────────────────────────────────────
   var stageLinkageCompare = {
     id: "linkage-compare", group: "Insights", title: "Linkage Method Comparison",
@@ -698,7 +938,7 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 8: Divisive
+  //  STAGE 9: Divisive
   // ────────────────────────────────────────────────────────
   var stageDivisive = {
     id: "divisive", group: "Concepts", title: "Two Directions: Bottom-Up vs Top-Down",
@@ -794,7 +1034,7 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 9: Compare with K-Means
+  //  STAGE 10: Compare with K-Means
   // ────────────────────────────────────────────────────────
   var stageCompare = {
     id: "compare", group: "Insights", title: "Hierarchical vs K-Means — When to Use Which",
@@ -849,7 +1089,7 @@
   }
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 10: Hyperparameters
+  //  STAGE 11: Hyperparameters
   // ────────────────────────────────────────────────────────
   var stageHyperparams = {
     id: "hyperparams", group: "Hyperparameters", title: "Hierarchical Clustering Hyperparameters",
@@ -907,6 +1147,7 @@
   var STAGES = [
     stageOverview,
     stageBottomUp,
+    stageAnimation,
     stageDistances,
     stageLinkage,
     stageDendrogram,

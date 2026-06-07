@@ -1,5 +1,5 @@
 /* ============================================================
-   DBSCAN — stages-dbscan.jsx  (10 stages)
+   DBSCAN — stages-dbscan.jsx  (11 stages)
    Requires: window.ML_DBSCAN (from model/ml-dbscan.js)
              window.{ Matrix, V, Sub, Sup, Formula, Lead, Note,
                       Row, Arrow, Tag, fmt } (from matrix.jsx)
@@ -9,6 +9,9 @@
   var V = _ref.V, Sub = _ref.Sub, Sup = _ref.Sup, Formula = _ref.Formula,
       Lead = _ref.Lead, Note = _ref.Note, Row = _ref.Row, Tag = _ref.Tag, fmt = _ref.fmt;
   var useState = React.useState;
+  var useRef = React.useRef;
+  var useEffect = React.useEffect;
+  var useMemo = React.useMemo;
   var DATA = window.ML_DBSCAN.DATA;
 
   // ── SVG chart dimensions ──
@@ -203,6 +206,219 @@
         <circle cx={px(elbow)} cy={py(elbowD)} r={4} fill="#e0492e" stroke="white" strokeWidth="1.2" />
         <text x={px(elbow) + 6} y={py(elbowD) - 6} fontSize="10" fill="#e0492e" fontWeight="700">elbow</text>
       </svg>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────
+  //  DBSCAN ANIMATION HELPERS
+  // ────────────────────────────────────────────────────────
+
+  function buildDBSCANFrames(eps, minSamples) {
+    var frames = [];
+    var n = DATA.length;
+
+    function dist(i, j) {
+      var dx = DATA[i][0] - DATA[j][0], dy = DATA[i][1] - DATA[j][1];
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+    function getNeighbors(i) {
+      var ns = [];
+      for (var j = 0; j < n; j++) { if (dist(i, j) <= eps) ns.push(j); }
+      return ns;
+    }
+
+    var labels = new Array(n).fill(-2); // -2 = unvisited
+    var clusterId = 0;
+
+    frames.push({
+      type: "raw",
+      title: "Raw data — " + n + " unvisited points",
+      desc: n + " points in two crescent arcs plus 4 isolated outliers. DBSCAN discovers clusters of any shape — you only need to set ε (radius) and minPts (density threshold). No k required.",
+      labels: labels.slice(), visitIdx: -1, neighborIdxs: [], epsIdx: -1, isCore: false,
+    });
+
+    for (var i = 0; i < n; i++) {
+      if (labels[i] !== -2) continue;
+      var neighbors = getNeighbors(i);
+      var isCore = neighbors.length >= minSamples;
+
+      frames.push({
+        type: isCore ? "core_visit" : "noise_visit",
+        title: "Visiting point " + i + " — ε=" + eps + " circle",
+        desc: "Found " + neighbors.length + " point" + (neighbors.length !== 1 ? "s" : "") + " within ε=" + eps + " (including self). " +
+          (isCore
+            ? neighbors.length + " ≥ minPts=" + minSamples + " → CORE POINT. Starting cluster " + (clusterId + 1) + " and expanding density-reachable region."
+            : neighbors.length + " < minPts=" + minSamples + " → tentative noise (may become a border point if reached by a core point later)."),
+        labels: labels.slice(), visitIdx: i, neighborIdxs: neighbors, epsIdx: i, isCore: isCore,
+      });
+
+      if (!isCore) {
+        labels[i] = -1;
+        continue;
+      }
+
+      labels[i] = clusterId;
+      var seeds = neighbors.filter(function(j) { return j !== i; });
+      var si = 0;
+      while (si < seeds.length) {
+        var q = seeds[si++];
+        if (labels[q] === -1) labels[q] = clusterId;
+        if (labels[q] !== -2) continue;
+        labels[q] = clusterId;
+        var qns = getNeighbors(q);
+        if (qns.length >= minSamples) {
+          qns.forEach(function(r) { if (seeds.indexOf(r) === -1) seeds.push(r); });
+        }
+      }
+
+      var clusterSize = labels.filter(function(l) { return l === clusterId; }).length;
+      frames.push({
+        type: "cluster_done",
+        title: "Cluster " + (clusterId + 1) + " fully expanded — " + clusterSize + " points",
+        desc: "All density-reachable points absorbed. Core points drove the expansion outward; border points joined but had too few neighbors to add new seeds. The cluster boundary follows the data density.",
+        labels: labels.slice(), visitIdx: -1, neighborIdxs: [], epsIdx: -1, isCore: false,
+      });
+      clusterId++;
+    }
+
+    var nNoise = labels.filter(function(l) { return l === -1; }).length;
+    frames.push({
+      type: "converged",
+      title: "DBSCAN done — " + clusterId + " cluster" + (clusterId !== 1 ? "s" : "") + ", " + nNoise + " noise point" + (nNoise !== 1 ? "s" : ""),
+      desc: "Gray × marks are noise — too isolated to join any cluster. The crescent shapes are discovered without K-Means' assumption of spherical clusters. Try changing ε or minPts to see how the result shifts.",
+      labels: labels.slice(), visitIdx: -1, neighborIdxs: [], epsIdx: -1, isCore: false,
+    });
+
+    return frames;
+  }
+
+  var DBSCAN_FRAME_COLORS = { raw:"#94A2BC", core_visit:"#2B5BFF", noise_visit:"#e0492e", cluster_done:"#1f9e6b", converged:"#d97706" };
+
+  function DBSCANAnimSVG({ frame, eps }) {
+    var epsPixels = eps * (W - PAD.l - PAD.r) / (xMax - xMin);
+    return (
+      <svg width={W} height={H} style={{ maxWidth:"100%", display:"block", margin:"0 auto",
+        border:"1px solid var(--line)", borderRadius:10, background:"var(--panel-solid)" }}>
+        {[2,4,6,8].map(function(v) {
+          return <line key={"g"+v} x1={PAD.l} y1={sy(v)} x2={W-PAD.r} y2={sy(v)}
+            stroke="var(--line)" strokeWidth="0.5" strokeDasharray="3 3" />;
+        })}
+        <line x1={PAD.l} y1={H-PAD.b} x2={W-PAD.r} y2={H-PAD.b} stroke="var(--ink)" strokeWidth="1.2" />
+        <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={H-PAD.b} stroke="var(--ink)" strokeWidth="1.2" />
+
+        {frame.epsIdx >= 0 && (
+          <circle cx={sx(DATA[frame.epsIdx][0])} cy={sy(DATA[frame.epsIdx][1])}
+            r={epsPixels} fill="rgba(43,91,255,0.07)" stroke="#2B5BFF" strokeWidth="1.5" strokeDasharray="5 3" />
+        )}
+
+        {frame.visitIdx >= 0 && frame.neighborIdxs.map(function(ni, idx) {
+          if (ni === frame.visitIdx) return null;
+          return (
+            <line key={idx}
+              x1={sx(DATA[frame.visitIdx][0])} y1={sy(DATA[frame.visitIdx][1])}
+              x2={sx(DATA[ni][0])} y2={sy(DATA[ni][1])}
+              stroke="#2B5BFF" strokeWidth="0.8" opacity="0.22" />
+          );
+        })}
+
+        {DATA.map(function(p, i) {
+          var label = frame.labels[i];
+          var col = label === -2 ? "#94A2BC" : label === -1 ? "#9ca3af" : CLUSTER_COLORS[label % CLUSTER_COLORS.length];
+          var isVisit = i === frame.visitIdx;
+          var isNeighbor = frame.neighborIdxs.indexOf(i) >= 0 && i !== frame.visitIdx;
+          var haloCol = frame.isCore ? "#2B5BFF" : "#e0492e";
+          return (
+            <g key={i}>
+              {isVisit && <circle cx={sx(p[0])} cy={sy(p[1])} r="16" fill={haloCol} opacity="0.12" />}
+              <circle cx={sx(p[0])} cy={sy(p[1])} r={isVisit ? 7 : 5.5}
+                fill={col} opacity={label === -2 ? 0.42 : 0.85}
+                stroke={isVisit ? haloCol : isNeighbor ? "#2B5BFF" : "white"}
+                strokeWidth={isVisit ? 2.5 : isNeighbor ? 1.8 : 1} />
+              {label === -1 && (
+                <>
+                  <line x1={sx(p[0])-4} y1={sy(p[1])-4} x2={sx(p[0])+4} y2={sy(p[1])+4}
+                    stroke="#9ca3af" strokeWidth="1.5" />
+                  <line x1={sx(p[0])+4} y1={sy(p[1])-4} x2={sx(p[0])-4} y2={sy(p[1])+4}
+                    stroke="#9ca3af" strokeWidth="1.5" />
+                </>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+
+  function DBSCANAnimator({ trace }) {
+    var eps = trace.eps || 0.8;
+    var minSamples = trace.minSamples || 3;
+    var frames = useMemo(function() { return buildDBSCANFrames(eps, minSamples); }, [eps, minSamples]);
+    var [frameIdx, setFrameIdx] = useState(0);
+    var [playing, setPlaying] = useState(false);
+    var timerRef = useRef(null);
+
+    useEffect(function() { setFrameIdx(0); setPlaying(false); }, [eps, minSamples]);
+
+    useEffect(function() {
+      if (playing) {
+        timerRef.current = setInterval(function() {
+          setFrameIdx(function(f) {
+            if (f >= frames.length - 1) { setPlaying(false); return f; }
+            return f + 1;
+          });
+        }, 1400);
+      } else {
+        clearInterval(timerRef.current);
+      }
+      return function() { clearInterval(timerRef.current); };
+    }, [playing, frames.length]);
+
+    var cf = frames[Math.min(frameIdx, frames.length - 1)] || frames[0];
+    var col = DBSCAN_FRAME_COLORS[cf.type] || "var(--accent)";
+    var btnBase = { padding:"8px 15px", borderRadius:8, border:"1px solid var(--line)",
+      fontWeight:700, fontSize:13, cursor:"pointer", background:"var(--panel-solid)", color:"var(--ink)", transition:"all .15s" };
+
+    return (
+      <>
+        <DBSCANAnimSVG frame={cf} eps={eps} />
+
+        <div style={{ background:"rgba(43,91,255,.06)", border:"1px solid rgba(43,91,255,.2)",
+          borderRadius:10, padding:"12px 16px", margin:"10px 0" }}>
+          <div style={{ fontWeight:800, fontSize:13, color:col, marginBottom:5 }}>{cf.title}</div>
+          <div style={{ fontSize:13, color:"var(--ink)", lineHeight:1.65 }}>{cf.desc}</div>
+        </div>
+
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap", margin:"8px 0", justifyContent:"center" }}>
+          {frames.map(function(f, i) {
+            var fc = DBSCAN_FRAME_COLORS[f.type] || "var(--accent)";
+            return (
+              <div key={i} onClick={function() { setFrameIdx(i); setPlaying(false); }}
+                title={f.title}
+                style={{ width:10, height:10, borderRadius:"50%", cursor:"pointer",
+                  background: i === frameIdx ? fc : i < frameIdx ? fc+"55" : "var(--line)",
+                  transition:"all .15s", transform: i === frameIdx ? "scale(1.5)" : "scale(1)" }} />
+            );
+          })}
+        </div>
+
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6, flexWrap:"wrap", justifyContent:"center" }}>
+          <button onClick={function() { setFrameIdx(0); setPlaying(false); }} style={btnBase}>&#9198; Reset</button>
+          <button onClick={function() { setFrameIdx(Math.max(0, frameIdx-1)); setPlaying(false); }}
+            style={{ ...btnBase, opacity: frameIdx === 0 ? 0.4 : 1 }} disabled={frameIdx === 0}>&#9664; Prev</button>
+          <button onClick={function() { setPlaying(function(p) { return !p; }); }}
+            style={{ ...btnBase, background: playing ? "var(--line)" : "var(--accent)", color: playing ? "var(--ink)" : "#fff", minWidth:80 }}>
+            {playing ? "⏸ Pause" : "▶ Play"}
+          </button>
+          <button onClick={function() { setFrameIdx(Math.min(frames.length-1, frameIdx+1)); setPlaying(false); }}
+            style={{ ...btnBase, opacity: frameIdx >= frames.length-1 ? 0.4 : 1 }} disabled={frameIdx >= frames.length-1}>Next &#9654;</button>
+          <span style={{ fontSize:12, color:"var(--muted)" }}>{frameIdx+1}&nbsp;/&nbsp;{frames.length}</span>
+        </div>
+
+        <Note>
+          <b>Blue circle</b> = ε-neighborhood. <b>Blue glow</b> = core point. <b>Red glow</b> = noise candidate.
+          <b> Gray ×</b> = final noise. Change ε/minPts sliders above to rebuild the animation.
+        </Note>
+      </>
     );
   }
 
@@ -442,7 +658,29 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 4: The Algorithm
+  //  STAGE 4: Playable Animation
+  // ────────────────────────────────────────────────────────
+  var stageAnimation = {
+    id: "animation", group: "Algorithm", title: "Watch DBSCAN Cluster — Step by Step",
+    map: "Animate",
+    why: "Watching the ε-neighborhood expand reveals why DBSCAN finds non-convex shapes.",
+    render: function(trace) {
+      return (
+        <>
+          <Lead>
+            Watch DBSCAN visit each unvisited point, draw the <b>ε-neighborhood circle</b>,
+            decide if it is a <b>core point</b> (enough neighbors), and flood-fill the cluster.
+            Points too isolated become <b>noise</b>.
+            Press <b>▶ Play</b> or step manually. Sliders above change ε and minPts.
+          </Lead>
+          <DBSCANAnimator trace={trace} />
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 5: The Algorithm
   // ────────────────────────────────────────────────────────
   var stageAlgorithm = {
     id: "algorithm", group: "Algorithm", title: "How DBSCAN Works — Step by Step",
@@ -533,7 +771,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 5: Cluster Expansion
+  //  STAGE 6: Cluster Expansion
   // ────────────────────────────────────────────────────────
   var stageExpand = {
     id: "expand", group: "Algorithm", title: "Density-Reachability and Cluster Expansion",
@@ -632,7 +870,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 6: Noise Detection
+  //  STAGE 7: Noise Detection
   // ────────────────────────────────────────────────────────
   var stageNoise = {
     id: "noise", group: "Algorithm", title: "Noise Points — Free Outlier Detection",
@@ -700,7 +938,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 7: Parameter Selection
+  //  STAGE 8: Parameter Selection
   // ────────────────────────────────────────────────────────
   var stageParams = {
     id: "params", group: "Parameters", title: "How to Choose eps and min_samples",
@@ -798,7 +1036,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 8: DBSCAN vs K-Means
+  //  STAGE 9: DBSCAN vs K-Means
   // ────────────────────────────────────────────────────────
   var stageCompare = {
     id: "compare", group: "Insights", title: "DBSCAN vs K-Means — Decision Guide",
@@ -881,7 +1119,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 9: Limitations
+  //  STAGE 10: Limitations
   // ────────────────────────────────────────────────────────
   var stageLimits = {
     id: "limits", group: "Insights", title: "When DBSCAN Struggles",
@@ -969,7 +1207,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 10: Hyperparameters
+  //  STAGE 11: Hyperparameters
   // ────────────────────────────────────────────────────────
   var stageHyperparams = {
     id: "hyperparams", group: "Hyperparameters", title: "DBSCAN Hyperparameters",
@@ -1091,6 +1329,7 @@
     stageOverview,
     stageTypes,
     stageEps,
+    stageAnimation,
     stageAlgorithm,
     stageExpand,
     stageNoise,
