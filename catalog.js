@@ -16,10 +16,10 @@ window.SITE = {
       title: "LLM Training",
       kicker: "From raw text to production-ready LLMs",
       desc:
-        "A ten-part deep-dive into how large language models are built and run — pre-training on " +
-        "trillions of tokens, scaling across GPU clusters, quantization, mixture-of-experts, " +
-        "fine-tuning and alignment, distillation, embeddings, reasoning models, inference & serving, " +
-        "and keeping them safe in production.",
+        "An eleven-part deep-dive into how large language models are built and run — pre-training on " +
+        "trillions of tokens, scaling across GPU clusters, GPU architecture, quantization, " +
+        "mixture-of-experts, fine-tuning and alignment, distillation, embeddings, reasoning models, " +
+        "inference & serving, and keeping them safe in production.",
       icon:
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.4"/><circle cx="5" cy="6" r="1.6"/><circle cx="19" cy="6" r="1.6"/><circle cx="5" cy="18" r="1.6"/><circle cx="19" cy="18" r="1.6"/><path d="M6.6 7 10 10.4M17.4 7 14 10.4M6.6 17 10 13.6M17.4 17 14 13.6"/></svg>',
       articles: [
@@ -39,6 +39,15 @@ window.SITE = {
           desc: "Why a single H100 isn't enough, ZeRO/FSDP sharding, Megatron tensor parallelism, 1F1B pipeline schedules, 3D parallelism, frameworks (DeepSpeed/Megatron/FSDP), MFU validation, and debugging OOM/NaN.",
           tags: ["DDP", "FSDP", "ZeRO", "DeepSpeed", "Megatron", "tensor parallelism", "H100"],
           steps: 14,
+          status: "live",
+        },
+        {
+          title: "GPU Architecture",
+          sub: "SMs, tensor cores, and memory — and how to optimize",
+          href: "GPU-Architecture.html",
+          desc: "How NVIDIA GPUs work: GPC→SM hierarchy, the streaming multiprocessor, threads/warps/blocks, the memory hierarchy and memory wall, tensor cores, how a matmul (GEMM) runs on-chip, the roofline model, Hopper features, A100/H100/B200 specs, and optimizing for training vs serving.",
+          tags: ["GPU", "H100", "SM", "tensor cores", "memory hierarchy", "roofline", "CUDA"],
+          steps: 13,
           status: "live",
         },
         {
