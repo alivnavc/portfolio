@@ -294,6 +294,57 @@ window.SITE = {
           steps: 10,
           status: "live",
         },
+        {
+          title: "Bias-Variance Tradeoff",
+          sub: "Underfitting, overfitting, and how to fix both",
+          href: "Bias-Variance.html",
+          desc: "The fundamental tension in all of ML: bias² + variance + noise. Diagnose underfitting vs. overfitting with learning curves, then fix with regularization, dropout, early stopping, or more data.",
+          tags: ["bias", "variance", "overfitting", "underfitting", "regularization"],
+          steps: 12,
+          status: "live",
+        },
+      ],
+    },
+    {
+      id: "reference",
+      title: "Quick Reference",
+      kicker: "Cheatsheets & decision guides",
+      desc:
+        "Fast-access reference cards for every algorithm — hyperparameters, assumptions, " +
+        "outlier & missing-value impact, and interview Q&A all in one searchable page.",
+      icon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>',
+      articles: [
+        {
+          title: "ML Algorithm Cheatsheet",
+          sub: "All algorithms in one searchable reference",
+          href: "Cheatsheet.html",
+          desc: "Hyperparameters, when to use/avoid, assumptions, outlier & missing-value impact, and 5 interview Q&As (including tricky ones) for every algorithm — Linear Regression to LSTM.",
+          tags: ["cheatsheet", "hyperparameters", "interview", "assumptions", "all algorithms"],
+          steps: 12,
+          status: "live",
+        },
+      ],
+    },
+    {
+      id: "mlops",
+      title: "MLOps",
+      kicker: "Production ML infrastructure",
+      desc:
+        "The infrastructure and practices that take models from notebooks to production — " +
+        "feature management, deployment patterns, monitoring, and the hidden costs of scaling ML.",
+      icon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h2v5H7zM11 10h2v3h-2zM15 7h2v6h-2z"/></svg>',
+      articles: [
+        {
+          title: "Feature Store",
+          sub: "Unified feature management for training and serving",
+          href: "Feature Store.html",
+          desc: "How to design a feature store: offline store for training, online store for <5ms inference, point-in-time correct joins to prevent leakage, materialization pipelines, and when NOT to build one.",
+          tags: ["feature store", "training-serving skew", "online store", "offline store", "MLOps"],
+          steps: 12,
+          status: "live",
+        },
       ],
     },
   ],
