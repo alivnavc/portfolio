@@ -2079,6 +2079,7 @@ for step, batch in enumerate(dataloader):
     modeLinks: [
       { label: "Pre-Training",  href: "LLM-PreTraining.html",        active: true  },
       { label: "Distributed",   href: "Distributed-Training.html",   active: false },
+      { label: "GPU",           href: "GPU-Architecture.html",      active: false },
       { label: "Quantization",  href: "Quantization.html",           active: false },
       { label: "MoE",           href: "Mixture-of-Experts.html",     active: false },
       { label: "Post-Training", href: "Post-Training.html",          active: false },

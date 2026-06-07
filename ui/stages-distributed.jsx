@@ -2088,6 +2088,7 @@
     modeLinks: [
       { label: "Pre-Training",  href: "LLM-PreTraining.html",        active: false },
       { label: "Distributed",   href: "Distributed-Training.html",   active: true  },
+      { label: "GPU",           href: "GPU-Architecture.html",      active: false },
       { label: "Quantization",  href: "Quantization.html",           active: false },
       { label: "MoE",           href: "Mixture-of-Experts.html",     active: false },
       { label: "Post-Training", href: "Post-Training.html",          active: false },
