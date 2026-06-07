@@ -154,6 +154,18 @@
           '<p class="pf-graph-hint"><span class="pf-graph-dot"></span><span>Interactive map — <b>drag</b> any node to explore. Hubs are categories; connected pills are the tools.</span></p>' +
           '<div class="pf-legend" id="skill-legend"></div>' +
           '<div class="pf-graph" id="skillgraph"></div>' +
+          '<div class="pf-stack-mobile">' +
+            (P.techStack || []).map(function(g) {
+              return '<div class="pf-stack-mobile-group">' +
+                '<div class="pf-stack-mobile-label">' + esc(g.group) + '</div>' +
+                '<div class="pf-stack-mobile-pills">' +
+                  (g.items || []).map(function(item) {
+                    return '<span class="pf-stack-mobile-pill">' + esc(item) + '</span>';
+                  }).join('') +
+                '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
         '</section>' +
 
         '<section class="pf-section" id="projects">' +

@@ -166,7 +166,19 @@
   mask-image:linear-gradient(90deg, transparent 0, #000 4%, #000 96%, transparent 100%);
 }
 .pf-graph canvas { display:block; }
-@media (max-width:640px) { .pf-graph { height:520px; } }
+@media (max-width:640px) { .pf-graph { display:none; } }
+
+/* Mobile skill grid — shown only on small screens instead of the canvas graph */
+.pf-stack-mobile { display:none; }
+@media (max-width:640px) {
+  .pf-stack-mobile { display:block; }
+  .pf-stack-mobile-group { margin-bottom:18px; }
+  .pf-stack-mobile-label { font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .pf-stack-mobile-pills { display:flex; flex-wrap:wrap; gap:7px; }
+  .pf-stack-mobile-pill { font-size:12px; font-weight:600; color:var(--ink); background:var(--panel-solid); border:1px solid var(--line); border-radius:20px; padding:5px 12px; }
+  .pf-graph-hint { display:none; }
+  .pf-legend { display:none; }
+}
 
 /* ---- capability cards (kept for fallback / not used) ---- */
 .pf-stackgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:14px; }

@@ -306,6 +306,45 @@ window.SITE = {
       ],
     },
     {
+      id: "clustering",
+      title: "Clustering Algorithms",
+      kicker: "Finding structure in unlabeled data",
+      desc:
+        "Unsupervised algorithms that discover natural groupings — from centroid-based K-Means " +
+        "to density-based DBSCAN and tree-building Hierarchical clustering.",
+      icon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="7" r="2.5"/><circle cx="12" cy="17" r="2.5"/><circle cx="5" cy="14" r="1.4"/><circle cx="9" cy="15" r="1.4"/><circle cx="15" cy="5" r="1.4"/><circle cx="19" cy="13" r="1.4"/></svg>',
+      articles: [
+        {
+          title: "K-Means Clustering",
+          sub: "Partition data into k clusters by minimizing WCSS",
+          href: "K-Means.html",
+          desc: "K-Means++ initialization, assign-update iterations, elbow method for choosing k, silhouette score, and failure modes — with live centroid-movement animation.",
+          tags: ["K-Means", "WCSS", "elbow method", "centroid", "unsupervised"],
+          steps: 11,
+          status: "live",
+        },
+        {
+          title: "DBSCAN",
+          sub: "Density-based clustering with noise detection",
+          href: "DBSCAN.html",
+          desc: "Core, border, and noise points. ε-neighborhood visualization. Handles non-convex clusters and automatically labels outliers. Interactive eps and min_samples sliders.",
+          tags: ["DBSCAN", "density", "noise", "eps", "unsupervised"],
+          steps: 10,
+          status: "live",
+        },
+        {
+          title: "Hierarchical Clustering",
+          sub: "Build a dendrogram — no k required upfront",
+          href: "Hierarchical.html",
+          desc: "Agglomerative bottom-up merging with interactive dendrogram. Compare Ward, complete, average, and single linkage. Cut the tree to get any number of clusters.",
+          tags: ["hierarchical", "dendrogram", "linkage", "Ward", "unsupervised"],
+          steps: 10,
+          status: "live",
+        },
+      ],
+    },
+    {
       id: "reference",
       title: "Quick Reference",
       kicker: "Cheatsheets & decision guides",
