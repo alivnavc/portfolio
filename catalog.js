@@ -35,9 +35,9 @@ window.SITE = {
           title: "Distributed Training",
           sub: "Data, tensor, and pipeline parallelism across GPU clusters",
           href: "Distributed-Training.html",
-          desc: "Why a single H100 isn't enough, ZeRO/FSDP sharding, Megatron tensor parallelism, 1F1B pipeline schedules, 3D parallelism, MFU validation, and debugging OOM and NaN failures.",
-          tags: ["DDP", "FSDP", "ZeRO", "tensor parallelism", "pipeline parallelism", "H100"],
-          steps: 13,
+          desc: "Why a single H100 isn't enough, ZeRO/FSDP sharding, Megatron tensor parallelism, 1F1B pipeline schedules, 3D parallelism, frameworks (DeepSpeed/Megatron/FSDP), MFU validation, and debugging OOM/NaN.",
+          tags: ["DDP", "FSDP", "ZeRO", "DeepSpeed", "Megatron", "tensor parallelism", "H100"],
+          steps: 14,
           status: "live",
         },
         {

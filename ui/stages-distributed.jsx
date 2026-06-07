@@ -1,5 +1,5 @@
 /* ============================================================
-   Distributed Training — stages-distributed.jsx (13 stages)
+   Distributed Training — stages-distributed.jsx (14 stages)
    Educational article — no sliders, no renderInput
    ============================================================ */
 (function () {
@@ -1247,6 +1247,140 @@
             number of nodes per replica → DP = total replicas. Always maximize TP first
             (it uses the fastest NVLink bandwidth), then set PP, then DP fills the rest.
           </>)}
+        </>
+      ),
+    },
+
+    /* ── STAGE · Frameworks ─────────────────────────────────────────────────── */
+    {
+      id: "frameworks",
+      group: "Systems",
+      title: "Distributed Training Frameworks",
+      map: "Frameworks",
+      why: "You almost never implement ZeRO, tensor parallelism, or pipeline schedules by hand. A handful of mature frameworks provide them — knowing which does what, and how they stack, saves weeks.",
+      render: () => (
+        <>
+          <Lead>
+            The parallelism strategies in this guide — DDP, ZeRO/FSDP, tensor, pipeline,
+            3D — are implemented by a small set of battle-tested frameworks. They layer on
+            top of each other: low-level primitives (NCCL, PyTorch DTensor) power mid-level
+            engines (DeepSpeed, Megatron-Core, FSDP), which are wrapped by high-level
+            trainers (NeMo, Accelerate, Axolotl). Pick the layer that matches how much
+            control you need.
+          </Lead>
+
+          {subhead("The Framework Stack")}
+          <div style={{ overflowX:"auto", marginBottom:16 }}>
+            <svg viewBox="0 0 760 250" style={{ width:"100%", maxWidth:760, height:"auto", display:"block" }}>
+              {[
+                { y:10,  c:"#7c3aed", bg:"rgba(124,58,237,.10)", t:"High-level trainers / fine-tuning",
+                  s:"NeMo · HF Accelerate · Transformers Trainer · Axolotl · LLaMA-Factory · Composer" },
+                { y:70,  c:"#d97706", bg:"rgba(217,119,6,.10)", t:"Mid-level parallelism engines",
+                  s:"DeepSpeed (ZeRO) · Megatron-Core (TP/PP/SP) · PyTorch FSDP2 · torchtitan · Colossal-AI" },
+                { y:130, c:"#059669", bg:"rgba(5,150,105,.10)", t:"Core distributed primitives",
+                  s:"PyTorch DTensor · DistributedDataParallel · process groups · torch.distributed" },
+                { y:190, c:"#2B5BFF", bg:"rgba(43,91,255,.10)", t:"Communication + hardware",
+                  s:"NCCL collectives · NVLink · InfiniBand · CUDA · H100 / A100 GPUs" },
+              ].map(function(L, i) {
+                return (
+                  <g key={i}>
+                    <rect x={20} y={L.y} width={720} height={48} rx="9" fill={L.bg} stroke={L.c} strokeWidth="1.6" />
+                    <text x={36} y={L.y + 20} fontSize="12.5" fontWeight="700" fill={L.c}>{L.t}</text>
+                    <text x={36} y={L.y + 38} fontSize="10.5" fill="var(--muted)">{L.s}</text>
+                    {i < 3 &&
+                      <text x={730} y={L.y + 62} textAnchor="end" fontSize="13" fill="#999">↓ builds on</text>
+                    }
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          {subhead("The Major Frameworks")}
+          {card(<>
+            <div style={{ fontWeight:700, fontSize:13, color:"#d97706", marginBottom:4 }}>
+              DeepSpeed (Microsoft)
+            </div>
+            <p style={{ fontSize:13, lineHeight:1.7, margin:"0 0 10px", color:"var(--ink)" }}>
+              The home of <b>ZeRO</b> (stages 1/2/3). Adds <b>ZeRO-Offload</b> (push optimizer
+              states to CPU) and <b>ZeRO-Infinity</b> (offload to NVMe) to train huge models on
+              few GPUs, plus 3D parallelism, MoE training, and DeepSpeed-Inference. Configured
+              with a JSON file; integrates into the HF Trainer. Best when memory is the wall.
+            </p>
+            <div style={{ fontWeight:700, fontSize:13, color:"#d97706", marginBottom:4 }}>
+              Megatron-LM / Megatron-Core (NVIDIA)
+            </div>
+            <p style={{ fontSize:13, lineHeight:1.7, margin:"0 0 10px", color:"var(--ink)" }}>
+              The reference implementation of <b>tensor</b> and <b>pipeline</b> parallelism (and
+              sequence parallelism). <b>Megatron-Core</b> is the modular, reusable library version.
+              The gold standard for training very large models efficiently on NVIDIA clusters;
+              maximum throughput, more manual setup.
+            </p>
+            <div style={{ fontWeight:700, fontSize:13, color:"#d97706", marginBottom:4 }}>
+              PyTorch FSDP / FSDP2 (Meta)
+            </div>
+            <p style={{ fontSize:13, lineHeight:1.7, margin:"0 0 10px", color:"var(--ink)" }}>
+              Native PyTorch implementation of ZeRO-3-style full sharding — no extra dependency.
+              <b> FSDP2</b> shards per-parameter using DTensor and composes cleanly with tensor
+              and pipeline parallelism. The default choice for PyTorch-native training.
+            </p>
+            <div style={{ fontWeight:700, fontSize:13, color:"#d97706", marginBottom:4 }}>
+              torchtitan (PyTorch)
+            </div>
+            <p style={{ fontSize:13, lineHeight:1.7, margin:"0", color:"var(--ink)" }}>
+              A PyTorch-native reference for large-scale pre-training that combines FSDP2 + tensor
+              + pipeline parallelism + FP8 in one clean codebase — showcases the modern
+              4D-parallel recipe end to end.
+            </p>
+          </>)}
+
+          {subhead("Framework Comparison")}
+          {tbl(<>
+            <thead>
+              <tr>
+                {th("Framework")}{th("By")}{th("Parallelism / key feature")}{th("Level")}{th("Best for")}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>{td("DeepSpeed")}{td("Microsoft")}{td("ZeRO 1/2/3, Offload, Infinity, 3D, MoE")}{td("Mid")}{td("Memory-bound training, large models on fewer GPUs")}</tr>
+              <tr>{td("Megatron-Core")}{td("NVIDIA")}{td("Tensor + pipeline + sequence parallel")}{td("Mid")}{td("Max throughput on NVIDIA clusters")}</tr>
+              <tr>{td("PyTorch FSDP2")}{td("Meta")}{td("ZeRO-3 sharding via DTensor")}{td("Mid")}{td("PyTorch-native, no extra deps")}</tr>
+              <tr>{td("torchtitan")}{td("PyTorch")}{td("FSDP2 + TP + PP + FP8 (4D)")}{td("Mid")}{td("Reference large-scale pre-training")}</tr>
+              <tr>{td("Megatron-DeepSpeed")}{td("MS + NVIDIA")}{td("Megatron TP/PP + ZeRO")}{td("Mid")}{td("Best-of-both (used for BLOOM-176B)")}</tr>
+              <tr>{td("Colossal-AI")}{td("HPC-AI")}{td("Gemini memory mgr, auto-parallel")}{td("Mid")}{td("Heterogeneous CPU/GPU memory")}</tr>
+              <tr>{td("NVIDIA NeMo")}{td("NVIDIA")}{td("End-to-end on Megatron-Core")}{td("High")}{td("Production LLM / speech / multimodal")}</tr>
+              <tr>{td("HF Accelerate")}{td("Hugging Face")}{td("Unifies DDP / FSDP / DeepSpeed launch")}{td("High")}{td("Minimal-code multi-GPU, prototyping")}</tr>
+              <tr>{td("Transformers Trainer")}{td("Hugging Face")}{td("FSDP / DeepSpeed via config")}{td("High")}{td("Standard fine-tuning loop")}</tr>
+              <tr>{td("Axolotl / LLaMA-Factory")}{td("Community")}{td("YAML-driven SFT/LoRA over FSDP/DS")}{td("High")}{td("Fast fine-tuning without writing code")}</tr>
+              <tr>{td("MaxText / Paxml")}{td("Google")}{td("JAX + GSPMD on TPU/GPU")}{td("Mid")}{td("JAX/TPU ecosystems")}</tr>
+            </tbody>
+          </>)}
+
+          {subhead("How They Relate")}
+          {info(<>
+            <b>They are not all competitors.</b> DeepSpeed (ZeRO) and Megatron (TP/PP) are
+            often <i>combined</i> — Megatron-DeepSpeed trained BLOOM. High-level tools wrap the
+            mid-level engines: HF Accelerate and the Trainer just <i>launch</i> FSDP or DeepSpeed
+            for you; NeMo is built on Megatron-Core; Axolotl drives FSDP/DeepSpeed from a YAML file.
+          </>)}
+
+          {subhead("Which One Should You Use?")}
+          {tbl(<>
+            <thead><tr>{th("Situation")}{th("Recommended")}</tr></thead>
+            <tbody>
+              <tr>{td("Fine-tuning a 7B-70B model, want minimal code")}{td("HF Accelerate / Trainer with FSDP, or Axolotl")}</tr>
+              <tr>{td("Memory is the bottleneck (big model, few GPUs)")}{td("DeepSpeed ZeRO-3 (+ Offload / Infinity)")}</tr>
+              <tr>{td("Pre-training at scale, max throughput on NVIDIA")}{td("Megatron-Core / NeMo (TP + PP + DP)")}</tr>
+              <tr>{td("PyTorch-native, no extra dependency")}{td("FSDP2 (or torchtitan for 4D parallel)")}</tr>
+              <tr>{td("TPU / JAX")}{td("MaxText / Paxml (GSPMD)")}</tr>
+            </tbody>
+          </>)}
+
+          <Note>
+            Rule of thumb: <b>start high-level</b> (Accelerate/Trainer + FSDP). Drop to DeepSpeed
+            when you hit a memory wall, and to Megatron-Core only when you need tensor/pipeline
+            parallelism for the very largest models.
+          </Note>
         </>
       ),
     },
