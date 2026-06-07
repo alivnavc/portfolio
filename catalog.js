@@ -319,9 +319,9 @@ window.SITE = {
           title: "K-Means Clustering",
           sub: "Partition data into k clusters by minimizing WCSS",
           href: "K-Means.html",
-          desc: "K-Means++ initialization, assign-update iterations, elbow method for choosing k, silhouette score, and failure modes — with live centroid-movement animation.",
+          desc: "K-Means++ initialization, playable step-by-step animation, elbow method for choosing k, silhouette score, and failure modes — watch clusters form frame by frame.",
           tags: ["K-Means", "WCSS", "elbow method", "centroid", "unsupervised"],
-          steps: 11,
+          steps: 12,
           status: "live",
         },
         {

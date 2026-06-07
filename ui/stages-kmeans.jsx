@@ -1,10 +1,10 @@
 /* ============================================================
-   K-Means Clustering — stages-kmeans.jsx  (11 stages)
+   K-Means Clustering — stages-kmeans.jsx  (12 stages)
    Requires: window.ML_KMEANS (from model/ml-kmeans.js)
              window.{ V, Sub, Sup, Formula, Lead, Note, Row, Tag, fmt }
    ============================================================ */
 (function () {
-  const { useState, useRef, useEffect } = React;
+  const { useState, useRef, useEffect, useMemo } = React;
   const { V, Sub, Sup, Formula, Lead, Note, Row, Tag, fmt } = window;
   const { DATA, COLORS, runKMeans, elbowData } = window.ML_KMEANS;
 
@@ -230,6 +230,297 @@
         <text x={bPad.l-4} y={midY+4} textAnchor="end" fontSize="9" fill="var(--muted)">0</text>
         <text x={(bPad.l+bW-bPad.r)/2} y={bH-4} textAnchor="middle" fontSize="11" fill="var(--muted)">Data points (colored by cluster)</text>
       </svg>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────
+  //  ANIMATION HELPERS
+  // ────────────────────────────────────────────────────────
+
+  function buildAnimFrames(k, result) {
+    var frames = [];
+    var hist = result.history;
+    var maxIter = hist.length - 1;
+
+    // Frame 0: raw unlabeled data
+    frames.push({
+      type: "raw",
+      title: "Raw unlabeled data — no clusters yet",
+      desc: "30 data points with no labels. K-Means will discover " + k + " hidden groups without any supervision. Watch how it learns from scratch.",
+      centroids: [],
+      assignments: null,
+      showLines: false,
+      arrows: null,
+      newIdx: -1,
+    });
+
+    // Init frames: one per centroid appearing
+    for (var ki = 0; ki < k; ki++) {
+      frames.push({
+        type: "init",
+        title: "K-Means++ Init — placing centroid " + (ki + 1) + " of " + k,
+        desc: ki === 0
+          ? "Step 1: Pick the first centroid (μ1) uniformly at random from the data. It becomes the anchor for everything that follows."
+          : "K-Means++ trick: pick the next centroid with probability proportional to D(x)² — the squared distance to the nearest already-placed centroid. This deliberately spreads centroids far apart, giving a much better starting point than pure random.",
+        centroids: hist[0].slice(0, ki + 1),
+        assignments: null,
+        showLines: false,
+        arrows: null,
+        newIdx: ki,
+      });
+    }
+
+    // Assign + Update frames for each iteration
+    for (var iter = 0; iter < maxIter; iter++) {
+      var curC = hist[iter];
+      var nextC = hist[iter + 1];
+
+      // Compute assignments for current centroids
+      var ass = DATA.map(function(p) {
+        var bestD = Infinity, bestK = 0;
+        for (var j = 0; j < k; j++) {
+          var d = (p[0]-curC[j][0])*(p[0]-curC[j][0]) + (p[1]-curC[j][1])*(p[1]-curC[j][1]);
+          if (d < bestD) { bestD = d; bestK = j; }
+        }
+        return bestK;
+      });
+
+      frames.push({
+        type: "assign",
+        title: "Iteration " + (iter + 1) + " — Assignment step",
+        desc: "Every point measures its Euclidean distance to each of the " + k + " centroids and joins the closest one. The dashed lines show which centroid each point was assigned to. This re-draws the cluster boundaries.",
+        centroids: curC,
+        assignments: ass,
+        showLines: true,
+        arrows: null,
+        newIdx: -1,
+      });
+
+      frames.push({
+        type: "update",
+        title: "Iteration " + (iter + 1) + " — Update step",
+        desc: "Each centroid moves to the mean (average x, average y) of all its assigned points. Arrows show the movement. This step always decreases WCSS — that is why K-Means always converges.",
+        centroids: nextC,
+        assignments: ass,
+        showLines: false,
+        arrows: curC.map(function(c, ki2) { return { from: c, to: nextC[ki2] }; }),
+        newIdx: -1,
+      });
+    }
+
+    // Converged frame
+    var finalC = hist[hist.length - 1];
+    var finalAss = DATA.map(function(p) {
+      var bestD = Infinity, bestK = 0;
+      for (var j = 0; j < k; j++) {
+        var d = (p[0]-finalC[j][0])*(p[0]-finalC[j][0]) + (p[1]-finalC[j][1])*(p[1]-finalC[j][1]);
+        if (d < bestD) { bestD = d; bestK = j; }
+      }
+      return bestK;
+    });
+
+    frames.push({
+      type: "converged",
+      title: "Converged — final clusters found",
+      desc: "The centroids stopped moving between iterations. K-Means converged in " + maxIter + " iterations. WCSS = " + fmt(result.inertia, 2) + ". These are the final cluster assignments. Note: K-Means always converges but may find a local minimum — running multiple restarts (n_init) picks the best.",
+      centroids: finalC,
+      assignments: finalAss,
+      showLines: false,
+      arrows: null,
+      newIdx: -1,
+    });
+
+    return frames;
+  }
+
+  var FRAME_COLORS = { raw: "#94A2BC", init: "#7c3aed", assign: "#2B5BFF", update: "#1f9e6b", converged: "#d97706" };
+
+  function AnimSVG({ frame }) {
+    var centroids = frame.centroids || [];
+    var assignments = frame.assignments;
+    var showLines = frame.showLines;
+    var arrows = frame.arrows;
+    var newIdx = frame.newIdx;
+
+    return (
+      <svg width={W} height={H} style={{ maxWidth:"100%", display:"block", margin:"0 auto",
+        border:"1px solid var(--line)", borderRadius:10, background:"var(--panel-solid)" }}>
+        <ScatterAxes />
+
+        {/* Dashed assignment lines */}
+        {showLines && assignments && centroids.length > 0 && DATA.map(function(p, i) {
+          var ci = assignments[i];
+          var c = centroids[ci];
+          if (!c) return null;
+          var col = COLORS[ci % COLORS.length];
+          return <line key={i} x1={sx(p[0])} y1={sy(p[1])} x2={sx(c[0])} y2={sy(c[1])}
+            stroke={col} strokeWidth="0.8" strokeDasharray="3 3" opacity="0.35" />;
+        })}
+
+        {/* Data points */}
+        {DATA.map(function(p, i) {
+          var ci = (assignments && centroids.length > 0) ? assignments[i] : -1;
+          var col = ci >= 0 ? COLORS[ci % COLORS.length] : "#94A2BC";
+          return (
+            <circle key={i} cx={sx(p[0])} cy={sy(p[1])} r="5.5" fill={col} opacity="0.82"
+              stroke="white" strokeWidth="1.2" />
+          );
+        })}
+
+        {/* Movement arrows (update step) */}
+        {arrows && arrows.map(function(arrow, ki2) {
+          if (!arrow || !arrow.from || !arrow.to) return null;
+          var col = COLORS[ki2 % COLORS.length];
+          var fx = sx(arrow.from[0]), fy = sy(arrow.from[1]);
+          var tx = sx(arrow.to[0]), ty = sy(arrow.to[1]);
+          var dx = tx - fx, dy = ty - fy;
+          var len = Math.sqrt(dx * dx + dy * dy);
+          var centroidMark = (
+            <g>
+              <circle cx={tx} cy={ty} r="9" fill="none" stroke={col} strokeWidth="2.5" />
+              <line x1={tx - 6} y1={ty} x2={tx + 6} y2={ty} stroke={col} strokeWidth="2.5" />
+              <line x1={tx} y1={ty - 6} x2={tx} y2={ty + 6} stroke={col} strokeWidth="2.5" />
+              <text x={tx + 12} y={ty - 8} fontSize="10" fontWeight="700" fill={col}>{"μ" + (ki2 + 1)}</text>
+            </g>
+          );
+          if (len < 3) {
+            return <g key={ki2}>{centroidMark}</g>;
+          }
+          var angle = Math.atan2(dy, dx);
+          var ax = tx - 9 * Math.cos(angle - 0.4);
+          var ay = ty - 9 * Math.sin(angle - 0.4);
+          var bx = tx - 9 * Math.cos(angle + 0.4);
+          var by = ty - 9 * Math.sin(angle + 0.4);
+          return (
+            <g key={ki2}>
+              <circle cx={fx} cy={fy} r="7" fill="none" stroke={col} strokeWidth="1.5" opacity="0.4" strokeDasharray="3 2" />
+              <line x1={fx} y1={fy} x2={tx} y2={ty} stroke={col} strokeWidth="2.5" opacity="0.9" />
+              <polygon points={tx + "," + ty + " " + ax + "," + ay + " " + bx + "," + by} fill={col} opacity="0.9" />
+              {centroidMark}
+            </g>
+          );
+        })}
+
+        {/* Centroids (non-arrow frames) */}
+        {!arrows && centroids.map(function(c, ki2) {
+          if (!c) return null;
+          var col = COLORS[ki2 % COLORS.length];
+          var isNew = ki2 === newIdx;
+          return (
+            <g key={ki2}>
+              {isNew && <circle cx={sx(c[0])} cy={sy(c[1])} r="22" fill={col} opacity="0.10" />}
+              {isNew && <circle cx={sx(c[0])} cy={sy(c[1])} r="15" fill={col} opacity="0.16" />}
+              <circle cx={sx(c[0])} cy={sy(c[1])} r="9" fill="none" stroke={col} strokeWidth={isNew ? 3 : 2.5} />
+              <line x1={sx(c[0]) - 6} y1={sy(c[1])} x2={sx(c[0]) + 6} y2={sy(c[1])} stroke={col} strokeWidth="2.5" />
+              <line x1={sx(c[0])} y1={sy(c[1]) - 6} x2={sx(c[0])} y2={sy(c[1]) + 6} stroke={col} strokeWidth="2.5" />
+              <text x={sx(c[0]) + 12} y={sy(c[1]) - 8} fontSize="10" fontWeight="700" fill={col}>{"μ" + (ki2 + 1)}</text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+
+  function KMeansAnimator({ trace }) {
+    var k = trace.k || 3;
+    var frames = useMemo(function() { return buildAnimFrames(k, runKMeans(k)); }, [k]);
+    var [frameIdx, setFrameIdx] = useState(0);
+    var [playing, setPlaying] = useState(false);
+    var timerRef = useRef(null);
+
+    // Reset when k changes
+    useEffect(function() { setFrameIdx(0); setPlaying(false); }, [k]);
+
+    useEffect(function() {
+      if (playing) {
+        timerRef.current = setInterval(function() {
+          setFrameIdx(function(f) {
+            if (f >= frames.length - 1) {
+              setPlaying(false);
+              return f;
+            }
+            return f + 1;
+          });
+        }, 1300);
+      } else {
+        clearInterval(timerRef.current);
+      }
+      return function() { clearInterval(timerRef.current); };
+    }, [playing, frames.length]);
+
+    var cf = frames[Math.min(frameIdx, frames.length - 1)] || frames[0];
+    var col = FRAME_COLORS[cf.type] || "var(--accent)";
+
+    var btnBase = {
+      padding: "8px 15px", borderRadius: 8, border: "1px solid var(--line)",
+      fontWeight: 700, fontSize: 13, cursor: "pointer",
+      background: "var(--panel-solid)", color: "var(--ink)", transition: "all .15s",
+    };
+
+    return (
+      <>
+        <AnimSVG frame={cf} />
+
+        {/* Narration */}
+        <div style={{ background: "rgba(43,91,255,.06)", border: "1px solid rgba(43,91,255,.2)",
+          borderRadius: 10, padding: "12px 16px", margin: "10px 0" }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: col, marginBottom: 5 }}>{cf.title}</div>
+          <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.65 }}>{cf.desc}</div>
+        </div>
+
+        {/* Progress dots */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "8px 0", justifyContent: "center" }}>
+          {frames.map(function(f, i) {
+            var fc = FRAME_COLORS[f.type] || "var(--accent)";
+            return (
+              <div key={i} onClick={function() { setFrameIdx(i); setPlaying(false); }}
+                title={f.title}
+                style={{
+                  width: 10, height: 10, borderRadius: "50%", cursor: "pointer",
+                  background: i === frameIdx ? fc : i < frameIdx ? fc + "55" : "var(--line)",
+                  transition: "all .15s",
+                  transform: i === frameIdx ? "scale(1.5)" : "scale(1)",
+                }} />
+            );
+          })}
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6,
+          flexWrap: "wrap", justifyContent: "center" }}>
+          <button onClick={function() { setFrameIdx(0); setPlaying(false); }} style={btnBase}>
+            &#9198; Reset
+          </button>
+          <button
+            onClick={function() { setFrameIdx(Math.max(0, frameIdx - 1)); setPlaying(false); }}
+            style={{ ...btnBase, opacity: frameIdx === 0 ? 0.4 : 1 }}
+            disabled={frameIdx === 0}>
+            &#9664; Prev
+          </button>
+          <button
+            onClick={function() { setPlaying(function(p) { return !p; }); }}
+            style={{ ...btnBase, background: playing ? "var(--line)" : "var(--accent)",
+              color: playing ? "var(--ink)" : "#fff", minWidth: 80 }}>
+            {playing ? "⏸ Pause" : "▶ Play"}
+          </button>
+          <button
+            onClick={function() { setFrameIdx(Math.min(frames.length - 1, frameIdx + 1)); setPlaying(false); }}
+            style={{ ...btnBase, opacity: frameIdx >= frames.length - 1 ? 0.4 : 1 }}
+            disabled={frameIdx >= frames.length - 1}>
+            Next &#9654;
+          </button>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+            {frameIdx + 1}&nbsp;/&nbsp;{frames.length}
+          </span>
+        </div>
+
+        <Note>
+          <b>Purple dots</b> = K-Means++ init (spread centroids far apart).&nbsp;
+          <b>Dashed lines</b> = assignment step (each point joins nearest centroid).&nbsp;
+          <b>Arrows</b> = update step (centroid moves to cluster mean).
+          The k slider in the control panel changes the number of clusters.
+        </Note>
+      </>
     );
   }
 
@@ -645,7 +936,28 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 6: Iteration
+  //  STAGE 6: Playable Animation
+  // ────────────────────────────────────────────────────────
+  var stageAnimation = {
+    id: "animation", group: "Algorithm", title: "Watch K-Means Train — Step by Step",
+    map: "Animate",
+    why: "Seeing each assign→update frame makes K-Means intuitive in a way static diagrams cannot.",
+    render: function(trace, ctx) {
+      return (
+        <>
+          <Lead>
+            Watch K-Means initialize centroids with <b>K-Means++</b>, then alternate
+            between <b>assigning points</b> to the nearest centroid and <b>updating centroids</b> to their cluster means —
+            one frame at a time. Press <b>▶ Play</b> for auto-advance or step manually.
+          </Lead>
+          <KMeansAnimator trace={trace} />
+        </>
+      );
+    },
+  };
+
+  // ────────────────────────────────────────────────────────
+  //  STAGE 7: Iteration (slider view)
   // ────────────────────────────────────────────────────────
   var stageIteration = {
     id: "iteration", group: "Algorithm", title: "Repeat Until Convergence",
@@ -723,7 +1035,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 7: Elbow Method
+  //  STAGE 8: Elbow Method
   // ────────────────────────────────────────────────────────
   var stageElbow = {
     id: "elbow", group: "Evaluation", title: "How Many Clusters? The Elbow Method",
@@ -794,7 +1106,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 8: Silhouette Score
+  //  STAGE 9: Silhouette Score
   // ────────────────────────────────────────────────────────
   var stageSilhouette = {
     id: "silhouette", group: "Evaluation", title: "Silhouette Score — How Good Are the Clusters?",
@@ -908,7 +1220,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 9: Failures
+  //  STAGE 10: Failures
   // ────────────────────────────────────────────────────────
   var stageFailures = {
     id: "failures", group: "Insights", title: "When K-Means Fails",
@@ -973,7 +1285,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 10: Practical Tips
+  //  STAGE 11: Practical Tips
   // ────────────────────────────────────────────────────────
   var stageTips = {
     id: "tips", group: "Insights", title: "Practical Tips for K-Means",
@@ -1053,7 +1365,7 @@
   };
 
   // ────────────────────────────────────────────────────────
-  //  STAGE 11: Hyperparameters
+  //  STAGE 12: Hyperparameters
   // ────────────────────────────────────────────────────────
   var stageHyperparams = {
     id: "hyperparams", group: "Hyperparameters", title: "K-Means Hyperparameters",
@@ -1136,6 +1448,7 @@
     stageInit,
     stageAssign,
     stageUpdate,
+    stageAnimation,
     stageIteration,
     stageElbow,
     stageSilhouette,
