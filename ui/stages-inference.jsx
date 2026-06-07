@@ -71,7 +71,7 @@
   /* ================= 1. OVERVIEW ================= */
   {
     id:"overview", group:"Overview", title:"What Is Inference & Why It Matters",
-    map:"Training happens once. Inference happens on every request, forever — and is where most of a model's lifetime cost lives.",
+    map:"Overview",
     why:"Before optimizing anything, you must understand what serving actually does: generate text one token at a time, autoregressively, for every user request.",
     render: () => (
       <div>
@@ -127,7 +127,7 @@
   /* ================= 2. PREFILL vs DECODE ================= */
   {
     id:"prefill_decode", group:"Mechanics", title:"Two Phases: Prefill vs Decode",
-    map:"Every request has two distinct phases with opposite performance characteristics: a parallel, compute-bound prefill, then a sequential, memory-bound decode.",
+    map:"Prefill vs Decode",
     why:"Almost every serving optimization targets one phase or the other. You cannot reason about latency without knowing which phase you are in.",
     render: () => (
       <div>
@@ -176,7 +176,7 @@
   /* ================= 3. KV CACHE ================= */
   {
     id:"kv_cache", group:"Mechanics", title:"The KV Cache — Inference's Memory Hog",
-    map:"Caching the keys and values of past tokens avoids recomputing them every step — but the cache grows linearly with context and batch, and is the central constraint of LLM serving.",
+    map:"KV Cache",
     why:"KV-cache size dictates how many requests and how long a context you can serve on a GPU. Underestimating it is the #1 cause of out-of-memory crashes.",
     render: () => (
       <div>
@@ -218,7 +218,7 @@
   /* ================= 4. CHALLENGES ================= */
   {
     id:"challenges", group:"Overview", title:"The Hard Problems of Serving LLMs in 2025",
-    map:"Serving LLMs in production is a fight against GPU cost, memory limits, and the eternal tension between latency and throughput.",
+    map:"Challenges",
     why:"Understanding the problem space tells you which techniques to reach for — the rest of this article maps solutions onto these problems.",
     render: () => (
       <div>
@@ -242,7 +242,7 @@
   /* ================= 5. BATCHING ================= */
   {
     id:"batching", group:"Techniques", title:"Batching: Static → Dynamic → Continuous",
-    map:"GPUs are throughput machines that hate being idle. Batching feeds them — and continuous batching is the single biggest throughput win in modern serving.",
+    map:"Batching",
     why:"Without batching, each request under-utilizes the GPU. The evolution from static to continuous batching is the core story of why vLLM-era servers are so much faster.",
     render: () => (
       <div>
@@ -290,7 +290,7 @@
   /* ================= 6. PAGED ATTENTION ================= */
   {
     id:"paged_attention", group:"Techniques", title:"PagedAttention — KV Cache Like Virtual Memory",
-    map:"Naive KV-cache allocation reserves contiguous memory for the maximum possible length, wasting most of it. PagedAttention stores KV in fixed-size pages allocated on demand — like OS virtual memory.",
+    map:"PagedAttention",
     why:"This is vLLM's core innovation. By eliminating fragmentation it dramatically increases how many requests fit in memory, multiplying effective batch size and throughput.",
     render: () => (
       <div>
@@ -330,7 +330,7 @@
   /* ================= 7. MORE TECHNIQUES ================= */
   {
     id:"techniques", group:"Techniques", title:"More Serving Optimizations",
-    map:"Beyond batching and paging, a toolbox of techniques squeezes more tokens per second and per dollar out of each GPU.",
+    map:"Optimizations",
     why:"Production serving stacks compose many of these. Knowing what each solves lets you turn the right knobs for your workload.",
     render: () => (
       <div>
@@ -368,6 +368,40 @@
           <tr>{td("Quantization (FP8/INT8/INT4)")}{td("Weights + KV too large / too slow")}{td("Smaller, faster, more batch — see Quantization.html")}</tr>
         </tbody>)}
 
+        {subhead("FlashAttention — the IO-aware attention kernel")}
+        <p style={{fontSize:14, lineHeight:1.7}}>Standard attention computes the full <code>N×N</code> score matrix and writes it to GPU HBM (high-bandwidth memory), then reads it back for the softmax and the value multiply. For long sequences that matrix is enormous, and attention becomes <b>memory-bandwidth bound</b> — the GPU spends its time moving data, not computing.</p>
+        <p style={{fontSize:14, lineHeight:1.7}}><b>FlashAttention</b> fixes this by never materializing the full matrix. It <b>tiles</b> the computation into blocks that fit in fast on-chip SRAM, and uses an <b>online softmax</b> (running max + running sum) to combine blocks correctly without ever storing all the scores. Results:</p>
+        <ul style={{fontSize:14, lineHeight:1.8, marginTop:4}}>
+          <li><b>Memory: O(N) instead of O(N²)</b> — the score matrix is never stored, only small block statistics.</li>
+          <li><b>Speed:</b> far fewer HBM reads/writes (the real bottleneck), so 2–4× faster attention in practice.</li>
+          <li><b>Longer context</b> becomes feasible at the same memory budget.</li>
+          <li>In the backward pass it <b>recomputes</b> attention blocks on the fly instead of storing them — trading a little compute for a large memory saving.</li>
+        </ul>
+        <p style={{fontSize:14, lineHeight:1.7}}>It is a drop-in, numerically-equivalent replacement for the attention kernel (now FlashAttention-2 / 3) and is on by default in vLLM, TGI, and TensorRT-LLM — for both prefill and decode.</p>
+
+        <div style={{overflowX:"auto"}}>
+        <svg viewBox="0 0 720 185" style={{width:"100%", maxWidth:720, display:"block", margin:"12px auto"}}>
+          <defs><marker id="ahfa" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill={C.line}/></marker></defs>
+          <text x={218} y={18} textAnchor="middle" fontSize={11} fontWeight="700" fill={C.mut}>Standard attention</text>
+          <rect x={40} y={32} width={86} height={40} rx={6} fill={C.blueBg} stroke={C.blue}/>
+          <text x={83} y={56} textAnchor="middle" fontSize={10} fill={C.ink}>Q · Kᵀ</text>
+          <line x1={126} y1={52} x2={152} y2={52} stroke={C.line} strokeWidth={2} markerEnd="url(#ahfa)"/>
+          <rect x={154} y={28} width={128} height={48} rx={6} fill="#fdecec" stroke="#dc2626"/>
+          <text x={218} y={48} textAnchor="middle" fontSize={10} fontWeight="700" fill={C.ink}>N×N matrix</text>
+          <text x={218} y={64} textAnchor="middle" fontSize={9} fill={C.mut}>written to HBM</text>
+          <line x1={282} y1={52} x2={308} y2={52} stroke={C.line} strokeWidth={2} markerEnd="url(#ahfa)"/>
+          <rect x={310} y={32} width={96} height={40} rx={6} fill={C.blueBg} stroke={C.blue}/>
+          <text x={358} y={56} textAnchor="middle" fontSize={10} fill={C.ink}>softmax · V</text>
+          <text x={218} y={90} textAnchor="middle" fontSize={9} fill="#dc2626">O(N²) memory · heavy HBM traffic</text>
+          <text x={218} y={120} textAnchor="middle" fontSize={11} fontWeight="700" fill={C.mut}>FlashAttention</text>
+          <rect x={40} y={134} width={366} height={40} rx={6} fill={C.greenBg} stroke={C.green}/>
+          <text x={223} y={152} textAnchor="middle" fontSize={10} fontWeight="700" fill={C.ink}>tiled blocks in on-chip SRAM + online softmax</text>
+          <text x={223} y={167} textAnchor="middle" fontSize={9} fill={C.green}>full matrix never stored — O(N) memory</text>
+          <text x={575} y={150} textAnchor="middle" fontSize={10} fill={C.mut}>same result,</text>
+          <text x={575} y={166} textAnchor="middle" fontSize={10} fill={C.mut}>2–4× faster, less memory</text>
+        </svg>
+        </div>
+
         {info(<span>For the full quantization story (AWQ, GPTQ, FP8, accuracy tradeoffs) see <a href="Quantization.html">Quantization</a>. Most production stacks combine continuous batching + PagedAttention + FlashAttention + CUDA graphs + quantization out of the box.</span>)}
       </div>
     )
@@ -376,7 +410,7 @@
   /* ================= 8. LLM FRAMEWORKS ================= */
   {
     id:"frameworks_llm", group:"Frameworks", title:"LLM Inference Frameworks",
-    map:"A handful of engines dominate LLM serving in 2025, each with a different sweet spot — from flexible high-throughput GPU serving to compiled max-performance to local edge.",
+    map:"Frameworks",
     why:"Picking the right engine is the highest-leverage serving decision. Match the framework to your hardware, workload, and flexibility needs.",
     render: () => (
       <div>
@@ -402,8 +436,41 @@
         {subhead("SGLang — RadixAttention")}
         <p style={{fontSize:14, lineHeight:1.7}}>Organizes the KV cache as a radix tree so any requests sharing a prefix (system prompts, few-shot examples, multi-turn history) reuse cached KV automatically. Excellent for workloads with heavy prefix sharing or structured/constrained generation.</p>
 
-        {subhead("llama.cpp / Ollama — local & edge")}
-        <p style={{fontSize:14, lineHeight:1.7}}>Run quantized GGUF models on CPUs, laptops, Apple Silicon, or consumer GPUs. Ollama wraps llama.cpp for one-command local model management. Not for high-concurrency datacenter serving, but unbeatable for local and edge.</p>
+        {subhead("llama.cpp — what it is and why it exists")}
+        <p style={{fontSize:14, lineHeight:1.7}}><b>llama.cpp</b> is a from-scratch LLM inference engine written in plain C/C++ (the ggml/GGUF stack) with <b>no Python, no CUDA requirement, and no heavy dependencies</b>. The big GPU servers above (vLLM, TGI, TensorRT-LLM) assume a datacenter NVIDIA GPU and lots of VRAM. llama.cpp was built for the opposite world: <b>run a model on the hardware you already own</b> — a laptop CPU, an Apple-Silicon Mac, a Raspberry Pi, or a single consumer GPU.</p>
+        <p style={{fontSize:14, lineHeight:1.7}}>It does this with the <b>GGUF</b> file format (a single self-contained quantized model file) and aggressive CPU/GPU quantization (4-bit, 5-bit, 6-bit &quot;k-quants&quot;, plus partial GPU offload). You can keep some layers on the GPU and the rest on the CPU, so a model that does not fit in VRAM still runs.</p>
+
+        {subhead("Why you need it (the gap it fills)")}
+        <ul style={{fontSize:14, lineHeight:1.8, marginTop:4}}>
+          <li><b>No datacenter GPU?</b> It runs on CPU / Mac / consumer cards where vLLM & TensorRT-LLM cannot.</li>
+          <li><b>Privacy / offline:</b> everything stays on-device — no data leaves the machine.</li>
+          <li><b>Zero infra:</b> one binary + one GGUF file, no server cluster, no Python env.</li>
+          <li><b>Cost:</b> no cloud GPU bill for local dev, prototyping, or personal use.</li>
+        </ul>
+
+        {subhead("Alternatives — the local / edge inference family")}
+        {tbl(<tbody>
+          <tr>{th("Tool")}{th("Built on")}{th("What it adds")}{th("Best for")}</tr>
+          <tr>{td("llama.cpp")}{td("ggml / GGUF (C/C++)")}{td("The core engine; CPU+GPU, k-quants, huge platform support")}{td("Maximum portability & control")}</tr>
+          <tr>{td("Ollama")}{td("llama.cpp")}{td("One-command model pulls, model library, local REST API, Modelfiles")}{td("Easiest local run / dev")}</tr>
+          <tr>{td("LM Studio")}{td("llama.cpp")}{td("Polished desktop GUI + local server")}{td("Non-technical users, GUI")}</tr>
+          <tr>{td("GPT4All")}{td("llama.cpp")}{td("Desktop app + local docs / RAG")}{td("Offline chat over your files")}</tr>
+          <tr>{td("MLX / mlx-lm")}{td("Apple MLX")}{td("Native Apple-Silicon GPU (Metal) performance")}{td("Best speed on Macs")}</tr>
+          <tr>{td("ExLlamaV2")}{td("CUDA")}{td("Fast EXL2-quant inference on consumer NVIDIA")}{td("Single-GPU enthusiast rigs")}</tr>
+        </tbody>)}
+        <p style={{fontSize:13, lineHeight:1.6, color:C.mut}}>Most of these are wrappers around llama.cpp — Ollama, LM Studio and GPT4All all use it under the hood; MLX and ExLlamaV2 are independent engines for Apple and NVIDIA respectively.</p>
+
+        {subhead("Pros, cons & when to use")}
+        {tbl(<tbody>
+          <tr>{th("")}{th("llama.cpp / Ollama (local)")}{th("vLLM / TensorRT-LLM (server)")}</tr>
+          <tr>{td(<b>Hardware</b>)}{td("CPU, Mac, consumer GPU, edge")}{td("Datacenter NVIDIA GPUs")}</tr>
+          <tr>{td(<b>Concurrency</b>)}{td("Low — a few users at a time")}{td("High — continuous batching, hundreds of streams")}</tr>
+          <tr>{td(<b>Throughput</b>)}{td("Modest (no paged/continuous batching at scale)")}{td("Very high")}</tr>
+          <tr>{td(<b>Setup</b>)}{td("Trivial — one binary + GGUF")}{td("Heavier — GPU drivers, server, config")}</tr>
+          <tr>{td(<b>Privacy</b>)}{td("Fully on-device / offline")}{td("Usually server / cloud")}</tr>
+          <tr>{td(<b>Use when</b>)}{td("Local dev, edge, privacy, personal apps, no GPU budget")}{td("Production APIs serving many concurrent users")}</tr>
+        </tbody>)}
+        {info(<span><b>Rule of thumb:</b> use <b>llama.cpp / Ollama</b> for anything local, offline, edge, or single-user — and a GPU server (<b>vLLM</b> etc.) the moment you need to serve many concurrent users at low latency. They are complementary, not competitors.</span>)}
       </div>
     )
   },
@@ -411,7 +478,7 @@
   /* ================= 9. TRITON / ONNX ================= */
   {
     id:"triton_onnx", group:"Frameworks", title:"Triton, TensorRT, ONNX — Untangling the Stack",
-    map:"These names get confused constantly. The key is the category each belongs to: a format, an engine, a compiler, a library, a server, or a packaged container.",
+    map:"Triton & ONNX",
     why:"Architecture decisions go wrong when teams conflate a model format with a runtime, or a multi-framework server with a single optimization library.",
     render: () => (
       <div>
@@ -458,7 +525,7 @@
   /* ================= 10. EMBEDDING SERVING ================= */
   {
     id:"embedding_serving", group:"Frameworks", title:"Serving Embedding Models",
-    map:"Embedding models play a different game: a single forward pass, no autoregressive decode, no KV cache, no TTFT/TPOT. Compute-bound and batch-friendly — optimize purely for throughput.",
+    map:"Embedding Serving",
     why:"Real systems like RAG run BOTH an embedding server (retrieval) and an LLM server (generation). They have opposite performance profiles and need different serving choices.",
     render: () => (
       <div>
@@ -488,7 +555,7 @@
   /* ================= 11. REQUEST FLOW ================= */
   {
     id:"request_flow", group:"Architecture", title:"Anatomy of a Request",
-    map:"Follow one request from the client through load balancing, gateway, queue, and the inference engine's prefill/decode loop, back out as a token stream.",
+    map:"Request Flow",
     why:"Knowing every hop tells you where latency accrues, where to measure TTFT and TPOT, and where to put autoscaling and caching.",
     render: () => (
       <div>
@@ -569,7 +636,7 @@
   /* ================= 12. METRICS ================= */
   {
     id:"metrics", group:"Operations", title:"Production Metrics That Matter",
-    map:"TTFT, TPOT, throughput, and tail latency tell you how a service feels and scales — but goodput (requests meeting your SLO) is the metric that actually matters.",
+    map:"Metrics",
     why:"You cannot improve what you do not measure, and optimizing the wrong metric (mean latency, raw throughput) leads to systems that look good on paper and fail real users.",
     render: () => (
       <div>
@@ -615,7 +682,7 @@
   /* ================= 13. INFRA / K8S ================= */
   {
     id:"infra_k8s", group:"Operations", title:"Scaling on Kubernetes",
-    map:"Production serving runs on orchestration: autoscaling replica pools, GPU scheduling and partitioning, KV-aware routing — and increasingly disaggregated prefill/decode pools.",
+    map:"Kubernetes",
     why:"A fast engine on one GPU is a demo. Meeting SLOs under bursty real traffic requires the surrounding platform: autoscaling, scheduling, and modern disaggregated architectures.",
     render: () => (
       <div>
@@ -679,7 +746,7 @@
   /* ================= 14. PITFALLS ================= */
   {
     id:"pitfalls", group:"Strategy", title:"Common Mistakes & How to Avoid Them",
-    map:"Most serving incidents trace back to a short list of avoidable mistakes — usually about memory, batching, tails, or scaling.",
+    map:"Pitfalls",
     why:"Knowing the failure modes in advance is cheaper than discovering them in a 3 a.m. page. Here is the checklist and a sane default to start from.",
     render: () => (
       <div>
